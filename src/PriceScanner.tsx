@@ -7,6 +7,7 @@ import { parsePriceImage } from './parsePriceImage';
 interface OverpassNode {
   lat?: number;
   lon?: number;
+  center?: { lat: number; lon: number };
   tags?: {
     name?: string;
     shop?: string;
@@ -152,8 +153,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
             const { latitude, longitude } = position.coords;
             setStoreLat(latitude);
             setStoreLng(longitude);
-            // Use Overpass API to find nearby OSM nodes tagged as shops
-            const query = `[out:json];node["shop"](around:50,${latitude},${longitude});out body;`;
+            // Query nodes and ways tagged as shops or supermarkets within 150m
+            const query = `[out:json];(node["shop"](around:150,${latitude},${longitude});way["shop"](around:150,${latitude},${longitude});node["amenity"="supermarket"](around:150,${latitude},${longitude});way["amenity"="supermarket"](around:150,${latitude},${longitude}););out center;`;
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
             // Use AbortController to avoid hanging requests
             const controller = new AbortController();
@@ -167,9 +168,11 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
             // Overpass returns elements array; pick the nearest element if any
             if (Array.isArray(data.elements) && data.elements.length > 0) {
               const nearbyNodes = data.elements as OverpassNode[];
+              const elemLat = (el: OverpassNode) => el.lat ?? el.center?.lat ?? latitude;
+              const elemLon = (el: OverpassNode) => el.lon ?? el.center?.lon ?? longitude;
               const nearest = nearbyNodes.reduce((prev, curr) => {
-                const pd = Math.hypot((prev.lat ?? latitude) - latitude, (prev.lon ?? longitude) - longitude);
-                const cd = Math.hypot((curr.lat ?? latitude) - latitude, (curr.lon ?? longitude) - longitude);
+                const pd = Math.hypot(elemLat(prev) - latitude, elemLon(prev) - longitude);
+                const cd = Math.hypot(elemLat(curr) - latitude, elemLon(curr) - longitude);
                 return cd < pd ? curr : prev;
               }, nearbyNodes[0]);
 
@@ -179,10 +182,11 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
               }
 
               setStoreLocation(name);
-              // update to the exact node coords if available
-              if (nearest.lat && nearest.lon) {
-                setStoreLat(nearest.lat);
-                setStoreLng(nearest.lon);
+              const lat = elemLat(nearest);
+              const lon = elemLon(nearest);
+              if (lat !== latitude || lon !== longitude) {
+                setStoreLat(lat);
+                setStoreLng(lon);
               }
             } else {
               // No nearby shop nodes found — try reverse geocoding to get house number/road
