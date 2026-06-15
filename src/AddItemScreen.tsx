@@ -23,15 +23,53 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
     return Number.isFinite(n) ? n : Infinity;
   };
 
+  const formatRelativeDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    const today = new Date();
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const days = Math.floor((Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) -
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())) / msPerDay);
+    if (days <= 0) return 'today';
+    if (days === 1) return '1 day ago';
+    return `${days} days ago`;
+  };
+
+  const tokenize = (s: string) =>
+    new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
+
+  const jaccard = (a: Set<string>, b: Set<string>) => {
+    if (a.size === 0 && b.size === 0) return 1;
+    let intersection = 0;
+    a.forEach(t => { if (b.has(t)) intersection++; });
+    return intersection / (a.size + b.size - intersection);
+  };
+
+  const itemKey = (it: PriceData) => tokenize(`${it.brand} ${it.itemName}`);
+
+  const deduplicateByRecency = (items: PriceData[]): PriceData[] => {
+    const groups: PriceData[][] = [];
+    for (const item of items) {
+      const key = itemKey(item);
+      const group = groups.find(g => jaccard(itemKey(g[0]), key) >= 0.5);
+      if (group) group.push(item);
+      else groups.push([item]);
+    }
+    return groups.map(g =>
+      g.reduce((best, cur) => (cur.date >= best.date ? cur : best))
+    );
+  };
+
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
     const q = name.trim().toLowerCase();
     if (!q) return setSearchResults([]);
     const matches = priceData ?? [];
     const filtered = matches.filter(it => it.itemName && it.itemName.toLowerCase().includes(q));
-    filtered.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
-    setSelectedIndex(filtered.length ? 0 : null);
-    setSearchResults(filtered);
+    const deduped = deduplicateByRecency(filtered);
+    deduped.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
+    setSelectedIndex(deduped.length ? 0 : null);
+    setSearchResults(deduped);
   };
 
   const handleAddSelected = () => {
@@ -98,6 +136,7 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
                       <div>
                         <div className="font-medium text-gray-800">{r.itemName}</div>
                         <div className="text-sm text-gray-500">{r.brand} • {r.store}</div>
+                        {r.date && <div className="text-xs text-gray-400">Updated {formatRelativeDate(r.date)}</div>}
                       </div>
                     </div>
                     <div className="text-sm font-semibold">{r.price}</div>
