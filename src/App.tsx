@@ -39,12 +39,18 @@ const normalizePriceData = (item: PartialPriceData): PriceData => {
   };
 };
 
+type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit';
+
+const push = (screen: Screen, state?: Record<string, unknown>) => {
+  window.history.pushState({ screen, ...state }, '');
+};
+
 const App = () => {
   const stripImagesFromPriceData = (data: PriceData[]): Omit<PriceData, 'priceImage' | 'productImage'>[] => {
     return data.map(({ priceImage: _, productImage: __, ...rest }) => rest);
   };
 
-  const [currentScreen, setCurrentScreen] = useState('home');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [priceData, setPriceData] = useState<PriceData[]>(() => {
     const savedData = localStorage.getItem('priceData');
     if (!savedData) {
@@ -65,6 +71,22 @@ const App = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Seed the initial history entry so there's always something to pop back to
+  useEffect(() => {
+    window.history.replaceState({ screen: 'home' }, '');
+
+    const onPopState = (e: PopStateEvent) => {
+      const screen: Screen = e.state?.screen ?? 'home';
+      setCurrentScreen(screen);
+      if (screen === 'edit') {
+        setEditingIndex(e.state?.editingIndex ?? -1);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   useEffect(() => {
     const dataWithoutImages = stripImagesFromPriceData(priceData);
     localStorage.setItem('priceData', JSON.stringify(dataWithoutImages));
@@ -74,35 +96,31 @@ const App = () => {
     localStorage.setItem('groceryItems', JSON.stringify(groceryItems));
   }, [groceryItems]);
 
-  const navigateToScanner = () => {
-    setCurrentScreen('scanner');
-  };
-
-  const navigateToAddItem = () => {
-    setCurrentScreen('addItem');
-  };
-
-  const navigateToHome = () => {
-    setCurrentScreen('home');
+  const navigateTo = (screen: Screen, state?: Record<string, unknown>) => {
+    push(screen, state);
+    setCurrentScreen(screen);
   };
 
   const handleSavePriceData = (data: PriceData) => {
     const normalizedData = normalizePriceData(data);
     setPriceData((currentPriceData) => [...currentPriceData, normalizedData]);
     console.log("Price data saved:", normalizedData);
+    // Replace history back to home rather than pushing, so back from home exits the app
+    window.history.go(-(window.history.length - 1));
     setCurrentScreen('home');
   };
 
   const handleEditPriceData = (index: number) => {
     setEditingIndex(index);
-    setCurrentScreen('edit');
+    navigateTo('edit', { editingIndex: index });
   };
 
   const handleSaveEdit = (updatedItem: PriceData) => {
     const newPriceData = [...priceData];
     newPriceData[editingIndex] = updatedItem;
     setPriceData(newPriceData);
-    setCurrentScreen('allPrices');
+    // Go back to allPrices without adding a new entry
+    window.history.back();
   };
 
   const handleDeletePriceData = (index: number) => {
@@ -112,7 +130,7 @@ const App = () => {
 
   const handleAddGroceryItem = (item: GroceryItem) => {
     setGroceryItems([...groceryItems, item]);
-    setCurrentScreen('home');
+    window.history.back();
   };
 
   const handleToggleGroceryItem = (id: string) => {
@@ -126,12 +144,12 @@ const App = () => {
   return (
     <div className="h-screen">
       {currentScreen === 'home' && (
-        <HomeScreen 
-          onScan={navigateToScanner} 
+        <HomeScreen
+          onScan={() => navigateTo('scanner')}
           priceData={priceData}
-          onShowAllPrices={() => setCurrentScreen('allPrices')}
+          onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
-          onAddItem={navigateToAddItem}
+          onAddItem={() => navigateTo('addItem')}
           onToggleItem={handleToggleGroceryItem}
           onDeleteItem={handleDeleteGroceryItem}
         />
@@ -139,15 +157,15 @@ const App = () => {
 
       {currentScreen === 'addItem' && (
         <AddItemScreen
-          onBack={navigateToHome}
+          onBack={() => window.history.back()}
           onSave={handleAddGroceryItem}
           priceData={priceData}
         />
       )}
-      
+
       {currentScreen === 'scanner' && (
-        <PriceScanner 
-          onBack={navigateToHome}
+        <PriceScanner
+          onBack={() => window.history.back()}
           onSave={handleSavePriceData}
         />
       )}
@@ -155,7 +173,7 @@ const App = () => {
       {currentScreen === 'allPrices' && (
         <AllPriceScans
           priceData={priceData}
-          onBack={() => setCurrentScreen('home')}
+          onBack={() => window.history.back()}
           onEdit={handleEditPriceData}
           onDelete={handleDeletePriceData}
         />
@@ -164,7 +182,7 @@ const App = () => {
       {currentScreen === 'edit' && editingIndex !== -1 && (
         <EditPriceScan
           item={priceData[editingIndex]}
-          onBack={() => setCurrentScreen('allPrices')}
+          onBack={() => window.history.back()}
           onSave={handleSaveEdit}
         />
       )}
