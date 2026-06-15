@@ -1,5 +1,4 @@
 import PriceData from './PriceData';
-import secret from './secret.json';
 
 /**
  * Uses an API call to OpenRouter to parse a price image and extract relevant data.
@@ -8,7 +7,7 @@ import secret from './secret.json';
  * @returns Parsed price data as a PriceData object
  */
 export async function parsePriceImage(priceImageData: string, productImageData: string) {
-  const OPENROUTER_API_KEY = secret["OPENROUTER_API_KEY"];
+  const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
   if (!OPENROUTER_API_KEY) {
     throw new Error("OPENROUTER_API_KEY is not defined in the environment variables.");
   }
