@@ -11,6 +11,8 @@ interface OverpassNode {
   tags?: {
     name?: string;
     shop?: string;
+    'addr:housenumber'?: string;
+    'addr:street'?: string;
   };
 }
 
@@ -168,6 +170,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
             // Overpass returns elements array; pick the nearest element if any
             if (Array.isArray(data.elements) && data.elements.length > 0) {
               const nearbyNodes = data.elements as OverpassNode[];
+              // nodes have top-level lat/lon; ways (polygons like large stores) expose coords under center
               const elemLat = (el: OverpassNode) => el.lat ?? el.center?.lat ?? latitude;
               const elemLon = (el: OverpassNode) => el.lon ?? el.center?.lon ?? longitude;
               const nearest = nearbyNodes.reduce((prev, curr) => {
@@ -177,13 +180,38 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
               }, nearbyNodes[0]);
 
               const name = nearest.tags?.name || nearest.tags?.shop || '';
+              const lat = elemLat(nearest);
+              const lon = elemLon(nearest);
+
+              // Try to get street address — use OSM tags first, fall back to Nominatim
+              const osmHouseNumber = nearest.tags?.['addr:housenumber'];
+              const osmStreet = nearest.tags?.['addr:street'];
+              let address = osmHouseNumber && osmStreet ? `${osmHouseNumber} ${osmStreet}` : '';
+
+              if (!address) {
+                try {
+                  const revRes = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+                  );
+                  if (revRes.ok) {
+                    const revData = await revRes.json();
+                    const addr = revData.address || {};
+                    if (addr.house_number && addr.road) {
+                      address = `${addr.house_number} ${addr.road}`;
+                    } else if (addr.road) {
+                      address = addr.road;
+                    }
+                  }
+                } catch {
+                  // address stays empty; we'll show just the name
+                }
+              }
+
               if (locationRequestIdRef.current !== requestId) {
                 return;
               }
 
-              setStoreLocation(name);
-              const lat = elemLat(nearest);
-              const lon = elemLon(nearest);
+              setStoreLocation(name && address ? `${name} @ ${address}` : name || address);
               if (lat !== latitude || lon !== longitude) {
                 setStoreLat(lat);
                 setStoreLng(lon);
