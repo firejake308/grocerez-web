@@ -49,6 +49,8 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
                 "text": "I will show you two images. The first is a price tag and the second is the product itself. "
                   + "Please extract the price, itemName, brand, quantity, and quantityUnits. "
                   + "Use both images to improve accuracy. The product image may help identify the brand and item name. "
+                  + "Expand all abbreviations in itemName and brand (e.g. 'Org' → 'Organic', 'Chkn' → 'Chicken', 'Stk' → 'Steak', 'Whl' → 'Whole', 'Veg' → 'Vegetable'). "
+                  + "For quantityUnits, always use the full singular unit name (e.g. 'oz' → 'ounce', 'lb' → 'pound', 'fl oz' → 'fluid ounce', 'ct' → 'count', 'pkg' → 'package', 'gal' → 'gallon', 'qt' → 'quart', 'pt' → 'pint'). "
                   + "Return the data as a JSON object. Skip any fields not clearly visible in either image."
               },
               {
