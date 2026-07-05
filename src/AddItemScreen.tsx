@@ -47,11 +47,17 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
 
   const itemKey = (it: PriceData) => tokenize(`${it.brand} ${it.itemName}`);
 
+  const sameBrand = (a: PriceData, b: PriceData) => {
+    const ba = a.brand.trim().toLowerCase();
+    const bb = b.brand.trim().toLowerCase();
+    return !ba || !bb || ba === bb;
+  };
+
   const deduplicateByRecency = (items: PriceData[]): PriceData[] => {
     const groups: PriceData[][] = [];
     for (const item of items) {
       const key = itemKey(item);
-      const group = groups.find(g => jaccard(itemKey(g[0]), key) >= 0.5);
+      const group = groups.find(g => sameBrand(g[0], item) && jaccard(itemKey(g[0]), key) >= 0.5);
       if (group) group.push(item);
       else groups.push([item]);
     }
