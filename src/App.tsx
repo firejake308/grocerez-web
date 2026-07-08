@@ -105,8 +105,8 @@ const App = () => {
     const normalizedData = normalizePriceData(data);
     setPriceData((currentPriceData) => [...currentPriceData, normalizedData]);
     console.log("Price data saved:", normalizedData);
-    // Replace history back to home rather than pushing, so back from home exits the app
-    window.history.go(-(window.history.length - 1));
+    // Replace the current history entry with home so back goes to whatever was open before the app, not the scanner
+    window.history.replaceState({ screen: 'home' }, '');
     setCurrentScreen('home');
   };
 
