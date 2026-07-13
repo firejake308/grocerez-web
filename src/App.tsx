@@ -105,9 +105,8 @@ const App = () => {
     const normalizedData = normalizePriceData(data);
     setPriceData((currentPriceData) => [...currentPriceData, normalizedData]);
     console.log("Price data saved:", normalizedData);
-    // Replace history back to home rather than pushing, so back from home exits the app
-    window.history.go(-(window.history.length - 1));
-    setCurrentScreen('home');
+    // Scanner only ever pushes one history entry, so a single back returns to home
+    window.history.back();
   };
 
   const handleEditPriceData = (index: number) => {
