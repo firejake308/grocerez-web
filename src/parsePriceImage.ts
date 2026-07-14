@@ -8,15 +8,12 @@ import PriceData from './PriceData';
  */
 export async function parsePriceImage(priceImageData: string, productImageData: string) {
   const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
-  // TEMP: forcing mock data for deploy-preview testing of the save/navigation flow.
-  // Remove this line before merging.
-  const FORCE_MOCK = true;
-  if (!OPENROUTER_API_KEY && !FORCE_MOCK) {
+  if (!OPENROUTER_API_KEY) {
     throw new Error("OPENROUTER_API_KEY is not defined in the environment variables.");
   }
 
   let data;
-  if (import.meta.env.DEV || FORCE_MOCK) {
+  if (import.meta.env.DEV) {
     // Use mock data in development
     console.log("Using mock data for price image parsing");
     data = await new Promise<any>(resolve => {
