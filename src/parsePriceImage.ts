@@ -67,9 +67,16 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
         "max_tokens": 4000,
       })
     });
-    data = await response.json();
     if (response.status === 429) {
       throw new Error("Rate limit exceeded. Please try again later.");
+    }
+
+    const rawBody = await response.text();
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      console.error("Non-JSON response from price parsing service:", rawBody);
+      throw new Error("The price parsing service is temporarily unavailable. Please try again.");
     }
   }
 
@@ -77,32 +84,38 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
     throw new Error(data.error.message);
   }
 
-  const content = data.choices[0].message.content;
-  const parsedData = content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1);
-  try {
-    const parsedJSON = JSON.parse(parsedData);
-
-    const parseTags = (rawTags: unknown): string[] => {
-      if (!rawTags) return [];
-      if (Array.isArray(rawTags)) return rawTags;
-      if (typeof rawTags === 'string') return rawTags.split(',').map(t => t.trim());
-      return [];
-    };
-
-    return {
-      price: parsedJSON.price || "",
-      store: "",
-      // I choose to ignore date because we'll set it after the user is done editing
-      priceImage: priceImageData,
-      productImage: productImageData,
-      itemName: parsedJSON.itemName || "",
-      brand: parsedJSON.brand || "",
-      tags: parseTags(parsedJSON.tags),
-      quantity: parsedJSON.quantity || 1,
-      quantity_units: parsedJSON.quantityUnits || "unit"
-    } as PriceData;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error("The AI service returned an empty response. Please try again.");
   }
-  catch (error) {
-    throw error;
+
+  const start = content.indexOf("{");
+  const end = content.lastIndexOf("}");
+  if (start === -1 || end === -1) {
+    console.error("No JSON object found in AI response:", content);
+    throw new Error("Couldn't read the price and product details from that photo. Please try again.");
   }
+
+  const parsedData = content.substring(start, end + 1);
+  const parsedJSON = JSON.parse(parsedData);
+
+  const parseTags = (rawTags: unknown): string[] => {
+    if (!rawTags) return [];
+    if (Array.isArray(rawTags)) return rawTags;
+    if (typeof rawTags === 'string') return rawTags.split(',').map(t => t.trim());
+    return [];
+  };
+
+  return {
+    price: parsedJSON.price || "",
+    store: "",
+    // I choose to ignore date because we'll set it after the user is done editing
+    priceImage: priceImageData,
+    productImage: productImageData,
+    itemName: parsedJSON.itemName || "",
+    brand: parsedJSON.brand || "",
+    tags: parseTags(parsedJSON.tags),
+    quantity: parsedJSON.quantity || 1,
+    quantity_units: parsedJSON.quantityUnits || "unit"
+  } as PriceData;
 }
