@@ -51,6 +51,12 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
                   + "Use both images to improve accuracy. The product image may help identify the brand and item name. "
                   + "Expand all abbreviations in itemName and brand (e.g. 'Org' → 'Organic', 'Chkn' → 'Chicken', 'Stk' → 'Steak', 'Whl' → 'Whole', 'Veg' → 'Vegetable'). "
                   + "For quantityUnits, always use the full singular unit name (e.g. 'oz' → 'ounce', 'lb' → 'pound', 'fl oz' → 'fluid ounce', 'ct' → 'count', 'pkg' → 'package', 'gal' → 'gallon', 'qt' → 'quart', 'pt' → 'pint'). "
+                  + "In addition to price, itemName, brand, quantity, and quantityUnits, infer 2-4 tags: lowercase "
+                  + "generic grocery search terms a shopper might type to find this product, based on what kind of "
+                  + "product it is — not text printed on the packaging or price tag. Favor broader category words that "
+                  + "don't already appear in itemName. For example, a package showing 'Buldak Spicy Ramen' should get "
+                  + "tags like 'noodles' and 'instant noodles' even though neither word is printed on it; 'Frozen Greek "
+                  + "Yogurt Bars' should get 'yogurt' and 'frozen dessert'. Return tags as a JSON array of strings. "
                   + "Return the data as a JSON object. Skip any fields not clearly visible in either image."
               },
               {
