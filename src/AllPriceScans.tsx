@@ -44,7 +44,15 @@ const AllPriceScans = ({ priceData, onBack, onEdit, onDelete }: AllPriceScansPro
                 </div>
               </div>
               <div className="text-gray-600">
-                <span className="block">{item.tags.join(', ')}</span>
+                {item.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {item.tags.map((tag, tagIndex) => (
+                      <span key={tagIndex} className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <span className="text-sm text-gray-500">{item.store}</span>
               </div>
             </div>
