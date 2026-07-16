@@ -144,6 +144,9 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
                       <div>
                         <div className="font-medium text-gray-800">{r.itemName}</div>
                         <div className="text-sm text-gray-500">{r.brand} • {r.store}</div>
+                        {(r.quantity || r.quantity_units) && (
+                          <div className="text-xs text-gray-500">{r.quantity} {r.quantity_units}</div>
+                        )}
                         {r.date && <div className="text-xs text-gray-400">Updated {formatRelativeDate(r.date)}</div>}
                       </div>
                     </div>
