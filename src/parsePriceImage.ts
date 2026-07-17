@@ -112,8 +112,15 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
     return [];
   };
 
+  const parsePrice = (rawPrice: unknown): string | number => {
+    if (typeof rawPrice === 'string' && rawPrice.startsWith('$')) {
+      return rawPrice.slice(1);
+    }
+    return rawPrice as string | number;
+  };
+
   return {
-    price: parsedJSON.price || "",
+    price: parsePrice(parsedJSON.price) || "",
     store: "",
     // I choose to ignore date because we'll set it after the user is done editing
     priceImage: priceImageData,
