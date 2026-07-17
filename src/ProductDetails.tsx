@@ -107,6 +107,15 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                 placeholder="e.g., grocery, dairy, organic"
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
+              {tags.trim() && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {tags.split(',').map(t => t.trim()).filter(Boolean).map((tag, tagIndex) => (
+                    <span key={tagIndex} className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex gap-4">
               <div className="flex-1">
