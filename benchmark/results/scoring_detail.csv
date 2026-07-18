@@ -1,0 +1,171 @@
+pair_id,model,findability_outcome,findability_reason,brand_outcome,brand_reason,price_outcome,price_reason,quantity_outcome,quantity_reason
+item_04,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_04,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_04,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_04,openai/gpt-5-nano,PASS,,N/A,,PASS,,PASS,
+item_04,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 bag not in [{'quantity': 4, 'quantityUnits': 'ounce'}]"
+item_06,google/gemini-2.5-flash-lite,PASS,,N/A,,N/A,,FAIL,"quantity 2.0 can not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_06,xiaomi/mimo-v2.5,PASS,,N/A,,N/A,,PASS,
+item_06,google/gemma-4-26b-a4b-it,PASS,,N/A,,N/A,,PASS,
+item_06,openai/gpt-5-nano,PASS,,N/A,,N/A,,FAIL,"quantity 1.0 count not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_06,meta-llama/llama-4-scout,PASS,,N/A,,N/A,,FAIL,"quantity 22.0 fluid ounce not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_08,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,FAIL,"quantity 10.0 bottle not in [{'quantity': 2, 'quantityUnits': 'liter'}]"
+item_08,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_08,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_08,openai/gpt-5-nano,PASS,,N/A,,PASS,,PASS,
+item_08,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 10.0 bottle not in [{'quantity': 2, 'quantityUnits': 'liter'}]"
+item_10,google/gemini-2.5-flash-lite,FAIL,missing: ['mini'],N/A,,N/A,,PASS,
+item_10,xiaomi/mimo-v2.5,FAIL,missing: ['mini'],N/A,,N/A,,FAIL,"quantity 1.0 pack not in [{'quantity': 10, 'quantityUnits': 'count'}, {'quantity': 10, 'quantityUnits': 'can'}]"
+item_10,google/gemma-4-26b-a4b-it,FAIL,missing: ['mini'],N/A,,N/A,,PASS,
+item_10,openai/gpt-5-nano,FAIL,"missing: ['dr pepper', 'mini']",N/A,,N/A,,PASS,
+item_10,meta-llama/llama-4-scout,FAIL,missing: ['mini'],N/A,,N/A,,PASS,
+item_12,google/gemini-2.5-flash-lite,N/A,,PASS,,N/A,,FAIL,"quantity 50.0 gram not in [{'quantity': 19.7, 'quantityUnits': 'fluid ounce'}]"
+item_12,xiaomi/mimo-v2.5,N/A,,PASS,,N/A,,FAIL,"quantity 8.0 fluid ounce not in [{'quantity': 19.7, 'quantityUnits': 'fluid ounce'}]"
+item_12,google/gemma-4-26b-a4b-it,N/A,,PASS,,N/A,,PASS,
+item_12,openai/gpt-5-nano,N/A,,PASS,,N/A,,FAIL,"quantity 1.0 bottle not in [{'quantity': 19.7, 'quantityUnits': 'fluid ounce'}]"
+item_12,meta-llama/llama-4-scout,N/A,,FAIL,"brand 'Rockin'' not in ['Shamrock Farms', 'Rockin Protein', ""Rockin' Protein""]",N/A,,FAIL,"quantity 24.0 fluid ounce not in [{'quantity': 19.7, 'quantityUnits': 'fluid ounce'}]"
+item_14,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_14,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_14,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_14,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 bottle not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_14,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_16,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_16,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_16,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_16,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_16,meta-llama/llama-4-scout,FAIL,missing: ['lotion'],PASS,,PASS,,PASS,
+item_18,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_18,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_18,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_18,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_18,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,PASS,
+item_20,google/gemini-2.5-flash-lite,PASS,,PASS,,N/A,,FAIL,"quantity 1024.0 tissue not in [{'quantity': 288, 'quantityUnits': 'count'}]"
+item_20,xiaomi/mimo-v2.5,PASS,,PASS,,N/A,,FAIL,"quantity 48.0 tissue not in [{'quantity': 288, 'quantityUnits': 'count'}]"
+item_20,google/gemma-4-26b-a4b-it,PASS,,PASS,,N/A,,FAIL,"quantity 256.0 tissue not in [{'quantity': 288, 'quantityUnits': 'count'}]"
+item_20,openai/gpt-5-nano,PASS,,PASS,,N/A,,FAIL,"quantity 4.0 tissue not in [{'quantity': 288, 'quantityUnits': 'count'}]"
+item_20,meta-llama/llama-4-scout,PASS,,PASS,,N/A,,FAIL,"quantity 4.0 cube not in [{'quantity': 288, 'quantityUnits': 'count'}]"
+item_22,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_22,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_22,google/gemma-4-26b-a4b-it,PASS,,N/A,,FAIL,price 7.99 not in [6.49],PASS,
+item_22,openai/gpt-5-nano,PASS,,N/A,,PASS,,PASS,
+item_22,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_24,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_24,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_24,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_24,openai/gpt-5-nano,FAIL,missing: ['drink'],N/A,,PASS,,FAIL,"quantity 1.0 bottle not in [{'quantity': 14, 'quantityUnits': 'fluid ounce'}]"
+item_24,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_26,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_26,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_26,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_26,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_26,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,PASS,
+item_28,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 7.3, 'quantityUnits': 'ounce'}]"
+item_28,xiaomi/mimo-v2.5,FAIL,forbidden present: ['dip'],N/A,,PASS,,FAIL,"quantity 8.8 ounce not in [{'quantity': 7.3, 'quantityUnits': 'ounce'}]"
+item_28,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,FAIL,"quantity 7.8 ounce not in [{'quantity': 7.3, 'quantityUnits': 'ounce'}]"
+item_28,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 7.3, 'quantityUnits': 'ounce'}]"
+item_28,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 bag not in [{'quantity': 7.3, 'quantityUnits': 'ounce'}]"
+item_30,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_30,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_30,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_30,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_30,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,PASS,
+item_36,google/gemini-2.5-flash-lite,N/A,,PASS,,PASS,,PASS,
+item_36,xiaomi/mimo-v2.5,N/A,,PASS,,PASS,,PASS,
+item_36,google/gemma-4-26b-a4b-it,N/A,,PASS,,PASS,,PASS,
+item_36,openai/gpt-5-nano,N/A,,PASS,,PASS,,PASS,
+item_36,meta-llama/llama-4-scout,N/A,,PASS,,PASS,,PASS,
+item_38,google/gemini-2.5-flash-lite,FAIL,missing: ['fresh'],PASS,,PASS,,PASS,
+item_38,xiaomi/mimo-v2.5,FAIL,missing: ['fresh'],PASS,,PASS,,PASS,
+item_38,google/gemma-4-26b-a4b-it,FAIL,missing: ['fresh'],PASS,,PASS,,PASS,
+item_38,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_38,meta-llama/llama-4-scout,FAIL,missing: ['fresh'],PASS,,PASS,,PASS,
+item_40,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,FAIL,"quantity 20.0 ounce not in [{'quantity': 10.68, 'quantityUnits': 'ounce'}]"
+item_40,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,FAIL,"quantity 18.61 ounce not in [{'quantity': 10.68, 'quantityUnits': 'ounce'}]"
+item_40,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,FAIL,"quantity 14.0 ounce not in [{'quantity': 10.68, 'quantityUnits': 'ounce'}]"
+item_40,openai/gpt-5-nano,PASS,,N/A,,PASS,,ABSTAIN,no quantity extracted
+item_40,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 10.68, 'quantityUnits': 'ounce'}]"
+item_42,google/gemini-2.5-flash-lite,PASS,,N/A,,FAIL,price 1.16 not in [3.49],FAIL,"quantity 1.0 package not in [{'quantity': 18.71, 'quantityUnits': 'ounce'}, {'quantity': 530, 'quantityUnits': 'gram'}]"
+item_42,xiaomi/mimo-v2.5,PASS,,N/A,,FAIL,price 4.79 not in [3.49],FAIL,"quantity 43.0 count not in [{'quantity': 18.71, 'quantityUnits': 'ounce'}, {'quantity': 530, 'quantityUnits': 'gram'}]"
+item_42,google/gemma-4-26b-a4b-it,PASS,,N/A,,FAIL,price 1.16 not in [3.49],PASS,
+item_42,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 18.71, 'quantityUnits': 'ounce'}, {'quantity': 530, 'quantityUnits': 'gram'}]"
+item_42,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 18.71, 'quantityUnits': 'ounce'}, {'quantity': 530, 'quantityUnits': 'gram'}]"
+item_44,google/gemini-2.5-flash-lite,PASS,,N/A,,N/A,,PASS,
+item_44,xiaomi/mimo-v2.5,PASS,,N/A,,N/A,,PASS,
+item_44,google/gemma-4-26b-a4b-it,PASS,,N/A,,N/A,,PASS,
+item_44,openai/gpt-5-nano,PASS,,N/A,,N/A,,PASS,
+item_44,meta-llama/llama-4-scout,PASS,,N/A,,N/A,,PASS,
+item_46,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_46,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,FAIL,"quantity 2.0 pack not in [{'quantity': 8, 'quantityUnits': 'ounce'}]"
+item_46,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,FAIL,"quantity 16.0 ounce not in [{'quantity': 8, 'quantityUnits': 'ounce'}]"
+item_46,openai/gpt-5-nano,FAIL,missing: ['jalapeno'],PASS,,PASS,,PASS,
+item_46,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,PASS,
+item_48,google/gemini-2.5-flash-lite,PASS,,N/A,,N/A,,N/A,
+item_48,xiaomi/mimo-v2.5,PASS,,N/A,,N/A,,N/A,
+item_48,google/gemma-4-26b-a4b-it,PASS,,N/A,,N/A,,N/A,
+item_48,openai/gpt-5-nano,PASS,,N/A,,N/A,,N/A,
+item_48,meta-llama/llama-4-scout,PASS,,N/A,,N/A,,N/A,
+item_50,google/gemini-2.5-flash-lite,PASS,,N/A,,N/A,,PASS,
+item_50,xiaomi/mimo-v2.5,PASS,,N/A,,N/A,,PASS,
+item_50,google/gemma-4-26b-a4b-it,PASS,,N/A,,N/A,,PASS,
+item_50,openai/gpt-5-nano,PASS,,N/A,,N/A,,FAIL,"quantity 1.0 bottle not in [{'quantity': 2, 'quantityUnits': 'liter'}]"
+item_50,meta-llama/llama-4-scout,PASS,,N/A,,N/A,,FAIL,"quantity 3.0 bottle not in [{'quantity': 2, 'quantityUnits': 'liter'}]"
+item_52,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_52,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_52,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_52,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 4.0 pack not in [{'quantity': 240, 'quantityUnits': 'count'}]"
+item_52,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_54,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_54,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_54,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_54,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_54,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,PASS,
+item_56,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,FAIL,"quantity 12.0 ounce not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_56,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_56,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_56,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 count not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_56,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 can not in [{'quantity': 12, 'quantityUnits': 'fluid ounce'}]"
+item_58,google/gemini-2.5-flash-lite,PASS,,N/A,,FAIL,price 6.99 not in [7.99],PASS,
+item_58,xiaomi/mimo-v2.5,PASS,,N/A,,FAIL,price 6.99 not in [7.99],PASS,
+item_58,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,FAIL,"quantity 24.65 ounce not in [{'quantity': 5, 'quantityUnits': 'package'}]"
+item_58,openai/gpt-5-nano,PASS,,N/A,,PASS,,PASS,
+item_58,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_60,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_60,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_60,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_60,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 cup not in [{'quantity': 2.64, 'quantityUnits': 'ounce'}]"
+item_60,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 cup not in [{'quantity': 2.64, 'quantityUnits': 'ounce'}]"
+item_62,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_62,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_62,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_62,openai/gpt-5-nano,PASS,,PASS,,PASS,,PASS,
+item_62,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,PASS,
+item_64,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_64,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_64,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,FAIL,"quantity 32.0 ounce not in [{'quantity': 6, 'quantityUnits': 'ounce'}]"
+item_64,openai/gpt-5-nano,PASS,,N/A,,PASS,,PASS,
+item_64,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_66,google/gemini-2.5-flash-lite,PASS,,PASS,,N/A,,PASS,
+item_66,xiaomi/mimo-v2.5,PASS,,PASS,,N/A,,PASS,
+item_66,google/gemma-4-26b-a4b-it,FAIL,missing: ['kettle'],PASS,,N/A,,PASS,
+item_66,openai/gpt-5-nano,PASS,,PASS,,N/A,,PASS,
+item_66,meta-llama/llama-4-scout,PASS,,PASS,,N/A,,PASS,
+item_68,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,PASS,
+item_68,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,PASS,
+item_68,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_68,openai/gpt-5-nano,PASS,,N/A,,PASS,,PASS,
+item_68,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,PASS,
+item_70,google/gemini-2.5-flash-lite,PASS,,PASS,,PASS,,PASS,
+item_70,xiaomi/mimo-v2.5,PASS,,PASS,,PASS,,PASS,
+item_70,google/gemma-4-26b-a4b-it,PASS,,PASS,,PASS,,PASS,
+item_70,openai/gpt-5-nano,PASS,,PASS,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 64, 'quantityUnits': 'fluid ounce'}]"
+item_70,meta-llama/llama-4-scout,PASS,,PASS,,PASS,,FAIL,"quantity 1.0 carton not in [{'quantity': 64, 'quantityUnits': 'fluid ounce'}]"
+item_72,google/gemini-2.5-flash-lite,FAIL,missing: ['almond breeze'],N/A,,PASS,,PASS,
+item_72,xiaomi/mimo-v2.5,FAIL,missing: ['almond breeze'],N/A,,PASS,,FAIL,"quantity 32.0 fluid ounce not in [{'quantity': 64, 'quantityUnits': 'fluid ounce'}]"
+item_72,google/gemma-4-26b-a4b-it,FAIL,missing: ['almond breeze'],N/A,,PASS,,PASS,
+item_72,openai/gpt-5-nano,PASS,,N/A,,PASS,,ABSTAIN,no quantity extracted
+item_72,meta-llama/llama-4-scout,FAIL,missing: ['almond breeze'],N/A,,PASS,,FAIL,"quantity 1.0 carton not in [{'quantity': 64, 'quantityUnits': 'fluid ounce'}]"
+item_74,google/gemini-2.5-flash-lite,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 package not in [{'quantity': 18, 'quantityUnits': 'ounce'}]"
+item_74,xiaomi/mimo-v2.5,PASS,,N/A,,PASS,,FAIL,"quantity 16.0 ounce not in [{'quantity': 18, 'quantityUnits': 'ounce'}]"
+item_74,google/gemma-4-26b-a4b-it,PASS,,N/A,,PASS,,PASS,
+item_74,openai/gpt-5-nano,PASS,,N/A,,PASS,,FAIL,"quantity 1.0 pound not in [{'quantity': 18, 'quantityUnits': 'ounce'}]"
+item_74,meta-llama/llama-4-scout,PASS,,N/A,,PASS,,FAIL,"quantity 16.0 ounce not in [{'quantity': 18, 'quantityUnits': 'ounce'}]"
