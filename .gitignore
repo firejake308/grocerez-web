@@ -30,3 +30,4 @@ benchmark/or_key.txt
 # Benchmark scratch output (regenerate via benchmark/scripts)
 benchmark/results/raw_responses/
 benchmark/results/*.html
+benchmark/results/summary.json
