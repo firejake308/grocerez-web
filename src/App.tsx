@@ -140,6 +140,56 @@ const App = () => {
     setGroceryItems(groceryItems.filter(it => it.id !== id));
   };
 
+  const handleExportData = () => {
+    const exportPayload = {
+      exportedAt: new Date().toISOString(),
+      priceData: stripImagesFromPriceData(priceData),
+      groceryItems,
+    };
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `grocerez-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        const importedPriceData = Array.isArray(parsed.priceData)
+          ? parsed.priceData.map(normalizePriceData)
+          : [];
+
+        const existingIds = new Set(groceryItems.map((item) => item.id));
+        const importedGroceryItems: GroceryItem[] = Array.isArray(parsed.groceryItems)
+          ? parsed.groceryItems.map((item: GroceryItem) => {
+              if (!existingIds.has(item.id)) {
+                existingIds.add(item.id);
+                return item;
+              }
+              const newId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+                ? crypto.randomUUID()
+                : `${item.id}-${Date.now()}`;
+              existingIds.add(newId);
+              return { ...item, id: newId };
+            })
+          : [];
+
+        setPriceData((current) => [...current, ...importedPriceData]);
+        setGroceryItems((current) => [...current, ...importedGroceryItems]);
+        alert(`Imported ${importedPriceData.length} price scan(s) and ${importedGroceryItems.length} grocery item(s).`);
+      } catch (error) {
+        console.error('Failed to import data:', error);
+        alert('That file could not be read as a GrocerEZ backup.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="h-screen">
       {currentScreen === 'home' && (
@@ -151,6 +201,8 @@ const App = () => {
           onAddItem={() => navigateTo('addItem')}
           onToggleItem={handleToggleGroceryItem}
           onDeleteItem={handleDeleteGroceryItem}
+          onExportData={handleExportData}
+          onImportData={handleImportData}
         />
       )}
 

@@ -1,14 +1,17 @@
-import { Plus, Camera, Trash2 } from 'lucide-react';
+import { useRef } from 'react';
+import { Plus, Camera, Trash2, Download, Upload } from 'lucide-react';
 import PriceData, { GroceryItem } from './PriceData';
 
-const HomeScreen = ({ 
-  onScan, 
+const HomeScreen = ({
+  onScan,
   priceData,
   onShowAllPrices,
   groceryItems,
   onAddItem,
   onToggleItem,
-  onDeleteItem
+  onDeleteItem,
+  onExportData,
+  onImportData
 }: {
   onScan: VoidFunction;
   priceData: PriceData[];
@@ -17,13 +20,54 @@ const HomeScreen = ({
   onAddItem: VoidFunction;
   onToggleItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
+  onExportData: VoidFunction;
+  onImportData: (file: File) => void;
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onImportData(file);
+    }
+    e.target.value = '';
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* App Header */}
-      <header className="bg-green-600 p-4 shadow-md">
-        <h1 className="text-2xl font-bold text-white text-center">GrocerEZ</h1>
+      <header className="bg-green-600 p-4 shadow-md flex items-center">
+        <div className="flex-1 flex items-center space-x-1">
+          <button
+            onClick={onExportData}
+            title="Export backup"
+            aria-label="Export backup"
+            className="text-white p-1.5 rounded hover:bg-green-700"
+          >
+            <Download size={20} />
+          </button>
+          <button
+            onClick={handleImportClick}
+            title="Import backup"
+            aria-label="Import backup"
+            className="text-white p-1.5 rounded hover:bg-green-700"
+          >
+            <Upload size={20} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+        <h1 className="text-2xl font-bold text-white text-center flex-1">GrocerEZ</h1>
+        <div className="flex-1" />
       </header>
 
       {/* Main Content Area */}
