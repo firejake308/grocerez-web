@@ -290,5 +290,12 @@
       {"quantity": 38, "quantityUnits": "fluid ounce"}
     ],
     "_source": "user added: Dawn Platinum Plus Power Suds Fresh Rain, 38 OZ, $9.94."
+  },
+  "item_80": {
+    "required_terms": ["ice", "breakers", "gum"],
+    "price": 3.82,
+    "quantity": 40,
+    "quantityUnits": "count",
+    "_source": "user added: Ice Breakers Ice Cubes Bubble Breeze gum, shelf tag says $4.82 but a hanging coupon reads '$1 off Ice Breakers Ice Cubes Gum Bottle, 40 ct, assorted varieties', so true price is 4.82 - 1.00 = 3.82. Tests whether the model applies the coupon rather than reporting the raw shelf price. 'ice'/'breakers' may appear as one word ('IceBreakers') or two."
   }
 }
