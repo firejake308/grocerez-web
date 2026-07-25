@@ -281,5 +281,14 @@
     "quantity": 1,
     "quantityUnits": "count",
     "_source": "user added: Owala FreeSip 30oz bottle (Peachy colorway), Target price tag 34.99, 1 count."
+  },
+  "item_78": {
+    "required_terms": ["dawn", "dish soap"],
+    "price": 9.94,
+    "quantity_allowed": [
+      {"quantity": 38, "quantityUnits": "ounce"},
+      {"quantity": 38, "quantityUnits": "fluid ounce"}
+    ],
+    "_source": "user added: Dawn Platinum Plus Power Suds Fresh Rain, 38 OZ, $9.94."
   }
 }
