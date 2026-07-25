@@ -1,0 +1,277 @@
+{
+  "_note": "Running log of adjudicated ground-truth values, keyed by pair_id. Filled in incrementally as the user reviews items; not yet complete for all 36.",
+  "_policy": {
+    "tags_grading": "Tags are graded on findability, not exact match: check itemName + brand + tags together as one pool. Pass if every 'required_terms' word appears somewhere in that pool (case-insensitive substring ok). Fail if any 'forbidden_terms' word appears anywhere in that pool, even if required terms are also present.",
+    "blank_vs_wrong": "A blank/missing field is preferred over a wrong value — do not penalize abstaining as harshly as a confident wrong answer.",
+    "brand_365_canonicalization": "For 365-brand items, any brand value containing '365' (regardless of 'by/By Whole Foods Market' suffix or casing) is acceptable.",
+    "brand_allowed_lists": "Some items have brand ambiguity where multiple forms are legitimate (e.g. manufacturer vs. sub-brand). Use 'brand_allowed' list when present instead of a single string.",
+    "punctuation_insensitive_matching": "required_terms/forbidden_terms matching should ignore punctuation (periods, apostrophes, hyphens) as well as case, e.g. 'Dr Pepper' should match 'Dr. Pepper', 'Annie's' should match 'Annies'.",
+    "size_qualifiers_in_itemName": "When a pack's individual unit size differs from the standard/default size for that product (e.g. 'mini' cans vs standard cans, 'family size' vs standard box), and quantity/quantityUnits alone can't capture that distinction (e.g. quantity is reported as a pack count rather than volume), the size qualifier word should be required in itemName.",
+    "flavor_variants_not_graded": "A wrong flavor/variant word within itemName (e.g. 'Sweet Chili' vs 'Nacho Cheese' for the same product line) is not counted as an error, since different flavors of the same item usually cost the same — only presence of required_terms/forbidden_terms and the other fields (brand, price, quantity) matter.",
+    "unit_equivalence": "quantity/quantityUnits is graded correct if it numerically matches ground truth after converting within the same measurement family, not just on literal unit-string match (e.g. 64 fluid ounce == 0.5 gallon; 1 pound == 16 ounce). Volume family: fluid ounce, cup, pint, quart, gallon, liter, milliliter. Weight family: ounce, pound, gram, kilogram. Count-like units (count, package, pack, can, box) are NOT auto-interchangeable with each other or with volume/weight — those only match via an explicit quantity_allowed list."
+  },
+  "item_06": {
+    "itemName_note": "Poppi Classic Cola",
+    "quantity": 12,
+    "quantityUnits": "fluid ounce",
+    "required_terms": ["poppi", "soda"],
+    "_source": "user corrected: 22.4 on the tag is cents-per-fl-oz unit price ($2.69 / 12 fl oz ≈ 22.4¢/oz), not the pack size. 12 fl oz is per-can size, which is what should be reported."
+  },
+  "item_12": {
+    "brand_allowed": ["Shamrock Farms", "Rockin Protein", "Rockin' Protein"],
+    "quantity": 19.7,
+    "quantityUnits": "fluid ounce",
+    "_source": "user confirmed against price tag text 'ROCKIN PROTEIN STRW 50G 19.7 FO'. Brand: only 'Shamrock Farms' or 'Rockin Protein' (apostrophe optional) count as correct; other brand guesses (e.g. 'Rockin Farms', 'Fairdale Farms') are wrong."
+  },
+  "item_04": {
+    "required_terms": ["quest", "protein chips"],
+    "price": 8.99,
+    "quantity": 4,
+    "quantityUnits": "ounce",
+    "_source": "user confirmed. True flavor is Nacho Cheese (gemma-4-26b said Sweet Chili) but per flavor_variants_not_graded policy that's not scored as wrong."
+  },
+  "item_48": {
+    "itemName_note": "Pringles Original",
+    "required_terms": ["pringles", "chips"],
+    "forbidden_terms": ["sticks"],
+    "_source": "user corrected: qwen3.5-flash-02-23 said itemName 'Potato Sticks', which is factually wrong (it's chips, not sticks) and must not appear anywhere in itemName/brand/tags."
+  },
+  "item_70": {
+    "required_terms": ["almond", "organic", "milk"],
+    "brand_allowed": ["365"],
+    "price": 4.29,
+    "quantity": 64,
+    "quantityUnits": "fluid ounce",
+    "_source": "user confirmed; gemini-2.5-flash-lite, gemma-4-26b-a4b-it, qwen3.5-flash-02-23 matched (64 fl oz); mimo-v2.5 and mistral-small said 32 fl oz; gpt-5-nano said 1 package"
+  },
+  "item_22": {
+    "required_terms": ["kleenex", "tissue"],
+    "forbidden_terms": ["towel"],
+    "price": 6.49,
+    "quantity": 640,
+    "quantityUnits": "count",
+    "_source": "user corrected. mistral-small's 'paper towels' tag is the forbidden case; only gpt-5-nano got quantity right (640 count), others said 4/6 package/count (box count, not total tissue count)."
+  },
+  "item_24": {
+    "required_terms": ["chobani", "drink"],
+    "price": 3.99,
+    "quantity": 14,
+    "quantityUnits": "fluid ounce",
+    "_source": "user corrected. mistral-small got brand completely wrong ('Chocolate Chunk Ice Cream') and quantity wrong (30 count); everyone else matched quantity/price."
+  },
+  "item_28": {
+    "required_terms": ["stacy's", "pita", "chips"],
+    "forbidden_terms": ["dip"],
+    "price": 4.99,
+    "quantity": 7.3,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. qwen's 'dip' tag is the forbidden case. Quantity varied widely across models (9.5, 7.8, 6, 1 package, 6 count) — none matched 7.3 ounce exactly."
+  },
+  "item_38": {
+    "required_terms": ["muffin", "fresh"],
+    "brand_allowed": ["Kroger"],
+    "price": 5.00,
+    "quantity": 4,
+    "quantityUnits": "count",
+    "_source": "user corrected. qwen said brand 'Fresh Market' which is wrong (should be Kroger); mistral-small got quantity wrong (15.02 ounce instead of 4 count)."
+  },
+  "item_40": {
+    "required_terms": ["oreo"],
+    "price": 5.29,
+    "quantity": 10.68,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. Only gemini-2.5-flash-lite matched quantity exactly (10.68 oz); others said 1 package, 14 oz, 16.68 oz, 20.32 oz (family size confusion)."
+  },
+  "item_44": {
+    "required_terms": ["premier protein", "protein", "shake"],
+    "quantity_allowed": [
+      {"quantity": 4, "quantityUnits": "count"},
+      {"quantity": 44, "quantityUnits": "fluid ounce"}
+    ],
+    "_source": "user accepts either the pack count (4 count) or total volume (44 fl oz) as correct for quantity. Price 8.58 matched by everyone (qwen included a stray '$' that needs stripping)."
+  },
+  "item_08": {
+    "required_terms": ["big k", "ginger ale", "soda"],
+    "price": 1.00,
+    "quantity": 2,
+    "quantityUnits": "liter",
+    "_source": "user corrected. This is the Kroger 10/10.00 example from the very first reference photos - price should be the per-unit 1.00, not the raw 10.00 (qwen/mistral) or the non-sale 1.48 (gemini/mimo/gemma). Only gpt-5-nano matched (1.0) in this pre-fix run."
+  },
+  "item_10": {
+    "required_terms": ["diet", "dr pepper", "mini"],
+    "quantity_allowed": [
+      {"quantity": 10, "quantityUnits": "count"},
+      {"quantity": 10, "quantityUnits": "can"}
+    ],
+    "_source": "user agrees quantity is 10 count/can (not switching to a volume-based number), so per size_qualifiers_in_itemName policy, 'mini' must appear in itemName to distinguish these 7.5 fl oz mini cans from standard 12 fl oz cans. Only mimo-v2.5 included 'Mini Cans' in itemName in the last run. 'dr pepper' should match with or without the period."
+  },
+  "item_14": {
+    "required_terms": ["oikos", "protein shake"],
+    "price": 3.49,
+    "quantity": 12,
+    "quantityUnits": "fluid ounce",
+    "_source": "user confirmed; all 6 models matched exactly in the last run."
+  },
+  "item_16": {
+    "required_terms": ["tissues", "lotion"],
+    "forbidden_terms": ["kleenex"],
+    "brand_allowed": ["Kroger"],
+    "price": 1.79,
+    "quantity": 60,
+    "quantityUnits": "count",
+    "_source": "user corrected. mistral-small's brand 'Kleenex' is the forbidden case (this is a Kroger store-brand tissue)."
+  },
+  "item_18": {
+    "required_terms": ["tissues"],
+    "forbidden_terms": ["kleenex", "hms"],
+    "brand_allowed": ["Kroger"],
+    "price": 1.99,
+    "quantity": 160,
+    "quantityUnits": "count",
+    "_source": "user corrected. mistral-small's brand 'Kleenex' and tag 'kleenex' are the forbidden case. gemini-2.5-flash-lite's itemName 'Kroger HMS FAC FLAT' is raw unexpanded price-tag shorthand (also trips the 'hms' forbidden term) rather than a real product name - separate abbreviation-expansion failure worth watching."
+  },
+  "item_30": {
+    "required_terms": ["organic", "blueberries"],
+    "brand_allowed": ["Driscoll's"],
+    "price": 3.99,
+    "quantity": 1,
+    "quantityUnits": "pint",
+    "_source": "user corrected. qwen's brand 'Oriscoll's Organic' is an OCR-style misread of Driscoll's; mimo-v2.5's brand 'Simple Truth Organic' is a different, wrong store brand. Both fail the Driscoll's-only rule."
+  },
+  "item_20": {
+    "required_terms": ["tissue", "ultra soft"],
+    "brand_allowed": ["Puffs"],
+    "quantity": 288,
+    "quantityUnits": "count",
+    "_source": "user corrected. mistral-small's brand 'Pufts' is a misread typo of 'Puffs' (wrong); its tags do satisfy required_terms via 'bath tissue' but the brand itself is still incorrect. All models said 4 count (box count) instead of 288 (total tissue count, new tissue-counting rule)."
+  },
+  "item_36": {
+    "itemName_note": "Blueberries",
+    "brand_allowed": ["Berry Fresh"],
+    "price": 6.49,
+    "quantity": 18,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. mistral-small got quantity wrong (12 count instead of 18 ounce); everyone else matched brand/price/quantity."
+  },
+  "item_42": {
+    "required_terms": ["oreo", "double stuf"],
+    "price": 3.49,
+    "quantity_allowed": [
+      {"quantity": 18.71, "quantityUnits": "ounce"},
+      {"quantity": 530, "quantityUnits": "gram"}
+    ],
+    "_source": "user accepts either the oz or gram form for quantity. gemma-4-26b and qwen said brand 'Nabisco' instead of 'Oreo' - user confirmed Nabisco is acceptable as long as 'oreo' appears somewhere in the required_terms pool (itemName/brand/tags), which the current filter already allows since there's no brand_allowed constraint here."
+  },
+  "item_26": {
+    "required_terms": ["moo", "bars"],
+    "brand_allowed": ["Blue Bell"],
+    "price": 5.99,
+    "quantity": 12,
+    "quantityUnits": "count",
+    "_source": "user confirmed. Models spelled it 'Moo'/'Mooo'/'MooO' (OCR noise on the exclamation branding) but 'moo' matches as a substring in all cases. All 6 models otherwise matched exactly."
+  },
+  "item_32": {
+    "_skipped": true,
+    "_source": "user opted to skip - redundant with item_30 (organic Driscoll's blueberries) and item_36 (regular Berry Fresh blueberries) already covering both blueberries cases."
+  },
+  "item_34": {
+    "_skipped": true,
+    "_source": "user opted to skip - redundant with item_30 (organic Driscoll's blueberries) and item_36 (regular Berry Fresh blueberries) already covering both blueberries cases."
+  },
+  "item_46": {
+    "required_terms": ["jalapeno", "saltine", "crackers"],
+    "brand_allowed": ["H-E-B", "HEB"],
+    "price": 1.98,
+    "quantity": 8,
+    "quantityUnits": "ounce",
+    "_source": "user corrected (price given as '.198', corrected to 1.98 to match what all 6 models independently reported - flag if that's wrong). 'jalapeno' should match with or without the tilde (jalapeño)."
+  },
+  "item_54": {
+    "required_terms": ["tissues"],
+    "brand_allowed": ["Hill Country Fare"],
+    "price": 1.64,
+    "quantity": 160,
+    "quantityUnits": "count",
+    "_source": "user confirmed. All 6 models matched exactly in the last run."
+  },
+  "item_62": {
+    "required_terms": ["large", "brown", "eggs"],
+    "brand_allowed": ["365"],
+    "price": 4.29,
+    "quantity": 12,
+    "quantityUnits": "count",
+    "_source": "user confirmed brand must contain '365' (covered by the existing brand_365_canonicalization policy). All 6 models matched exactly in the last run."
+  },
+  "item_50": {
+    "required_terms": ["mountain dew", "soda"],
+    "forbidden_terms": ["pepsi"],
+    "quantity": 2,
+    "quantityUnits": "liter",
+    "_source": "user corrected. gemini-2.5-flash-lite's brand 'Pepsi' is the forbidden case (Pepsi owns Mountain Dew but the brand shown/expected is Mountain Dew, not Pepsi). mistral-small left itemName blank and said quantity 12 count (wrong)."
+  },
+  "item_52": {
+    "required_terms": ["tissue", "kleenex", "lotion"],
+    "forbidden_terms": ["towel"],
+    "price": 6.58,
+    "quantity": 240,
+    "quantityUnits": "count",
+    "_source": "user corrected using the new tissue-counting logic (240 total tissues, not box/pack count). mistral-small's 'paper towel' tag is the forbidden case. All 6 models said box/pack counts (4 package/pack) instead of 240 in the last run, predating the tissue-counting prompt fix."
+  },
+  "item_56": {
+    "required_terms": ["olipop", "soda"],
+    "price": 2.28,
+    "quantity": 12,
+    "quantityUnits": "fluid ounce",
+    "_source": "user corrected. gpt-5-nano returned a totally empty response for every field on this item (worth watching if that recurs). mistral-small's brand 'New Wave' is wrong."
+  },
+  "item_58": {
+    "required_terms": ["buldak", "ramen"],
+    "price": 7.99,
+    "quantity": 5,
+    "quantityUnits": "package",
+    "_source": "user corrected. gemini-2.5-flash-lite and mimo-v2.5 said 24.65 ounce (total case weight?) and mistral-small said 7.07 ounce (single-pack weight) instead of 5 package; gemma/qwen/gpt-5-nano matched 5 package."
+  },
+  "item_60": {
+    "required_terms": ["soon", "noodles"],
+    "price": 1.29,
+    "quantity": 2.64,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. gemma-4-26b got price wrong (1.69 instead of 1.29); mistral-small got quantity wrong (6.4 ounce instead of 2.64 ounce, likely confusing case size with single-cup size)."
+  },
+  "item_64": {
+    "required_terms": ["mac", "cheese", "annie's"],
+    "price": 2.49,
+    "quantity": 6,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. mistral-small got quantity wrong (12 ounce instead of 6 ounce); gpt-5-nano left quantity blank (acceptable per blank_vs_wrong policy). Note 'mac' matches as a substring of 'macaroni', so 'Classic Macaroni and Cheese' satisfies the mac+cheese required terms fine."
+  },
+  "item_68": {
+    "required_terms": ["rambler", "sparkling water"],
+    "price_allowed": [5.99, 6.66],
+    "quantity": 12,
+    "quantityUnits": null,
+    "_source": "user unsure what quantityUnits should be (pack/package/count/can all seen across models, all otherwise correct at 12). Leaving quantityUnits ungraded/open pending user decision - suggest 'can' since it's a 12-pack of cans and matches the app's philosophy elsewhere of counting the individual real-world unit (same logic as the tissue-counting rule) rather than the outer packaging."
+  },
+  "item_66": {
+    "required_terms": ["avocado oil", "potato", "kettle", "chips"],
+    "brand_allowed": ["Boulder Canyon"],
+    "quantity": 5.25,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. Price already covered by the bulk-pricing prompt fix (3/10.00 -> ~3.33-3.70/unit). qwen also got quantity wrong (12 ounce instead of 5.25 ounce)."
+  },
+  "item_72": {
+    "required_terms": ["almond breeze", "milk"],
+    "price": 4.49,
+    "quantity": 64,
+    "quantityUnits": "fluid ounce",
+    "_source": "user corrected. gemini-2.5-flash-lite said 0.5 gallon, which is numerically equivalent to 64 fl oz and counts as correct per the unit_equivalence policy; mistral-small and gpt-5-nano got quantity wrong/blank."
+  },
+  "item_74": {
+    "required_terms": ["blueberries", "twin river"],
+    "forbidden_terms": ["organic"],
+    "price": 5.79,
+    "quantity": 18,
+    "quantityUnits": "ounce",
+    "_source": "user corrected. mistral-small's 'organic' tag is the forbidden case (also wrong on quantity: 1 pound instead of 18 ounce); qwen also wrong on price/quantity (5.19, 16 oz)."
+  }
+}

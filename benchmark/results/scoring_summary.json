@@ -1,0 +1,204 @@
+{
+  "graded_items": 34,
+  "model_scores": {
+    "google/gemini-2.5-flash-lite": {
+      "overall_score": 0.8654,
+      "n_checks": 104,
+      "per_check": {
+        "findability": {
+          "score": 0.906,
+          "n": 32,
+          "PASS": 29,
+          "FAIL": 3,
+          "ABSTAIN": 0
+        },
+        "brand": {
+          "score": 1.0,
+          "n": 13,
+          "PASS": 13,
+          "FAIL": 0,
+          "ABSTAIN": 0
+        },
+        "price": {
+          "score": 0.923,
+          "n": 26,
+          "PASS": 24,
+          "FAIL": 2,
+          "ABSTAIN": 0
+        },
+        "quantity": {
+          "score": 0.727,
+          "n": 33,
+          "PASS": 24,
+          "FAIL": 9,
+          "ABSTAIN": 0
+        }
+      }
+    },
+    "xiaomi/mimo-v2.5": {
+      "overall_score": 0.8558,
+      "n_checks": 104,
+      "per_check": {
+        "findability": {
+          "score": 0.875,
+          "n": 32,
+          "PASS": 28,
+          "FAIL": 4,
+          "ABSTAIN": 0
+        },
+        "brand": {
+          "score": 1.0,
+          "n": 13,
+          "PASS": 13,
+          "FAIL": 0,
+          "ABSTAIN": 0
+        },
+        "price": {
+          "score": 0.923,
+          "n": 26,
+          "PASS": 24,
+          "FAIL": 2,
+          "ABSTAIN": 0
+        },
+        "quantity": {
+          "score": 0.727,
+          "n": 33,
+          "PASS": 24,
+          "FAIL": 9,
+          "ABSTAIN": 0
+        }
+      }
+    },
+    "google/gemma-4-26b-a4b-it": {
+      "overall_score": 0.8846,
+      "n_checks": 104,
+      "per_check": {
+        "findability": {
+          "score": 0.875,
+          "n": 32,
+          "PASS": 28,
+          "FAIL": 4,
+          "ABSTAIN": 0
+        },
+        "brand": {
+          "score": 1.0,
+          "n": 13,
+          "PASS": 13,
+          "FAIL": 0,
+          "ABSTAIN": 0
+        },
+        "price": {
+          "score": 0.923,
+          "n": 26,
+          "PASS": 24,
+          "FAIL": 2,
+          "ABSTAIN": 0
+        },
+        "quantity": {
+          "score": 0.818,
+          "n": 33,
+          "PASS": 27,
+          "FAIL": 6,
+          "ABSTAIN": 0
+        }
+      }
+    },
+    "openai/gpt-5-nano": {
+      "overall_score": 0.8365,
+      "n_checks": 104,
+      "per_check": {
+        "findability": {
+          "score": 0.906,
+          "n": 32,
+          "PASS": 29,
+          "FAIL": 3,
+          "ABSTAIN": 0
+        },
+        "brand": {
+          "score": 1.0,
+          "n": 13,
+          "PASS": 13,
+          "FAIL": 0,
+          "ABSTAIN": 0
+        },
+        "price": {
+          "score": 1.0,
+          "n": 26,
+          "PASS": 26,
+          "FAIL": 0,
+          "ABSTAIN": 0
+        },
+        "quantity": {
+          "score": 0.576,
+          "n": 33,
+          "PASS": 18,
+          "FAIL": 13,
+          "ABSTAIN": 2
+        }
+      }
+    },
+    "meta-llama/llama-4-scout": {
+      "overall_score": 0.8173,
+      "n_checks": 104,
+      "per_check": {
+        "findability": {
+          "score": 0.875,
+          "n": 32,
+          "PASS": 28,
+          "FAIL": 4,
+          "ABSTAIN": 0
+        },
+        "brand": {
+          "score": 0.923,
+          "n": 13,
+          "PASS": 12,
+          "FAIL": 1,
+          "ABSTAIN": 0
+        },
+        "price": {
+          "score": 1.0,
+          "n": 26,
+          "PASS": 26,
+          "FAIL": 0,
+          "ABSTAIN": 0
+        },
+        "quantity": {
+          "score": 0.576,
+          "n": 33,
+          "PASS": 19,
+          "FAIL": 14,
+          "ABSTAIN": 0
+        }
+      }
+    }
+  },
+  "cost_by_model": {
+    "google/gemini-2.5-flash-lite": {
+      "total_cost_usd": 0.005603,
+      "avg_cost_usd": 0.000156
+    },
+    "xiaomi/mimo-v2.5": {
+      "total_cost_usd": 0.0249,
+      "avg_cost_usd": 0.000692
+    },
+    "google/gemma-4-26b-a4b-it": {
+      "total_cost_usd": 0.005198,
+      "avg_cost_usd": 0.000144
+    },
+    "openai/gpt-5-nano": {
+      "total_cost_usd": 0.041544,
+      "avg_cost_usd": 0.001154
+    },
+    "meta-llama/llama-4-scout": {
+      "total_cost_usd": 0.010314,
+      "avg_cost_usd": 0.000287
+    }
+  },
+  "ranked_models": [
+    "google/gemma-4-26b-a4b-it",
+    "google/gemini-2.5-flash-lite",
+    "xiaomi/mimo-v2.5",
+    "openai/gpt-5-nano",
+    "meta-llama/llama-4-scout"
+  ]
+}

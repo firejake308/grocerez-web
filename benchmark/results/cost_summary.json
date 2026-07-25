@@ -1,0 +1,18 @@
+{
+  "total_cost_usd": 0.087559,
+  "per_model_cost_usd": {
+    "google/gemini-2.5-flash-lite": 0.005603,
+    "xiaomi/mimo-v2.5": 0.0249,
+    "google/gemma-4-26b-a4b-it": 0.005198,
+    "openai/gpt-5-nano": 0.041544,
+    "meta-llama/llama-4-scout": 0.010314
+  },
+  "per_model_avg_cost_usd": {
+    "google/gemini-2.5-flash-lite": 0.000156,
+    "xiaomi/mimo-v2.5": 0.000692,
+    "google/gemma-4-26b-a4b-it": 0.000144,
+    "openai/gpt-5-nano": 0.001154,
+    "meta-llama/llama-4-scout": 0.000287
+  },
+  "requests_missing_cost": 0
+}
