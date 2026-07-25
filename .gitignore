@@ -31,3 +31,4 @@ benchmark/or_key.txt
 benchmark/results/raw_responses/
 benchmark/results/*.html
 benchmark/results/summary.json
+__pycache__/
