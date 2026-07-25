@@ -76,7 +76,7 @@ PROMPT_TEXT = (
 
 def build_pairs():
     pairs = []
-    for n in range(4, 75, 2):  # 4,6,...,74 -> item images (even)
+    for n in range(4, 77, 2):  # 4,6,...,76 -> item images (even)
         item_num = n
         price_num = n + 1
         item_file = IMG_DIR / f"download ({item_num}).jpeg"

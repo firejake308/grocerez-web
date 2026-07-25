@@ -273,5 +273,13 @@
     "quantity": 18,
     "quantityUnits": "ounce",
     "_source": "user corrected. mistral-small's 'organic' tag is the forbidden case (also wrong on quantity: 1 pound instead of 18 ounce); qwen also wrong on price/quantity (5.19, 16 oz)."
+  },
+  "item_76": {
+    "required_terms": ["30", "oz"],
+    "brand_allowed": ["Owala"],
+    "price": 34.99,
+    "quantity": 1,
+    "quantityUnits": "count",
+    "_source": "user added: Owala FreeSip 30oz bottle (Peachy colorway), Target price tag 34.99, 1 count."
   }
 }
