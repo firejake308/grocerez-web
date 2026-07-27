@@ -79,7 +79,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
                 placeholder="Enter item name"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
             <div>
@@ -92,7 +92,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                 value={brand}
                 onChange={(e) => setBrand(e.target.value)}
                 placeholder="Enter brand name"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
             <div>
@@ -105,7 +105,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 placeholder="e.g., grocery, dairy, organic"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
               {tags.trim() && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -127,7 +127,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                   id="quantity"
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                   min="0"
                   step="0.01"
                 />
@@ -142,7 +142,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                   value={quantity_units}
                   onChange={(e) => setQuantityUnits(e.target.value)}
                   placeholder="e.g., lbs, oz, each"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -180,7 +180,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
               value={storeLocation}
               onChange={(e) => setStoreLocation(e.target.value)}
               placeholder={isLocating ? "Detecting location..." : "Enter store name"}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg"
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white text-gray-900"
               disabled={isLocating}
             />
           </div>
