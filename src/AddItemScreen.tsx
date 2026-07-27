@@ -150,7 +150,7 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
                         {r.date && <div className="text-xs text-gray-400">Updated {formatRelativeDate(r.date)}</div>}
                       </div>
                     </div>
-                    <div className="text-sm font-semibold">{r.price.startsWith('$') ? r.price : `$${r.price}`}</div>
+                    <div className="text-sm font-semibold text-gray-800">{r.price.startsWith('$') ? r.price : `$${r.price}`}</div>
                   </label>
                 ))}
                 <div className="pt-3">
