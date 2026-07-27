@@ -106,18 +106,18 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
         <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="space-y-4 bg-white rounded-lg shadow-md p-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Item name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-200 rounded-md p-2" placeholder="e.g., Bananas" />
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-200 rounded-md p-2 bg-white text-gray-900" placeholder="e.g., Bananas" />
           </div>
 
           <div className="flex space-x-2">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-              <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-full border border-gray-200 rounded-md p-2" />
+              <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-full border border-gray-200 rounded-md p-2 bg-white text-gray-900" />
             </div>
 
             <div className="w-36">
               <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-              <select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full border border-gray-200 rounded-md p-2">
+              <select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full border border-gray-200 rounded-md p-2 bg-white text-gray-900">
                 {units.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>

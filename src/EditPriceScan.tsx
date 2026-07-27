@@ -53,7 +53,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                 id="itemName"
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
 
@@ -66,7 +66,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                 id="price"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
 
@@ -79,7 +79,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                 id="tags"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
 
@@ -92,7 +92,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                 id="store"
                 value={store}
                 onChange={(e) => setStore(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
 
@@ -105,7 +105,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                 id="brand"
                 value={brand}
                 onChange={(e) => setBrand(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
               />
             </div>
 
@@ -119,7 +119,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                   id="quantity"
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                   min="0"
                   step="0.01"
                 />
@@ -134,7 +134,7 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                   value={quantity_units}
                   onChange={(e) => setQuantityUnits(e.target.value)}
                   placeholder="e.g., lbs, oz, each"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 />
               </div>
             </div>
