@@ -303,5 +303,12 @@
     "brand_allowed": ["H-E-B", "HEB"],
     "price": 0.98,
     "_source": "user added: H-E-B Three Cheese Shells & Cheese. Shelf tag shows 'Get this free! You save 98¢' so true price is 0.98. Interesting because 'mac and cheese' doesn't appear on the box itself (it's branded 'Shells & Cheese') so it must be inferred as a tag for findability. User could not confidently determine quantity from the photos, so quantity is intentionally left ungraded (no quantity/quantity_allowed key)."
+  },
+  "item_84": {
+    "required_terms": ["basmati", "rice"],
+    "price": 19.98,
+    "quantity": 20,
+    "quantityUnits": "pound",
+    "_source": "user added: Royal Authentic Basmati Rice, 20 LB burlap sack, shelf tag $19.98 (marked down from $21.98)."
   }
 }
