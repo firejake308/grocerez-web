@@ -102,7 +102,7 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
         <h1 className="text-lg font-semibold ml-2">Add Item</h1>
       </header>
 
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 overflow-y-auto">
         <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="space-y-4 bg-white rounded-lg shadow-md p-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Item name</label>
