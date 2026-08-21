@@ -310,5 +310,13 @@
     "quantity": 20,
     "quantityUnits": "pound",
     "_source": "user added: Royal Authentic Basmati Rice, 20 LB burlap sack, shelf tag $19.98 (marked down from $21.98)."
+  },
+  "item_86": {
+    "required_terms": ["sliced cheese"],
+    "brand_allowed": ["Tillamook"],
+    "price": 3.99,
+    "quantity": 9,
+    "quantityUnits": "count",
+    "_source": "user added: Tillamook Colby Jack farmstyle slices. Price tag SKU text says '8CT' but the package itself clearly shows '9 FARMSTYLE SLICES' - user confirmed 9 is correct (tag is wrong/stale), and wants quantity graded as 9 count or 9 slice, not 8 ounce (technically also printed on the tag, but not how the user thinks about sliced cheese). 'count' as quantityUnits already accepts a model saying 'slice' via the existing count-family fallback in quantity_matches, so no quantity_allowed list needed; a model reporting ounce still fails as intended. Price used is the yellow sale/card price ($3.99), not the regular shelf price ($4.99) - user's explicit choice when asked. Tags must contain the literal phrase 'sliced cheese' (not just the two words separately) because AddItemScreen.tsx's handleSearch does a single un-tokenized substring match (searchable(it).includes(q)) against the whole typed query, so a search for 'sliced cheese' only matches if that exact phrase is contiguous somewhere in itemName+brand+tags."
   }
 }
