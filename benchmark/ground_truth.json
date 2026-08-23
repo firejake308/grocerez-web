@@ -327,5 +327,13 @@
     "quantity": 50,
     "quantityUnits": "fluid ounce",
     "_source": "user added: Kroger Clear Liquid Hand Soap. Price tag reads 'KRO ORG CLEAR LQD HND SP 50 FO' - the 'ORG' abbreviates 'Original' (a product-line qualifier), not 'Organic'; the bottle itself says nothing about being organic. 'organic' must not appear anywhere in itemName/brand/tags even though a naive abbreviation-expansion could mistakenly produce it."
+  },
+  "item_90": {
+    "required_terms": ["shredded cheese", "mozzarella"],
+    "brand_allowed": ["Sargento"],
+    "price": 3.34,
+    "quantity": 8,
+    "quantityUnits": "ounce",
+    "_source": "user added: Sargento Whole Milk Mozzarella shredded cheese, 8 OZ. Shelf tag shows a 3/$10.00 sale ($3.34/each with card, matching the printed unit price), so 3.34 is the per-unit price rather than the raw 10.00 multi-buy total or the 2/$7.00 non-card price. Tags must contain the literal phrase 'shredded cheese' (see item_86's note on AddItemScreen.tsx's un-tokenized substring search) plus 'mozzarella' separately."
   }
 }
