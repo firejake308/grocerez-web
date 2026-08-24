@@ -75,9 +75,14 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
     const q = name.trim().toLowerCase();
     if (!q) return setSearchResults([]);
     const matches = priceData ?? [];
+    const queryTokens = tokenize(q);
     const searchable = (it: PriceData) =>
       [it.itemName, it.brand, ...(it.tags ?? [])].filter(Boolean).join(' ').toLowerCase();
-    const filtered = matches.filter(it => it.itemName && searchable(it).includes(q));
+    const filtered = matches.filter(it => {
+      if (!it.itemName) return false;
+      const itemTokens = tokenize(searchable(it));
+      return Array.from(queryTokens).every(token => itemTokens.has(token));
+    });
     const deduped = deduplicateByRecency(filtered);
     deduped.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     setSelectedIndex(deduped.length ? 0 : null);
