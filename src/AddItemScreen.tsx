@@ -57,7 +57,11 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
     const groups: PriceData[][] = [];
     for (const item of items) {
       const key = itemKey(item);
-      const group = groups.find(g => sameBrand(g[0], item) && jaccard(itemKey(g[0]), key) >= 0.5);
+      const group = groups.find(g =>
+        g[0].store === item.store &&
+        sameBrand(g[0], item) &&
+        jaccard(itemKey(g[0]), key) >= 0.5
+      );
       if (group) group.push(item);
       else groups.push([item]);
     }
