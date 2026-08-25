@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { GroceryItem } from './PriceData';
 import PriceData from './PriceData';
+import { filterBySearchQuery, tokenize } from './searchUtils';
 
 const units = [
   'each', 'pack', 'bag', 'box', 'can', 'bottle', 'jar', 'loaf',
@@ -34,9 +35,6 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
     if (days === 1) return '1 day ago';
     return `${days} days ago`;
   };
-
-  const tokenize = (s: string) =>
-    new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
 
   const jaccard = (a: Set<string>, b: Set<string>) => {
     if (a.size === 0 && b.size === 0) return 1;
@@ -72,21 +70,8 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
 
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const q = name.trim().toLowerCase();
-    if (!q) return setSearchResults([]);
     const matches = priceData ?? [];
-    const queryTokens = tokenize(q);
-    const searchable = (it: PriceData) =>
-      [it.itemName, it.brand, ...(it.tags ?? [])].filter(Boolean).join(' ').toLowerCase();
-    const filtered = matches.filter(it => {
-      if (!it.itemName) return false;
-      const itemTokens = Array.from(tokenize(searchable(it)));
-      return Array.from(queryTokens).every(queryToken =>
-        itemTokens.some(itemToken =>
-          queryToken === itemToken || queryToken.startsWith(itemToken) || itemToken.startsWith(queryToken)
-        )
-      );
-    });
+    const filtered = filterBySearchQuery(matches, name);
     const deduped = deduplicateByRecency(filtered);
     deduped.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     setSelectedIndex(deduped.length ? 0 : null);
