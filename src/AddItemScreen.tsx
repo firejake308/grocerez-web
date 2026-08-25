@@ -80,8 +80,12 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
       [it.itemName, it.brand, ...(it.tags ?? [])].filter(Boolean).join(' ').toLowerCase();
     const filtered = matches.filter(it => {
       if (!it.itemName) return false;
-      const itemTokens = tokenize(searchable(it));
-      return Array.from(queryTokens).every(token => itemTokens.has(token));
+      const itemTokens = Array.from(tokenize(searchable(it)));
+      return Array.from(queryTokens).every(queryToken =>
+        itemTokens.some(itemToken =>
+          queryToken === itemToken || queryToken.startsWith(itemToken) || itemToken.startsWith(queryToken)
+        )
+      );
     });
     const deduped = deduplicateByRecency(filtered);
     deduped.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
