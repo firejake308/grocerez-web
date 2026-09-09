@@ -351,5 +351,37 @@
     "quantity": 3,
     "quantityUnits": "pound",
     "_source": "user added: pre-bagged Kroger-brand Cosmic Crisp apples, 3 lb (48 oz) bag, shelf tag 'Cosmic Crisp Apples Kroger 3 lb $7.49'. Companion case to item_92 (same variety, sold loose/bulk by the pound) - user confirmed bulk vs bagged must be enforced: this pre-bagged case requires a 'bagged' tag and forbids 'bulk', distinguishing it from item_92. User doesn't care what brand the model reports."
+  },
+  "item_96": {
+    "required_terms": ["vegetable mix", "frozen", "california"],
+    "brand_allowed": ["Great Value"],
+    "price": 1.16,
+    "quantity": 12,
+    "quantityUnits": "ounce",
+    "_source": "user added: Great Value California Style Vegetable Mix (broccoli, cauliflower, carrots), frozen aisle electronic shelf tag '$1.16, unit price 9.7¢/oz' -> 1.16/0.097 ≈ 12 oz (no net weight visible in the photo, derived from unit price). 'california' required per user."
+  },
+  "item_98": {
+    "required_terms": ["vegetable oil"],
+    "brand_allowed": ["Mazola"],
+    "price": 5.26,
+    "quantity": 40,
+    "quantityUnits": "fluid ounce",
+    "_source": "user added: Mazola Corn Plus (blend of corn and canola oils), 40 FL OZ bottle. Large Texas end-cap signage shows two prices side by side ($5.26 and a partially-cropped second price) above different bottles on the same shelf; user confirmed $5.26 is the correct price for this bottle specifically (not the plain Corn Oil bottle next to it)."
+  },
+  "item_100": {
+    "required_terms": ["peanut butter", "crunchy"],
+    "brand_allowed": ["Jif"],
+    "price": 2.98,
+    "quantity": 15,
+    "quantityUnits": "ounce",
+    "_source": "user added: Jif Simply Crunchy Unsweetened Peanut Butter Spread. Electronic shelf tag 'JF SMP CRUNCHY PB $2.98, unit price 19.9¢/oz' -> 2.98/0.199 ≈ 15 oz (no net weight visible in the photo, derived from unit price). 'crunchy' required per user even though it's normally a flavor/variant word exempted by flavor_variants_not_graded - here the user wants it enforced."
+  },
+  "item_102": {
+    "required_terms": ["sliced cheese", "mozzarella"],
+    "brand_allowed": ["Great Value"],
+    "price": 1.67,
+    "quantity": 12,
+    "quantityUnits": "count",
+    "_source": "user added: Great Value Sliced Mozzarella, Deli Style Low-Moisture Part-Skim, package says '12 SLICES'. Electronic shelf tag 'GV NS MOZZ 8Z $1.67, unit price 20.9¢/oz' -> 1.67/0.209 ≈ 8 oz, consistent with the 8Z on the tag, but per user's explicit preference (same as item_86) quantity is graded in slices: 12 count (which also accepts a model saying 'slice' via the existing count-family fallback), not 8 ounce. Tags must contain the literal phrase 'sliced cheese' (see item_86's note on AddItemScreen.tsx's un-tokenized substring search) plus 'mozzarella' separately."
   }
 }
