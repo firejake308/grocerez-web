@@ -339,19 +339,19 @@
   },
   "item_92": {
     "required_terms": ["cosmic crisp", "apple", "bulk"],
-    "forbidden_terms": ["bagged", "bag"],
+    "forbidden_terms": ["bagged", "bag", "produce"],
     "price": 2.49,
     "quantity": 1,
     "quantityUnits": "pound",
-    "_source": "user added: bulk (loose, unbagged) Cosmic Crisp apples sold by the pound, shelf tag '$2.49 LB'. User doesn't care what brand the model reports (there isn't really one for loose bulk produce). 'cosmic crisp' is vital since other apple varieties in the same bin are priced differently. Companion case to item_94 (same variety, sold pre-bagged) - user confirmed bulk vs bagged must be enforced: this loose-produce case requires a 'bulk' tag and forbids 'bagged'/'bag', distinguishing it from item_94."
+    "_source": "user added: bulk (loose, unbagged) Cosmic Crisp apples sold by the pound, shelf tag '$2.49 LB'. User doesn't care what brand the model reports (there isn't really one for loose bulk produce). 'cosmic crisp' is vital since other apple varieties in the same bin are priced differently. Companion case to item_94 (same variety, sold pre-bagged) - user confirmed bulk vs bagged must be enforced: this loose-produce case requires a 'bulk' tag and forbids 'bagged'/'bag', distinguishing it from item_94. User later added 'produce' as forbidden too - tags that generic aren't something a shopper would actually search for when looking for apples specifically."
   },
   "item_94": {
     "required_terms": ["cosmic crisp", "apple", "bagged"],
-    "forbidden_terms": ["bulk"],
+    "forbidden_terms": ["bulk", "produce"],
     "price": 7.49,
     "quantity": 3,
     "quantityUnits": "pound",
-    "_source": "user added: pre-bagged Kroger-brand Cosmic Crisp apples, 3 lb (48 oz) bag, shelf tag 'Cosmic Crisp Apples Kroger 3 lb $7.49'. Companion case to item_92 (same variety, sold loose/bulk by the pound) - user confirmed bulk vs bagged must be enforced: this pre-bagged case requires a 'bagged' tag and forbids 'bulk', distinguishing it from item_92. User doesn't care what brand the model reports."
+    "_source": "user added: pre-bagged Kroger-brand Cosmic Crisp apples, 3 lb (48 oz) bag, shelf tag 'Cosmic Crisp Apples Kroger 3 lb $7.49'. Companion case to item_92 (same variety, sold loose/bulk by the pound) - user confirmed bulk vs bagged must be enforced: this pre-bagged case requires a 'bagged' tag and forbids 'bulk', distinguishing it from item_92. User doesn't care what brand the model reports. User later added 'produce' as forbidden too - tags that generic aren't something a shopper would actually search for when looking for apples specifically."
   },
   "item_96": {
     "required_terms": ["vegetable mix", "frozen", "california"],
