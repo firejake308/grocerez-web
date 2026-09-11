@@ -57,7 +57,11 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
     const groups: PriceData[][] = [];
     for (const item of items) {
       const key = itemKey(item);
-      const group = groups.find(g => sameBrand(g[0], item) && jaccard(itemKey(g[0]), key) >= 0.5);
+      const group = groups.find(g =>
+        g[0].store === item.store &&
+        sameBrand(g[0], item) &&
+        jaccard(itemKey(g[0]), key) >= 0.5
+      );
       if (group) group.push(item);
       else groups.push([item]);
     }
@@ -102,22 +106,22 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
         <h1 className="text-lg font-semibold ml-2">Add Item</h1>
       </header>
 
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 overflow-y-auto">
         <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="space-y-4 bg-white rounded-lg shadow-md p-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Item name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-200 rounded-md p-2" placeholder="e.g., Bananas" />
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-200 rounded-md p-2 bg-white text-gray-900" placeholder="e.g., Bananas" />
           </div>
 
           <div className="flex space-x-2">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-              <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-full border border-gray-200 rounded-md p-2" />
+              <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-full border border-gray-200 rounded-md p-2 bg-white text-gray-900" />
             </div>
 
             <div className="w-36">
               <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-              <select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full border border-gray-200 rounded-md p-2">
+              <select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full border border-gray-200 rounded-md p-2 bg-white text-gray-900">
                 {units.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -150,7 +154,7 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
                         {r.date && <div className="text-xs text-gray-400">Updated {formatRelativeDate(r.date)}</div>}
                       </div>
                     </div>
-                    <div className="text-sm font-semibold">{r.price.startsWith('$') ? r.price : `$${r.price}`}</div>
+                    <div className="text-sm font-semibold text-gray-800">{r.price.startsWith('$') ? r.price : `$${r.price}`}</div>
                   </label>
                 ))}
                 <div className="pt-3">
