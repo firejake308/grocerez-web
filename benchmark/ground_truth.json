@@ -418,7 +418,7 @@
     "_source": "user added (first non-mac-and-cheese pasta case): Banza Penne Made From Chickpeas, 8 OZ box, shelf tag 'BANZA CHICKPEA PNNE PASTA 8 OZ $3.99'. 'chickpea' required since that's the distinguishing/searchable trait of this pasta (gluten-free, high protein/fiber)."
   },
   "item_112": {
-    "required_terms": ["pasta"],
+    "required_terms": ["pasta", "shell"],
     "brand_allowed": ["Skinner"],
     "price": 1.29,
     "quantity": 12,
