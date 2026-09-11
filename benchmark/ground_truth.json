@@ -383,5 +383,29 @@
     "quantity": 12,
     "quantityUnits": "count",
     "_source": "user added: Great Value Sliced Mozzarella, Deli Style Low-Moisture Part-Skim, package says '12 SLICES'. Electronic shelf tag 'GV NS MOZZ 8Z $1.67, unit price 20.9¢/oz' -> 1.67/0.209 ≈ 8 oz, consistent with the 8Z on the tag, but per user's explicit preference (same as item_86) quantity is graded in slices: 12 count (which also accepts a model saying 'slice' via the existing count-family fallback), not 8 ounce. Tags must contain the literal phrase 'sliced cheese' (see item_86's note on AddItemScreen.tsx's un-tokenized substring search) plus 'mozzarella' separately."
+  },
+  "item_104": {
+    "required_terms": ["toilet paper"],
+    "brand_allowed": ["Scott"],
+    "price": 4.99,
+    "quantity": 4000,
+    "quantityUnits": "count",
+    "_source": "user added: Scott 1000 bath tissue, 4 rolls x 1000 sheets/roll = 4000 sheets total, shelf tag 'SCOTT BATH TISSUE 4 ROLLS $4.99'. Per user's directive, bath tissue/toilet paper is quantified by total sheet count across all rolls (same total-count-of-individual-units convention as the existing tissue/paper-towel rule), not roll count or square footage. quantityUnits 'count' also accepts a model reporting 'sheet' via the existing count-family fallback in quantity_matches. 'toilet paper' required as the generic search term since 'bath tissue' is already covered by the literal itemName."
+  },
+  "item_106": {
+    "required_terms": ["toilet paper"],
+    "brand_allowed": ["Kroger"],
+    "price": 12.99,
+    "quantity": 4104,
+    "quantityUnits": "count",
+    "_source": "user added: Kroger Ultra Strong Premium Bath Tissue, 12 mega rolls x 342 two-ply sheets/roll (printed on package) = 4104 sheets total, shelf tag 'KRO ULTRA STRONG 12 MR 12 ROLLS $12.99'. Same total-sheet-count convention as item_104."
+  },
+  "item_108": {
+    "required_terms": ["toilet paper"],
+    "brand_allowed": ["Quilted Northern"],
+    "price": 6.99,
+    "quantity": 1530,
+    "quantityUnits": "count",
+    "_source": "user added: Quilted Northern Ultra Plush Mega, 6 rolls x 255 3-ply sheets/roll (printed on package) = 1530 sheets total. Shelf tag lists two prices ('Everyday Low Price' 7.99 crossed out and a yellow 'Price Locked Texas-Sized Savings... with Card' 6.99); assumed 6.99 (the current card/sale price) per the same reasoning as item_86 - flag if the regular 7.99 was intended instead. Same total-sheet-count convention as item_104/item_106."
   }
 }
