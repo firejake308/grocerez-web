@@ -34,9 +34,6 @@ MODELS = [
     "openai/gpt-5-nano",
     "meta-llama/llama-4-scout",
     "meta/muse-spark-1.3-contributor",
-    "deepseek/deepseek-v4.1-flash",
-    "stepfun/step-3.7-flash",
-    "qwen/qwen3.7-flash",
 ]
 MODEL_SHORT = {
     "google/gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
@@ -45,9 +42,6 @@ MODEL_SHORT = {
     "openai/gpt-5-nano": "gpt-5-nano",
     "meta-llama/llama-4-scout": "llama-4-scout",
     "meta/muse-spark-1.3-contributor": "muse-spark-1.3",
-    "deepseek/deepseek-v4.1-flash": "deepseek-v4.1-flash",
-    "stepfun/step-3.7-flash": "step-3.7-flash",
-    "qwen/qwen3.7-flash": "qwen3.7-flash",
 }
 
 VOLUME = {"fluid ounce": 1, "cup": 8, "pint": 16, "quart": 32, "gallon": 128,

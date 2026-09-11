@@ -55,9 +55,6 @@ MODELS = [
     "openai/gpt-5-nano",
     "meta-llama/llama-4-scout",
     "meta/muse-spark-1.3-contributor",
-    "deepseek/deepseek-v4.1-flash",
-    "stepfun/step-3.7-flash",
-    "qwen/qwen3.7-flash",
 ]
 
 PROMPT_TEXT = (
