@@ -62,11 +62,11 @@
   },
   "item_28": {
     "required_terms": ["stacy's", "pita", "chips"],
-    "forbidden_terms": ["dip"],
+    "forbidden_terms": ["dip", "hummus"],
     "price": 4.99,
     "quantity": 7.3,
     "quantityUnits": "ounce",
-    "_source": "user corrected. qwen's 'dip' tag is the forbidden case. Quantity varied widely across models (9.5, 7.8, 6, 1 package, 6 count) — none matched 7.3 ounce exactly."
+    "_source": "user corrected. qwen's 'dip' tag is the forbidden case. Quantity varied widely across models (9.5, 7.8, 6, 1 package, 6 count) — none matched 7.3 ounce exactly. User later added 'hummus' as forbidden too, after muse-spark-1.3 tagged this item with both 'dip' and 'hummus' - the photo is just the pita chips themselves, not a chips-and-dip/hummus pairing, so companion-product tags are wrong even though shoppers might buy them together."
   },
   "item_38": {
     "required_terms": ["muffin", "fresh"],
@@ -115,21 +115,20 @@
   },
   "item_16": {
     "required_terms": ["tissues", "lotion"],
-    "forbidden_terms": ["kleenex"],
     "brand_allowed": ["Kroger"],
     "price": 1.79,
     "quantity": 60,
     "quantityUnits": "count",
-    "_source": "user corrected. mistral-small's brand 'Kleenex' is the forbidden case (this is a Kroger store-brand tissue)."
+    "_source": "user corrected. mistral-small's brand 'Kleenex' is the forbidden case (this is a Kroger store-brand tissue) - already independently caught by brand_allowed regardless of tags. User later clarified 'kleenex' is fine as a tag (genericized-trademark search term, same logic as calling store-brand sandwich cookies 'oreos') as long as it isn't reported as the actual brand field - removed 'kleenex' from forbidden_terms since brand_allowed already covers the real violation."
   },
   "item_18": {
     "required_terms": ["tissues"],
-    "forbidden_terms": ["kleenex", "hms"],
+    "forbidden_terms": ["hms"],
     "brand_allowed": ["Kroger"],
     "price": 1.99,
     "quantity": 160,
     "quantityUnits": "count",
-    "_source": "user corrected. mistral-small's brand 'Kleenex' and tag 'kleenex' are the forbidden case. gemini-2.5-flash-lite's itemName 'Kroger HMS FAC FLAT' is raw unexpanded price-tag shorthand (also trips the 'hms' forbidden term) rather than a real product name - separate abbreviation-expansion failure worth watching."
+    "_source": "user corrected. mistral-small's brand 'Kleenex' and tag 'kleenex' were originally the forbidden case; brand is still independently caught by brand_allowed. gemini-2.5-flash-lite's itemName 'Kroger HMS FAC FLAT' is raw unexpanded price-tag shorthand (also trips the 'hms' forbidden term) rather than a real product name - separate abbreviation-expansion failure worth watching. User later clarified 'kleenex' is fine as a tag (genericized-trademark search term) as long as it isn't reported as the actual brand field - removed 'kleenex' from forbidden_terms, kept 'hms'."
   },
   "item_30": {
     "required_terms": ["organic", "blueberries"],
