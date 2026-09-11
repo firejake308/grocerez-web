@@ -408,5 +408,21 @@
     "quantity": 1530,
     "quantityUnits": "count",
     "_source": "user added: Quilted Northern Ultra Plush Mega, 6 rolls x 255 3-ply sheets/roll (printed on package) = 1530 sheets total. Shelf tag lists two prices ('Everyday Low Price' 7.99 crossed out and a yellow 'Price Locked Texas-Sized Savings... with Card' 6.99); assumed 6.99 (the current card/sale price) per the same reasoning as item_86 - flag if the regular 7.99 was intended instead. Same total-sheet-count convention as item_104/item_106."
+  },
+  "item_110": {
+    "required_terms": ["pasta", "chickpea"],
+    "brand_allowed": ["Banza"],
+    "price": 3.99,
+    "quantity": 8,
+    "quantityUnits": "ounce",
+    "_source": "user added (first non-mac-and-cheese pasta case): Banza Penne Made From Chickpeas, 8 OZ box, shelf tag 'BANZA CHICKPEA PNNE PASTA 8 OZ $3.99'. 'chickpea' required since that's the distinguishing/searchable trait of this pasta (gluten-free, high protein/fiber)."
+  },
+  "item_112": {
+    "required_terms": ["pasta"],
+    "brand_allowed": ["Skinner"],
+    "price": 1.29,
+    "quantity": 12,
+    "quantityUnits": "ounce",
+    "_source": "user added: Skinner Medium Shells enriched macaroni product, 12 OZ bag, shelf tag 'SKNR MEDIUM SHELLS 12 OZ' Everyday Low Price $1.29. 'pasta' required as the broader category tag since itemName would already contain 'shells'."
   }
 }
