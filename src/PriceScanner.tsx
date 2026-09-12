@@ -191,7 +191,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
               if (!address) {
                 try {
                   const revRes = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+                    `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`
                   );
                   if (revRes.ok) {
                     const revData = await revRes.json();
@@ -220,7 +220,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
               // No nearby shop nodes found — try reverse geocoding to get house number/road
               try {
                 const revRes = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                  `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${latitude}&lon=${longitude}`
                 );
                 if (revRes.ok) {
                   const revData = await revRes.json();
