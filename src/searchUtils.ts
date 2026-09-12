@@ -1,4 +1,4 @@
-import { PriceData } from './PriceData';
+import PriceData from './PriceData';
 
 export const tokenize = (s: string) =>
   new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
