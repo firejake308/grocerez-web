@@ -33,6 +33,7 @@ MODELS = [
     "google/gemma-4-26b-a4b-it",
     "openai/gpt-5-nano",
     "meta-llama/llama-4-scout",
+    "meta/muse-spark-1.3-contributor",
 ]
 MODEL_SHORT = {
     "google/gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
@@ -40,6 +41,7 @@ MODEL_SHORT = {
     "google/gemma-4-26b-a4b-it": "gemma-4-26b",
     "openai/gpt-5-nano": "gpt-5-nano",
     "meta-llama/llama-4-scout": "llama-4-scout",
+    "meta/muse-spark-1.3-contributor": "muse-spark-1.3",
 }
 
 VOLUME = {"fluid ounce": 1, "cup": 8, "pint": 16, "quart": 32, "gallon": 128,

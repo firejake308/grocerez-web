@@ -55,9 +55,6 @@ MODELS = [
     "openai/gpt-5-nano",
     "meta-llama/llama-4-scout",
     "meta/muse-spark-1.3-contributor",
-    "deepseek/deepseek-v4.1-flash",
-    "stepfun/step-3.7-flash",
-    "qwen/qwen3.7-flash",
 ]
 
 PROMPT_TEXT = (
@@ -67,20 +64,35 @@ PROMPT_TEXT = (
     "Expand all abbreviations in itemName and brand (e.g. 'Org' → 'Organic', 'Chkn' → 'Chicken', 'Stk' → 'Steak', 'Whl' → 'Whole', 'Veg' → 'Vegetable'). "
     "For quantityUnits, always use the full singular unit name (e.g. 'oz' → 'ounce', 'lb' → 'pound', 'fl oz' → 'fluid ounce', 'ct' → 'count', 'pkg' → 'package', 'gal' → 'gallon', 'qt' → 'quart', 'pt' → 'pint'). "
     "For products sold as a multipack of individually-used disposable items (e.g. tissues, wipes, paper towels, diapers, napkins), report quantity as the total count of individual units across the whole package, not the number of boxes/rolls/packs — for example, 4 boxes of tissues at 65 tissues per box is quantity 260 with quantityUnits 'tissue'. Use the count printed per box/roll together with the number of boxes/rolls to compute this total when both are visible; otherwise fall back to the box/roll/pack count. "
-    "The price is normally just the single dollar amount shown as the main price on the tag — report that number as-is. Only divide it when the tag is explicitly advertising a multi-buy deal for multiple separate purchases, phrased like '10/10.00', '3 for $11.11', 'buy 3 get 1 free', or a discount tier — in that case only, compute and report price as the price of a single unit, as a plain decimal number, never a slash, fraction, or the word 'for' (e.g. '10/10.00' becomes 1.00). Do NOT divide the price just because the package itself contains multiple items (e.g. a '4 count' box, a '12 pack', a '4/160 ct' multi-box case) — that count describes the package contents, not a multi-buy price deal, so the full tag price is the answer as long as only one item of that package is being purchased. If the tag lists two prices, such as a regular price and a members-only/loyalty price, pick one of them and use it consistently rather than reporting both. "
+    "The price is normally just the single dollar amount shown as the main price on the tag — report that number as-is. Only divide it when the tag is explicitly advertising a multi-buy deal for multiple separate purchases, phrased like '10/10.00', '3 for $11.11', 'buy 3 get 1 free', or a discount tier — in that case only, compute and report price as the price of a single unit, as a plain decimal number, never a slash, fraction, or the word 'for' (e.g. '10/10.00' becomes 1.00). Do NOT divide the price just because the package itself contains multiple items (e.g. a '4 count' box, a '12 pack', a '4/160 ct' multi-box case) — that count describes the package contents, not a multi-buy price deal, so the full tag price is the answer as long as only one item of that package is being purchased. "
+    "If the tag lists two prices gated by a loyalty card or membership, which one to report depends on whether that card/membership is free: if it's a free loyalty card (e.g. a store's free rewards/plus card, the common case for 'regular price' vs 'price with card' tags), report the lower with-card price. If the discount requires a paid membership on top of otherwise-normal shopping (e.g. a 'Prime member price' shown next to a regular price), report the higher regular, non-member price instead, since most shoppers won't have paid for that membership. At a warehouse club where membership is required just to shop there at all (e.g. Costco, Sam's Club), there is no separate non-member price to choose between — just report whatever single price is shown. "
+    "For loose produce sold by weight with no packaging (e.g. apples piled in a bin, priced per pound), include the tag 'bulk' and do not report a 'bagged' or 'bag' tag. For the same kind of item sold pre-packaged in a bag (e.g. a 3 lb bag of apples), include the tag 'bagged' and do not report a 'bulk' tag. Never include both. "
     "In addition to price, itemName, brand, quantity, and quantityUnits, infer 2-4 tags: lowercase "
     "generic grocery search terms a shopper might type to find this product, based on what kind of "
     "product it is — not text printed on the packaging or price tag. Favor broader category words that "
-    "don't already appear in itemName. For example, a package showing 'Buldak Spicy Ramen' should get "
-    "tags like 'noodles' and 'instant noodles' even though neither word is printed on it; 'Frozen Greek "
-    "Yogurt Bars' should get 'yogurt' and 'frozen dessert'. Return tags as a JSON array of strings. "
+    "don't already appear in itemName. A common, accurate category phrase for how this type of product is "
+    "normally sold (e.g. 'shredded cheese' for a bag of shredded cheese, 'sliced cheese' for deli-style "
+    "cheese slices) is a good tag on its own and should NOT be swapped out for a narrower-sounding "
+    "alternative just to seem more specific (e.g. don't replace 'shredded cheese' with 'italian cheese' or "
+    "'pizza cheese'). The only tags to avoid are whole-department, catch-all words that describe a huge "
+    "swath of unrelated grocery items rather than this product specifically — e.g. 'produce', 'food', "
+    "'grocery', 'snack', 'dairy', or 'beverage' used by themselves. It's fine, and often correct, to use a "
+    "well-known brand name generically as a tag even when the actual brand is a different manufacturer "
+    "(e.g. tagging a store-brand facial tissue 'kleenex', or a store-brand sandwich cookie 'oreo'), since "
+    "shoppers commonly search that way — just don't put that generic name in the brand field itself, which "
+    "should always be the true manufacturer/brand shown on the packaging. Tags must describe only the "
+    "product actually pictured, not other products commonly bought alongside it (e.g. a bag of pita chips "
+    "should not be tagged 'dip' or 'hummus' just because people often eat them together). For example, a "
+    "package showing 'Buldak Spicy Ramen' should get tags like 'noodles' and 'instant noodles' even though "
+    "neither word is printed on it; 'Frozen Greek Yogurt Bars' should get 'yogurt' and 'frozen dessert'. "
+    "Return tags as a JSON array of strings. "
     "Return the data as a JSON object. Skip any fields not clearly visible in either image."
 )
 
 
 def build_pairs():
     pairs = []
-    for n in range(4, 75, 2):  # 4,6,...,74 -> item images (even)
+    for n in range(4, 113, 2):  # 4,6,...,112 -> item images (even)
         item_num = n
         price_num = n + 1
         item_file = IMG_DIR / f"download ({item_num}).jpeg"

@@ -1,204 +1,243 @@
 {
-  "graded_items": 34,
+  "graded_items": 53,
   "model_scores": {
     "google/gemini-2.5-flash-lite": {
-      "overall_score": 0.8654,
-      "n_checks": 104,
+      "overall_score": 0.8477,
+      "n_checks": 174,
       "per_check": {
         "findability": {
-          "score": 0.906,
-          "n": 32,
-          "PASS": 29,
-          "FAIL": 3,
+          "score": 0.804,
+          "n": 51,
+          "PASS": 41,
+          "FAIL": 10,
           "ABSTAIN": 0
         },
         "brand": {
           "score": 1.0,
-          "n": 13,
-          "PASS": 13,
+          "n": 27,
+          "PASS": 27,
           "FAIL": 0,
           "ABSTAIN": 0
         },
         "price": {
-          "score": 0.923,
-          "n": 26,
-          "PASS": 24,
-          "FAIL": 2,
+          "score": 0.933,
+          "n": 45,
+          "PASS": 42,
+          "FAIL": 3,
           "ABSTAIN": 0
         },
         "quantity": {
-          "score": 0.727,
-          "n": 33,
-          "PASS": 24,
-          "FAIL": 9,
-          "ABSTAIN": 0
+          "score": 0.735,
+          "n": 51,
+          "PASS": 36,
+          "FAIL": 12,
+          "ABSTAIN": 3
         }
       }
     },
     "xiaomi/mimo-v2.5": {
-      "overall_score": 0.8558,
-      "n_checks": 104,
+      "overall_score": 0.8161,
+      "n_checks": 174,
       "per_check": {
         "findability": {
-          "score": 0.875,
-          "n": 32,
-          "PASS": 28,
-          "FAIL": 4,
-          "ABSTAIN": 0
+          "score": 0.794,
+          "n": 51,
+          "PASS": 35,
+          "FAIL": 5,
+          "ABSTAIN": 11
         },
         "brand": {
-          "score": 1.0,
-          "n": 13,
-          "PASS": 13,
+          "score": 0.944,
+          "n": 27,
+          "PASS": 24,
           "FAIL": 0,
-          "ABSTAIN": 0
+          "ABSTAIN": 3
         },
         "price": {
-          "score": 0.923,
-          "n": 26,
-          "PASS": 24,
-          "FAIL": 2,
-          "ABSTAIN": 0
+          "score": 0.9,
+          "n": 45,
+          "PASS": 36,
+          "FAIL": 0,
+          "ABSTAIN": 9
         },
         "quantity": {
-          "score": 0.727,
-          "n": 33,
-          "PASS": 24,
+          "score": 0.696,
+          "n": 51,
+          "PASS": 29,
           "FAIL": 9,
-          "ABSTAIN": 0
+          "ABSTAIN": 13
         }
       }
     },
     "google/gemma-4-26b-a4b-it": {
-      "overall_score": 0.8846,
-      "n_checks": 104,
+      "overall_score": 0.8736,
+      "n_checks": 174,
       "per_check": {
         "findability": {
-          "score": 0.875,
-          "n": 32,
-          "PASS": 28,
-          "FAIL": 4,
+          "score": 0.882,
+          "n": 51,
+          "PASS": 45,
+          "FAIL": 6,
           "ABSTAIN": 0
         },
         "brand": {
           "score": 1.0,
-          "n": 13,
-          "PASS": 13,
+          "n": 27,
+          "PASS": 27,
           "FAIL": 0,
           "ABSTAIN": 0
         },
         "price": {
-          "score": 0.923,
-          "n": 26,
-          "PASS": 24,
-          "FAIL": 2,
-          "ABSTAIN": 0
-        },
-        "quantity": {
-          "score": 0.818,
-          "n": 33,
-          "PASS": 27,
-          "FAIL": 6,
-          "ABSTAIN": 0
-        }
-      }
-    },
-    "openai/gpt-5-nano": {
-      "overall_score": 0.8365,
-      "n_checks": 104,
-      "per_check": {
-        "findability": {
-          "score": 0.906,
-          "n": 32,
-          "PASS": 29,
+          "score": 0.933,
+          "n": 45,
+          "PASS": 42,
           "FAIL": 3,
           "ABSTAIN": 0
         },
-        "brand": {
-          "score": 1.0,
-          "n": 13,
-          "PASS": 13,
-          "FAIL": 0,
-          "ABSTAIN": 0
-        },
-        "price": {
-          "score": 1.0,
-          "n": 26,
-          "PASS": 26,
-          "FAIL": 0,
-          "ABSTAIN": 0
-        },
         "quantity": {
-          "score": 0.576,
-          "n": 33,
-          "PASS": 18,
-          "FAIL": 13,
+          "score": 0.745,
+          "n": 51,
+          "PASS": 37,
+          "FAIL": 12,
           "ABSTAIN": 2
         }
       }
     },
-    "meta-llama/llama-4-scout": {
-      "overall_score": 0.8173,
-      "n_checks": 104,
+    "openai/gpt-5-nano": {
+      "overall_score": 0.8534,
+      "n_checks": 174,
       "per_check": {
         "findability": {
-          "score": 0.875,
-          "n": 32,
-          "PASS": 28,
-          "FAIL": 4,
+          "score": 0.853,
+          "n": 51,
+          "PASS": 42,
+          "FAIL": 6,
+          "ABSTAIN": 3
+        },
+        "brand": {
+          "score": 0.944,
+          "n": 27,
+          "PASS": 24,
+          "FAIL": 0,
+          "ABSTAIN": 3
+        },
+        "price": {
+          "score": 0.922,
+          "n": 45,
+          "PASS": 41,
+          "FAIL": 3,
+          "ABSTAIN": 1
+        },
+        "quantity": {
+          "score": 0.745,
+          "n": 51,
+          "PASS": 34,
+          "FAIL": 9,
+          "ABSTAIN": 8
+        }
+      }
+    },
+    "meta-llama/llama-4-scout": {
+      "overall_score": 0.7385,
+      "n_checks": 174,
+      "per_check": {
+        "findability": {
+          "score": 0.745,
+          "n": 51,
+          "PASS": 38,
+          "FAIL": 13,
           "ABSTAIN": 0
         },
         "brand": {
-          "score": 0.923,
-          "n": 13,
-          "PASS": 12,
-          "FAIL": 1,
+          "score": 0.926,
+          "n": 27,
+          "PASS": 25,
+          "FAIL": 2,
           "ABSTAIN": 0
         },
         "price": {
-          "score": 1.0,
-          "n": 26,
-          "PASS": 26,
-          "FAIL": 0,
+          "score": 0.956,
+          "n": 45,
+          "PASS": 43,
+          "FAIL": 2,
           "ABSTAIN": 0
         },
         "quantity": {
-          "score": 0.576,
-          "n": 33,
-          "PASS": 19,
-          "FAIL": 14,
-          "ABSTAIN": 0
+          "score": 0.441,
+          "n": 51,
+          "PASS": 22,
+          "FAIL": 28,
+          "ABSTAIN": 1
+        }
+      }
+    },
+    "meta/muse-spark-1.3-contributor": {
+      "overall_score": 0.9109,
+      "n_checks": 174,
+      "per_check": {
+        "findability": {
+          "score": 0.912,
+          "n": 51,
+          "PASS": 46,
+          "FAIL": 4,
+          "ABSTAIN": 1
+        },
+        "brand": {
+          "score": 0.963,
+          "n": 27,
+          "PASS": 25,
+          "FAIL": 0,
+          "ABSTAIN": 2
+        },
+        "price": {
+          "score": 0.944,
+          "n": 45,
+          "PASS": 42,
+          "FAIL": 2,
+          "ABSTAIN": 1
+        },
+        "quantity": {
+          "score": 0.853,
+          "n": 51,
+          "PASS": 41,
+          "FAIL": 5,
+          "ABSTAIN": 5
         }
       }
     }
   },
   "cost_by_model": {
     "google/gemini-2.5-flash-lite": {
-      "total_cost_usd": 0.005603,
-      "avg_cost_usd": 0.000156
+      "total_cost_usd": 0.0114,
+      "avg_cost_usd": 0.000207
     },
     "xiaomi/mimo-v2.5": {
-      "total_cost_usd": 0.0249,
-      "avg_cost_usd": 0.000692
+      "total_cost_usd": 0.05283,
+      "avg_cost_usd": 0.000961
     },
     "google/gemma-4-26b-a4b-it": {
-      "total_cost_usd": 0.005198,
-      "avg_cost_usd": 0.000144
+      "total_cost_usd": 0.009512,
+      "avg_cost_usd": 0.000173
     },
     "openai/gpt-5-nano": {
-      "total_cost_usd": 0.041544,
-      "avg_cost_usd": 0.001154
+      "total_cost_usd": 0.062987,
+      "avg_cost_usd": 0.001145
     },
     "meta-llama/llama-4-scout": {
-      "total_cost_usd": 0.010314,
-      "avg_cost_usd": 0.000287
+      "total_cost_usd": 0.028212,
+      "avg_cost_usd": 0.000513
+    },
+    "meta/muse-spark-1.3-contributor": {
+      "total_cost_usd": 0.031928,
+      "avg_cost_usd": 0.000581
     }
   },
   "ranked_models": [
+    "meta/muse-spark-1.3-contributor",
     "google/gemma-4-26b-a4b-it",
+    "openai/gpt-5-nano",
     "google/gemini-2.5-flash-lite",
     "xiaomi/mimo-v2.5",
-    "openai/gpt-5-nano",
     "meta-llama/llama-4-scout"
   ]
 }

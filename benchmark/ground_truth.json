@@ -8,7 +8,8 @@
     "punctuation_insensitive_matching": "required_terms/forbidden_terms matching should ignore punctuation (periods, apostrophes, hyphens) as well as case, e.g. 'Dr Pepper' should match 'Dr. Pepper', 'Annie's' should match 'Annies'.",
     "size_qualifiers_in_itemName": "When a pack's individual unit size differs from the standard/default size for that product (e.g. 'mini' cans vs standard cans, 'family size' vs standard box), and quantity/quantityUnits alone can't capture that distinction (e.g. quantity is reported as a pack count rather than volume), the size qualifier word should be required in itemName.",
     "flavor_variants_not_graded": "A wrong flavor/variant word within itemName (e.g. 'Sweet Chili' vs 'Nacho Cheese' for the same product line) is not counted as an error, since different flavors of the same item usually cost the same — only presence of required_terms/forbidden_terms and the other fields (brand, price, quantity) matter.",
-    "unit_equivalence": "quantity/quantityUnits is graded correct if it numerically matches ground truth after converting within the same measurement family, not just on literal unit-string match (e.g. 64 fluid ounce == 0.5 gallon; 1 pound == 16 ounce). Volume family: fluid ounce, cup, pint, quart, gallon, liter, milliliter. Weight family: ounce, pound, gram, kilogram. Count-like units (count, package, pack, can, box) are NOT auto-interchangeable with each other or with volume/weight — those only match via an explicit quantity_allowed list."
+    "unit_equivalence": "quantity/quantityUnits is graded correct if it numerically matches ground truth after converting within the same measurement family, not just on literal unit-string match (e.g. 64 fluid ounce == 0.5 gallon; 1 pound == 16 ounce). Volume family: fluid ounce, cup, pint, quart, gallon, liter, milliliter. Weight family: ounce, pound, gram, kilogram. Count-like units (count, package, pack, can, box) are NOT auto-interchangeable with each other or with volume/weight — those only match via an explicit quantity_allowed list.",
+    "card_or_membership_price": "When a shelf tag shows two prices gated by a loyalty card or membership, which one is ground truth depends on whether that card/membership is free: (1) Free loyalty card (e.g. Kroger Plus Card, most grocery-chain 'with card' tags) - always use the discounted with-card price, since it costs shoppers nothing to have it. (2) Paid membership that unlocks a discount on top of otherwise-normal shopping (e.g. Whole Foods Prime member pricing shown alongside a regular price on the same tag) - use the regular, non-member price, since most shoppers browsing that shelf won't have paid for the membership. (3) Warehouse clubs where membership is required just to shop there at all (Costco, Sam's Club) - there's no side-by-side non-member price to choose between; just use whatever price is shown, since every shopper looking at that tag already has the required membership. Retroactively, this confirms the with-card prices already used for item_86 (Tillamook, 3.99), item_90 (Sargento, 3.34), and item_108 (Quilted Northern, 6.99) - those are free-loyalty-card tags per case (1)."
   },
   "item_06": {
     "itemName_note": "Poppi Classic Cola",
@@ -61,11 +62,11 @@
   },
   "item_28": {
     "required_terms": ["stacy's", "pita", "chips"],
-    "forbidden_terms": ["dip"],
+    "forbidden_terms": ["dip", "hummus"],
     "price": 4.99,
     "quantity": 7.3,
     "quantityUnits": "ounce",
-    "_source": "user corrected. qwen's 'dip' tag is the forbidden case. Quantity varied widely across models (9.5, 7.8, 6, 1 package, 6 count) — none matched 7.3 ounce exactly."
+    "_source": "user corrected. qwen's 'dip' tag is the forbidden case. Quantity varied widely across models (9.5, 7.8, 6, 1 package, 6 count) — none matched 7.3 ounce exactly. User later added 'hummus' as forbidden too, after muse-spark-1.3 tagged this item with both 'dip' and 'hummus' - the photo is just the pita chips themselves, not a chips-and-dip/hummus pairing, so companion-product tags are wrong even though shoppers might buy them together."
   },
   "item_38": {
     "required_terms": ["muffin", "fresh"],
@@ -114,21 +115,20 @@
   },
   "item_16": {
     "required_terms": ["tissues", "lotion"],
-    "forbidden_terms": ["kleenex"],
     "brand_allowed": ["Kroger"],
     "price": 1.79,
     "quantity": 60,
     "quantityUnits": "count",
-    "_source": "user corrected. mistral-small's brand 'Kleenex' is the forbidden case (this is a Kroger store-brand tissue)."
+    "_source": "user corrected. mistral-small's brand 'Kleenex' is the forbidden case (this is a Kroger store-brand tissue) - already independently caught by brand_allowed regardless of tags. User later clarified 'kleenex' is fine as a tag (genericized-trademark search term, same logic as calling store-brand sandwich cookies 'oreos') as long as it isn't reported as the actual brand field - removed 'kleenex' from forbidden_terms since brand_allowed already covers the real violation."
   },
   "item_18": {
     "required_terms": ["tissues"],
-    "forbidden_terms": ["kleenex", "hms"],
+    "forbidden_terms": ["hms"],
     "brand_allowed": ["Kroger"],
     "price": 1.99,
     "quantity": 160,
     "quantityUnits": "count",
-    "_source": "user corrected. mistral-small's brand 'Kleenex' and tag 'kleenex' are the forbidden case. gemini-2.5-flash-lite's itemName 'Kroger HMS FAC FLAT' is raw unexpanded price-tag shorthand (also trips the 'hms' forbidden term) rather than a real product name - separate abbreviation-expansion failure worth watching."
+    "_source": "user corrected. mistral-small's brand 'Kleenex' and tag 'kleenex' were originally the forbidden case; brand is still independently caught by brand_allowed. gemini-2.5-flash-lite's itemName 'Kroger HMS FAC FLAT' is raw unexpanded price-tag shorthand (also trips the 'hms' forbidden term) rather than a real product name - separate abbreviation-expansion failure worth watching. User later clarified 'kleenex' is fine as a tag (genericized-trademark search term) as long as it isn't reported as the actual brand field - removed 'kleenex' from forbidden_terms, kept 'hms'."
   },
   "item_30": {
     "required_terms": ["organic", "blueberries"],
@@ -273,5 +273,155 @@
     "quantity": 18,
     "quantityUnits": "ounce",
     "_source": "user corrected. mistral-small's 'organic' tag is the forbidden case (also wrong on quantity: 1 pound instead of 18 ounce); qwen also wrong on price/quantity (5.19, 16 oz)."
+  },
+  "item_76": {
+    "required_terms": ["30", "oz"],
+    "brand_allowed": ["Owala"],
+    "price": 34.99,
+    "quantity": 1,
+    "quantityUnits": "count",
+    "_source": "user added: Owala FreeSip 30oz bottle (Peachy colorway), Target price tag 34.99, 1 count."
+  },
+  "item_78": {
+    "required_terms": ["dawn", "dish soap"],
+    "price": 9.94,
+    "quantity_allowed": [
+      {"quantity": 38, "quantityUnits": "ounce"},
+      {"quantity": 38, "quantityUnits": "fluid ounce"}
+    ],
+    "_source": "user added: Dawn Platinum Plus Power Suds Fresh Rain, 38 OZ, $9.94."
+  },
+  "item_80": {
+    "required_terms": ["ice", "breakers", "gum"],
+    "price": 3.82,
+    "quantity": 40,
+    "quantityUnits": "count",
+    "_source": "user added: Ice Breakers Ice Cubes Bubble Breeze gum, shelf tag says $4.82 but a hanging coupon reads '$1 off Ice Breakers Ice Cubes Gum Bottle, 40 ct, assorted varieties', so true price is 4.82 - 1.00 = 3.82. Tests whether the model applies the coupon rather than reporting the raw shelf price. 'ice'/'breakers' may appear as one word ('IceBreakers') or two."
+  },
+  "item_82": {
+    "required_terms": ["three cheese", "shells", "mac and cheese"],
+    "brand_allowed": ["H-E-B", "HEB"],
+    "price": 0.98,
+    "_source": "user added: H-E-B Three Cheese Shells & Cheese. Shelf tag shows 'Get this free! You save 98¢' so true price is 0.98. Interesting because 'mac and cheese' doesn't appear on the box itself (it's branded 'Shells & Cheese') so it must be inferred as a tag for findability. User could not confidently determine quantity from the photos, so quantity is intentionally left ungraded (no quantity/quantity_allowed key)."
+  },
+  "item_84": {
+    "required_terms": ["basmati", "rice"],
+    "price": 19.98,
+    "quantity": 20,
+    "quantityUnits": "pound",
+    "_source": "user added: Royal Authentic Basmati Rice, 20 LB burlap sack, shelf tag $19.98 (marked down from $21.98)."
+  },
+  "item_86": {
+    "required_terms": ["sliced cheese"],
+    "brand_allowed": ["Tillamook"],
+    "price": 3.99,
+    "quantity": 9,
+    "quantityUnits": "count",
+    "_source": "user added: Tillamook Colby Jack farmstyle slices. Price tag SKU text says '8CT' but the package itself clearly shows '9 FARMSTYLE SLICES' - user confirmed 9 is correct (tag is wrong/stale), and wants quantity graded as 9 count or 9 slice, not 8 ounce (technically also printed on the tag, but not how the user thinks about sliced cheese). 'count' as quantityUnits already accepts a model saying 'slice' via the existing count-family fallback in quantity_matches, so no quantity_allowed list needed; a model reporting ounce still fails as intended. Price used is the yellow sale/card price ($3.99), not the regular shelf price ($4.99) - user's explicit choice when asked. Tags must contain the literal phrase 'sliced cheese' (not just the two words separately) because AddItemScreen.tsx's handleSearch does a single un-tokenized substring match (searchable(it).includes(q)) against the whole typed query, so a search for 'sliced cheese' only matches if that exact phrase is contiguous somewhere in itemName+brand+tags."
+  },
+  "item_88": {
+    "required_terms": ["hand soap"],
+    "forbidden_terms": ["organic"],
+    "brand_allowed": ["Kroger"],
+    "price": 3.29,
+    "quantity": 50,
+    "quantityUnits": "fluid ounce",
+    "_source": "user added: Kroger Clear Liquid Hand Soap. Price tag reads 'KRO ORG CLEAR LQD HND SP 50 FO' - the 'ORG' abbreviates 'Original' (a product-line qualifier), not 'Organic'; the bottle itself says nothing about being organic. 'organic' must not appear anywhere in itemName/brand/tags even though a naive abbreviation-expansion could mistakenly produce it."
+  },
+  "item_90": {
+    "required_terms": ["shredded cheese", "mozzarella"],
+    "brand_allowed": ["Sargento"],
+    "price": 3.34,
+    "quantity": 8,
+    "quantityUnits": "ounce",
+    "_source": "user added: Sargento Whole Milk Mozzarella shredded cheese, 8 OZ. Shelf tag shows a 3/$10.00 sale ($3.34/each with card, matching the printed unit price), so 3.34 is the per-unit price rather than the raw 10.00 multi-buy total or the 2/$7.00 non-card price. Tags must contain the literal phrase 'shredded cheese' (see item_86's note on AddItemScreen.tsx's un-tokenized substring search) plus 'mozzarella' separately."
+  },
+  "item_92": {
+    "required_terms": ["cosmic crisp", "apple", "bulk"],
+    "forbidden_terms": ["bagged", "bag", "produce"],
+    "price": 2.49,
+    "quantity": 1,
+    "quantityUnits": "pound",
+    "_source": "user added: bulk (loose, unbagged) Cosmic Crisp apples sold by the pound, shelf tag '$2.49 LB'. User doesn't care what brand the model reports (there isn't really one for loose bulk produce). 'cosmic crisp' is vital since other apple varieties in the same bin are priced differently. Companion case to item_94 (same variety, sold pre-bagged) - user confirmed bulk vs bagged must be enforced: this loose-produce case requires a 'bulk' tag and forbids 'bagged'/'bag', distinguishing it from item_94. User later added 'produce' as forbidden too - tags that generic aren't something a shopper would actually search for when looking for apples specifically."
+  },
+  "item_94": {
+    "required_terms": ["cosmic crisp", "apple", "bagged"],
+    "forbidden_terms": ["bulk", "produce"],
+    "price": 7.49,
+    "quantity": 3,
+    "quantityUnits": "pound",
+    "_source": "user added: pre-bagged Kroger-brand Cosmic Crisp apples, 3 lb (48 oz) bag, shelf tag 'Cosmic Crisp Apples Kroger 3 lb $7.49'. Companion case to item_92 (same variety, sold loose/bulk by the pound) - user confirmed bulk vs bagged must be enforced: this pre-bagged case requires a 'bagged' tag and forbids 'bulk', distinguishing it from item_92. User doesn't care what brand the model reports. User later added 'produce' as forbidden too - tags that generic aren't something a shopper would actually search for when looking for apples specifically."
+  },
+  "item_96": {
+    "required_terms": ["vegetable mix", "frozen", "california"],
+    "brand_allowed": ["Great Value"],
+    "price": 1.16,
+    "quantity": 12,
+    "quantityUnits": "ounce",
+    "_source": "user added: Great Value California Style Vegetable Mix (broccoli, cauliflower, carrots), frozen aisle electronic shelf tag '$1.16, unit price 9.7¢/oz' -> 1.16/0.097 ≈ 12 oz (no net weight visible in the photo, derived from unit price). 'california' required per user."
+  },
+  "item_98": {
+    "required_terms": ["vegetable oil"],
+    "brand_allowed": ["Mazola"],
+    "price": 5.26,
+    "quantity": 40,
+    "quantityUnits": "fluid ounce",
+    "_source": "user added: Mazola Corn Plus (blend of corn and canola oils), 40 FL OZ bottle. Large Texas end-cap signage shows two prices side by side ($5.26 and a partially-cropped second price) above different bottles on the same shelf; user confirmed $5.26 is the correct price for this bottle specifically (not the plain Corn Oil bottle next to it)."
+  },
+  "item_100": {
+    "required_terms": ["peanut butter", "crunchy"],
+    "brand_allowed": ["Jif"],
+    "price": 2.98,
+    "quantity": 15,
+    "quantityUnits": "ounce",
+    "_source": "user added: Jif Simply Crunchy Unsweetened Peanut Butter Spread. Electronic shelf tag 'JF SMP CRUNCHY PB $2.98, unit price 19.9¢/oz' -> 2.98/0.199 ≈ 15 oz (no net weight visible in the photo, derived from unit price). 'crunchy' required per user even though it's normally a flavor/variant word exempted by flavor_variants_not_graded - here the user wants it enforced."
+  },
+  "item_102": {
+    "required_terms": ["sliced cheese", "mozzarella"],
+    "brand_allowed": ["Great Value"],
+    "price": 1.67,
+    "quantity": 12,
+    "quantityUnits": "count",
+    "_source": "user added: Great Value Sliced Mozzarella, Deli Style Low-Moisture Part-Skim, package says '12 SLICES'. Electronic shelf tag 'GV NS MOZZ 8Z $1.67, unit price 20.9¢/oz' -> 1.67/0.209 ≈ 8 oz, consistent with the 8Z on the tag, but per user's explicit preference (same as item_86) quantity is graded in slices: 12 count (which also accepts a model saying 'slice' via the existing count-family fallback), not 8 ounce. Tags must contain the literal phrase 'sliced cheese' (see item_86's note on AddItemScreen.tsx's un-tokenized substring search) plus 'mozzarella' separately."
+  },
+  "item_104": {
+    "required_terms": ["toilet paper"],
+    "brand_allowed": ["Scott"],
+    "price": 4.99,
+    "quantity": 4000,
+    "quantityUnits": "count",
+    "_source": "user added: Scott 1000 bath tissue, 4 rolls x 1000 sheets/roll = 4000 sheets total, shelf tag 'SCOTT BATH TISSUE 4 ROLLS $4.99'. Per user's directive, bath tissue/toilet paper is quantified by total sheet count across all rolls (same total-count-of-individual-units convention as the existing tissue/paper-towel rule), not roll count or square footage. quantityUnits 'count' also accepts a model reporting 'sheet' via the existing count-family fallback in quantity_matches. 'toilet paper' required as the generic search term since 'bath tissue' is already covered by the literal itemName."
+  },
+  "item_106": {
+    "required_terms": ["toilet paper"],
+    "brand_allowed": ["Kroger"],
+    "price": 12.99,
+    "quantity": 4104,
+    "quantityUnits": "count",
+    "_source": "user added: Kroger Ultra Strong Premium Bath Tissue, 12 mega rolls x 342 two-ply sheets/roll (printed on package) = 4104 sheets total, shelf tag 'KRO ULTRA STRONG 12 MR 12 ROLLS $12.99'. Same total-sheet-count convention as item_104."
+  },
+  "item_108": {
+    "required_terms": ["toilet paper"],
+    "brand_allowed": ["Quilted Northern"],
+    "price": 6.99,
+    "quantity": 1530,
+    "quantityUnits": "count",
+    "_source": "user added: Quilted Northern Ultra Plush Mega, 6 rolls x 255 3-ply sheets/roll (printed on package) = 1530 sheets total. Shelf tag lists two prices ('Everyday Low Price' 7.99 crossed out and a yellow 'Price Locked Texas-Sized Savings... with Card' 6.99); assumed 6.99 (the current card/sale price) per the same reasoning as item_86 - flag if the regular 7.99 was intended instead. Same total-sheet-count convention as item_104/item_106."
+  },
+  "item_110": {
+    "required_terms": ["pasta", "chickpea"],
+    "brand_allowed": ["Banza"],
+    "price": 3.99,
+    "quantity": 8,
+    "quantityUnits": "ounce",
+    "_source": "user added (first non-mac-and-cheese pasta case): Banza Penne Made From Chickpeas, 8 OZ box, shelf tag 'BANZA CHICKPEA PNNE PASTA 8 OZ $3.99'. 'chickpea' required since that's the distinguishing/searchable trait of this pasta (gluten-free, high protein/fiber)."
+  },
+  "item_112": {
+    "required_terms": ["pasta", "shell"],
+    "brand_allowed": ["Skinner"],
+    "price": 1.29,
+    "quantity": 12,
+    "quantityUnits": "ounce",
+    "_source": "user added: Skinner Medium Shells enriched macaroni product, 12 OZ bag, shelf tag 'SKNR MEDIUM SHELLS 12 OZ' Everyday Low Price $1.29. 'pasta' required as the broader category tag since itemName would already contain 'shells'."
   }
 }
