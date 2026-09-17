@@ -799,6 +799,9 @@ moved to `src/normalizePriceData.ts` so the id migration is tested against
 the real export; the benchmark prompt in `benchmark/scripts/run_benchmark.py`
 was deliberately left unchanged (it would change published results) and
 now lags the app prompt by the two sale sentences.
+- **To do:** update `benchmark/scripts/run_benchmark.py` (and re-run) to
+  cover the new `isSale`/`saleEndDate` fields, so the benchmark prompt and
+  scoring catch up to the app prompt and stop drifting.
 - Add `id` / `updatedAt` / `origin` to `PriceData` with a load-time
   migration; switch edit/delete from array index to id.
 - Extract `tokenize` and the prefix rule into `shared/normalize.ts`; add
