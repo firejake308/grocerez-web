@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { filterBySearchQuery, tokenize } from './searchUtils';
-import { PriceData } from './PriceData';
+import PriceData from './PriceData';
+
+type Fixture = Omit<PriceData, 'id' | 'updatedAt' | 'priceImage' | 'productImage'>;
+const withIds = (rows: Fixture[]): PriceData[] =>
+  rows.map((row, i) => ({
+    id: `test-${i}`,
+    updatedAt: `${row.date}T00:00:00.000Z`,
+    priceImage: null,
+    productImage: null,
+    ...row,
+  }));
 
 describe('tokenize', () => {
   it('converts to lowercase and splits by whitespace', () => {
@@ -19,7 +29,7 @@ describe('tokenize', () => {
 });
 
 describe('filterBySearchQuery', () => {
-  const mockData: PriceData[] = [
+  const mockData: PriceData[] = withIds([
     {
       price: '3.49',
       store: 'Kroger @ 9150 North Tarrant Parkway',
@@ -104,7 +114,7 @@ describe('filterBySearchQuery', () => {
       latitude: null,
       longitude: null,
     },
-  ];
+  ]);
 
   it('finds items by exact word match', () => {
     const results = filterBySearchQuery(mockData, 'eggs');

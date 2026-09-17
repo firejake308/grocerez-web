@@ -20,6 +20,10 @@ interface ProductDetailsProps {
   setQuantityUnits: (units: string) => void;
   brand: string;
   setBrand: (brand: string) => void;
+  isSale: boolean;
+  setIsSale: (isSale: boolean) => void;
+  expiresAt: string | null;
+  setExpiresAt: (expiresAt: string | null) => void;
 }
 
 const ProductDetails: React.FC<ProductDetailsProps> = ({ 
@@ -41,7 +45,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   quantity_units,
   setQuantityUnits,
   brand,
-  setBrand
+  setBrand,
+  isSale,
+  setIsSale,
+  expiresAt,
+  setExpiresAt
 }) => {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -145,6 +153,32 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 />
               </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isSale}
+                  onChange={(e) => setIsSale(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Sale or promotional price
+              </label>
+              {isSale && (
+                <div className="mt-2">
+                  <label htmlFor="expiresAt" className="block text-sm font-medium text-gray-700 mb-1">
+                    Sale ends (optional)
+                  </label>
+                  <input
+                    type="date"
+                    id="expiresAt"
+                    value={expiresAt ?? ''}
+                    onChange={(e) => setExpiresAt(e.target.value || null)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

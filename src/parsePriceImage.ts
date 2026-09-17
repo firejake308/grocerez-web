@@ -1,22 +1,35 @@
 import PriceData from './PriceData';
 
+interface OpenRouterResponse {
+  choices?: { message?: { content?: string } }[];
+  error?: { message: string };
+}
+
+/** Fields the scanner fills from the two photos. The rest of PriceData is added on save. */
+export type ParsedPriceScan = Pick<
+  PriceData,
+  'price' | 'store' | 'priceImage' | 'productImage' | 'itemName' | 'brand' | 'tags' | 'quantity' | 'quantity_units'
+> & { isSale: boolean; expiresAt: string | null };
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * Uses an API call to OpenRouter to parse a price image and extract relevant data.
  * @param priceImageData Base64 encoded price image data
  * @param productImageData Base64 encoded product image data
  * @returns Parsed price data as a PriceData object
  */
-export async function parsePriceImage(priceImageData: string, productImageData: string) {
+export async function parsePriceImage(priceImageData: string, productImageData: string): Promise<ParsedPriceScan> {
   const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
   if (!OPENROUTER_API_KEY) {
     throw new Error("OPENROUTER_API_KEY is not defined in the environment variables.");
   }
 
-  let data;
+  let data: OpenRouterResponse;
   if (import.meta.env.DEV) {
     // Use mock data in development
     console.log("Using mock data for price image parsing");
-    data = await new Promise<any>(resolve => {
+    data = await new Promise<OpenRouterResponse>(resolve => {
       setTimeout(() => {
         resolve({
           choices: [
@@ -74,6 +87,8 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
                   + "package showing 'Buldak Spicy Ramen' should get tags like 'noodles' and 'instant noodles' even though "
                   + "neither word is printed on it; 'Frozen Greek Yogurt Bars' should get 'yogurt' and 'frozen dessert'. "
                   + "Return tags as a JSON array of strings. "
+                  + "If the tag shows a sale, promotional, or temporarily reduced price (words like 'sale', 'special', 'save', a crossed-out regular price, or a date range), set isSale to true; otherwise set it to false. "
+                  + "If a sale end date is printed on the tag, report it as saleEndDate in YYYY-MM-DD form; if no end date is visible, omit saleEndDate. "
                   + "Return the data as a JSON object. Skip any fields not clearly visible in either image."
               },
               {
@@ -136,8 +151,12 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
     return rawPrice as string | number;
   };
 
+  const saleEndDate = typeof parsedJSON.saleEndDate === 'string' && DATE_ONLY.test(parsedJSON.saleEndDate)
+    ? parsedJSON.saleEndDate
+    : null;
+
   return {
-    price: parsePrice(parsedJSON.price) || "",
+    price: String(parsePrice(parsedJSON.price) || ""),
     store: "",
     // I choose to ignore date because we'll set it after the user is done editing
     priceImage: priceImageData,
@@ -146,6 +165,8 @@ export async function parsePriceImage(priceImageData: string, productImageData: 
     brand: parsedJSON.brand || "",
     tags: parseTags(parsedJSON.tags),
     quantity: parsedJSON.quantity || 1,
-    quantity_units: parsedJSON.quantityUnits || "unit"
-  } as PriceData;
+    quantity_units: parsedJSON.quantityUnits || "unit",
+    isSale: parsedJSON.isSale === true || saleEndDate !== null,
+    expiresAt: saleEndDate,
+  };
 }

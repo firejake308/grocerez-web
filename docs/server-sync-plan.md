@@ -792,7 +792,13 @@ afternoon, and Overpass stays home behind the same tunnel.
 
 ## 14. Phases
 
-**Phase 0: groundwork (client only, no server yet)**
+**Phase 0: groundwork (client only, no server yet)** — done on this branch.
+Notes from implementation: `shared/` holds `normalize.ts`, `units.ts`,
+`price.ts`, and `ids.ts` with fixture-backed tests; `normalizePriceData`
+moved to `src/normalizePriceData.ts` so the id migration is tested against
+the real export; the benchmark prompt in `benchmark/scripts/run_benchmark.py`
+was deliberately left unchanged (it would change published results) and
+now lags the app prompt by the two sale sentences.
 - Add `id` / `updatedAt` / `origin` to `PriceData` with a load-time
   migration; switch edit/delete from array index to id.
 - Extract `tokenize` and the prefix rule into `shared/normalize.ts`; add

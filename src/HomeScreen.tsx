@@ -107,8 +107,8 @@ const HomeScreen = ({
             <p className="text-gray-500 text-center py-2">No price scans yet</p>
           ) : (
             <div className="space-y-2">
-              {priceData.slice(-3).map((item, index) => (
-              <div key={index} className="p-2 border-b border-gray-100 flex flex-col">
+              {priceData.slice(-3).map((item) => (
+              <div key={item.id} className="p-2 border-b border-gray-100 flex flex-col">
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-700">{item.itemName}</span>
                   <span className="font-bold text-gray-900">{item.price.charAt(0) === '$' ? item.price : '$' + item.price}</span>

@@ -3,6 +3,7 @@ import { Camera, ArrowLeft } from 'lucide-react';
 import PriceData from './PriceData';
 import ProductDetails from './ProductDetails';
 import { parsePriceImage } from './parsePriceImage';
+import { newReportId } from '../shared/ids';
 
 interface OverpassNode {
   lat?: number;
@@ -36,6 +37,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
   const [quantity_units, setQuantityUnits] = useState('each');
   const [isPriceProcessingComplete, setIsPriceProcessingComplete] = useState(false);
   const [brand, setBrand] = useState('');
+  const [isSale, setIsSale] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
   
   // Camera refs
@@ -134,6 +137,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       setTags(data.tags.join(', '));
       setQuantity(data.quantity);
       setQuantityUnits(data.quantity_units);
+      setIsSale(data.isSale);
+      setExpiresAt(data.expiresAt);
       setIsPriceProcessingComplete(true);
       setScanStep('details');
     } catch (error) {
@@ -311,6 +316,11 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     
     if (scannedPrice && productImage && storeLocation) {
       const completeData: PriceData = {
+        id: newReportId(),
+        updatedAt: new Date().toISOString(),
+        origin: 'mine',
+        isSale,
+        expiresAt: isSale ? expiresAt : null,
         price: scannedPrice,
         store: storeLocation,
         date: new Date().toISOString().split('T')[0],
@@ -506,6 +516,10 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       setQuantityUnits={setQuantityUnits}
       brand={brand}
       setBrand={setBrand}
+      isSale={isSale}
+      setIsSale={setIsSale}
+      expiresAt={expiresAt}
+      setExpiresAt={setExpiresAt}
     />;
   }
 
