@@ -138,6 +138,10 @@ for now (`currency` column present, defaulted, not yet exposed).
 
 **subscriptions**: `user_id`, `provider`, `provider_ref`, `status`, `current_period_end`
 
+**free_tier_products**: `region_key`, `product_id`, `rank`, `entered_at`, `computed_at`
+
+**contribution_credits**: `user_id`, `report_id`, `earned_at`, `revoked_at`
+
 **stores**
 - `id`, `name` (chain/display name, e.g. "Kroger"), `address`, `lat`, `lon`
 - `chain_key` (normalized, aliased chain name); `is_chain_level` (true when
@@ -204,29 +208,89 @@ mailbox is deferred (Phase 4).
 
 ### 6.2 Device identity for anonymous users
 
-Users who never sign in still hit the server once the AI-parse proxy exists
-(Phase 3), because every scan costs money. So the client also keeps a
-**device token** (`POST /api/devices/register`, no email) used only for
-rate limiting and abuse control. Signing in links the device to the account.
-No reports are accepted from a device token alone.
+Users who never sign in still use the server: they pull the free tier
+(6.3) and, from Phase 3, every scan they take runs through the AI-parse
+proxy and costs money. So the client keeps a **device token**
+(`POST /api/devices/register`, no email) that identifies the device for
+free-tier pulls, per-device daily parse caps (your item 9), and abuse
+control. Signing in links the device to the account. No reports or votes
+are accepted from a device token alone.
 
-### 6.3 Entitlements (the paywall hook)
+### 6.3 Entitlements: a public free tier plus a subscription
 
-Modeled now, enforced later:
+Decision (yours, item 11): the free experience must work for people who
+never sign in, and it is limited to the **top 20–30 products**; everything
+else needs a subscription.
+
+Three access levels, checked on every pull:
+
+| Level | Who | What pull returns |
+|---|---|---|
+| `public` | Device token only, no email | Full reports for products in the free set; for every other product a **locked summary** (product name, size, how many stores and reports nearby, newest date) with no prices |
+| `contributor` | Signed in, earned access this month (6.3.2) | Everything |
+| `subscriber` | Signed in, active Stripe subscription | Everything |
+
+Signed-in users without a subscription or contributor credit get the
+`public` level; signing in by itself unlocks pushing, voting, and earning
+credit, not the full dataset. Push always requires sign-in because trust
+scoring, flag resolution, and contributor credit all need a durable
+identity. Push is never gated by payment.
+
+The locked summaries are the upsell: searching "olipop" as a public user
+shows "4 prices at 3 stores near you, newest 2 days ago" with a subscribe
+button instead of nothing. The server never sends a locked price, so the
+client cannot be patched around it.
+
+#### 6.3.1 The free set
+
+- `free_tier_products` (`region_key`, `product_id`, `rank`, `computed_at`),
+  recomputed nightly per region (the same 0.1° cell + radius key as the
+  pull cursor) by `distinct_reporters × distinct_stores` over the last 90
+  days, taking the top `FREE_TIER_PRODUCT_COUNT` (default 25).
+- Ranking by reporters × stores rather than raw report count keeps one
+  user's repeated scans of the same item from dominating the free set.
+- A product stays in the set for at least 7 days after entering it so the
+  free tier does not visibly churn day to day.
+- Early on, when a region has fewer than 25 products, the free set is
+  simply everything there, which is the right behavior for a dataset that
+  needs seeding.
+- Alternative kept in reserve: a curated staples list by tag (`milk`,
+  `eggs`, `bread`, `bananas`). Not chosen because tags are not products;
+  it can be layered on as a manual override column later.
+
+#### 6.3.2 Contributor credit (item 10)
+
+Verified, non-redundant reports earn access without paying. A report earns
+one credit only when **all** of these hold:
+
+- **Non-redundant**: it is the first report for its (product, store) pair
+  in the last 30 days, or its price differs from the pair's current price
+  by at least 5%. A second scan of the same shelf tag the same week earns
+  nothing. Reports collapsed by the duplicate rule in 9.4 earn nothing.
+- **Verified**: it has a confirmation from a distinct user, or it has been
+  active and unflagged for 14 days. Credit is therefore always delayed by
+  up to two weeks, which is also how long a spammer has to wait to find
+  out their reports earned nothing.
+- **From a user in good standing**: trust tier `established` or better,
+  and the report is not `hidden` or `price_outlier`.
+- **Under the daily cap**: at most `CREDIT_DAILY_CAP` (default 10) credits
+  per user per day, so bulk uploads of a fabricated list cannot buy a year
+  of access in an afternoon.
+
+`contribution_credits` (`user_id`, `report_id`, `earned_at`, `revoked_at`).
+A user has `contributor` access for any month in which they hold at least
+`CREDITS_PER_MONTH` (default 15) unrevoked credits earned in the trailing
+30 days. An upheld flag revokes the credit and re-evaluates access on the
+next pull. The account screen shows "12 of 15 credits this month" so the
+incentive is visible.
+
+#### 6.3.3 Subscription
 
 - `users.plan`: `free` | `paid`; `users.plan_expires_at`.
 - `subscriptions`: `user_id`, `provider` (`stripe`), `provider_ref`,
   `status`, `current_period_end`. Written by a Stripe webhook in Phase 3.
-- Every account starts with a configurable free window
-  (`FREE_PULLS_PER_MONTH` or `FREE_TRIAL_DAYS`, whichever you pick).
-- `GET /api/sync/pull` returns **402 Payment Required** with
-  `{ reason, upgradeUrl }` when the entitlement has lapsed. Push is never
-  gated: contributions are always accepted, because they are the product.
-- The client shows the community cache it already has (read-only, marked
-  as "not updating") and an upgrade prompt.
-
-Open product question (decision 10 in section 15): whether active
-contributors earn free access.
+- Gating is behind a single `ENTITLEMENTS_ENFORCED` flag, off in Phase 1
+  and 2 so the seed users see everything, on in Phase 3 with Stripe.
 
 ### 6.4 Data the server holds about a person
 
@@ -264,6 +328,10 @@ Push: `POST /api/sync/push` with `{ reports: PriceReportUpsert[] }`.
 
 Pull: `GET /api/sync/pull?since=<seq>&lat=&lon=&radiusMi=50&limit=500`.
 Geo-scoped from day one (your decision 4).
+- Authenticated by a session token or a device token; the access level
+  (6.3) decides whether prices outside the free set are returned or
+  replaced by locked summaries. The response carries `accessLevel` so the
+  client can render the right badges and upsell.
 - `lat`/`lon` are required; `radiusMi` defaults to 50 and is capped at 100.
 - Returns reports whose resolved store lies inside the circle and whose
   `seq > since`, including hidden/deleted state changes so the client can
@@ -284,7 +352,8 @@ Geo-scoped from day one (your decision 4).
   the pull when that approximate point is inside the circle and are shown
   with a "location approximate" hint.
 - Community reports are cached in a separate `localStorage` key and are
-  read-only in the UI.
+  read-only in the UI. Locked summaries are cached alongside them (names
+  and counts only) so search can show the teaser offline.
 - Server-side the filter is a bounding-box prequery on `stores.lat/lon`
   (indexed) followed by a haversine check. SQLite handles this fine at
   this scale; no spatial extension needed.
@@ -367,6 +436,14 @@ Decision:
 A brand mismatch (`brand = 0`) rejects the candidate unless the brand word
 appears in the other side's name tokens (handles `brand: "Oreo"` vs
 `itemName: "Oreo Double Stuf", brand: ""`).
+
+**Produce rule** (your decision 8): when either side carries a produce tag
+(`produce`, `fruit`, `vegetable`, `berries`, `apples`, `bulk`, `bagged`, or
+a name token from a short produce vocabulary), brand becomes a soft
+signal: mismatch neither rejects nor penalizes, and `brand` scores a flat
+0.5. Size stays a hard requirement, so 18 oz blueberries from six packers
+become one product and the 1-pint clamshells another. The packer name is
+kept on each report and shown in the price list.
 
 Thresholds are starting points. Section 12 describes the labeled fixture
 used to tune them.
@@ -510,7 +587,10 @@ GET    /api/me                             → profile, tier, counts, entitlemen
 
 POST   /api/sync/push                      { reports: [...] } → per-id results
 GET    /api/sync/pull?since=&lat=&lon=&radiusMi=&limit=
-                                           → { reports, nextSince } | 402
+                                           → { accessLevel, reports, locked, nextSince }
+                                             (device token or session; never 402,
+                                              locked prices are omitted instead)
+GET    /api/me/credits                     → { earned, needed, level }
 
 GET    /api/geo/nearby-stores?lat=&lon=    → stores table first, Overpass fallback
 GET    /api/geo/reverse?lat=&lon=
@@ -724,8 +804,10 @@ afternoon, and Overpass stays home behind the same tunnel.
 **Phase 1: sync works between two devices**
 - `server/` skeleton: Hono, Drizzle, SQLite, migrations, Dockerfile,
   Compose with `cloudflared`; deployed on the home box.
-- Email + code sign-in (6.1), device registration (6.2), entitlement
-  columns present but not enforced (6.3).
+- Email + code sign-in (6.1), device registration (6.2); anonymous
+  devices can pull. Entitlement tables and the free-set job exist, but
+  `ENTITLEMENTS_ENFORCED=false` so everyone sees everything while the
+  dataset is seeded (6.3).
 - Push, geo-scoped pull, store resolution with chain aliases and
   chain-level stores, product matching with the flavor rule,
   `current_prices` maintenance.
@@ -756,10 +838,11 @@ afternoon, and Overpass stays home behind the same tunnel.
   to admins reviewing a flag. Retention: 90 days, or indefinitely while a
   flag is open. Stored on local disk under `PHOTO_DIR`, backed up with the
   database.
-- **Entitlement enforcement.** Stripe Checkout for a monthly plan,
-  webhook writes `subscriptions`, pull returns 402 after the free window,
-  client upgrade screen. Contribution-earns-access rule if decision 10 says
-  so.
+- **Entitlement enforcement.** `ENTITLEMENTS_ENFORCED=true`: public
+  devices get the free set plus locked summaries; contributor credits
+  (6.3.2) unlock the rest; Stripe Checkout for a monthly plan with a
+  webhook writing `subscriptions`. Client: locked-item teaser in search,
+  subscribe screen, credits progress on the account screen.
 
 **Phase 4: polish and longer-tail**
 - Account recovery for a lost mailbox (admin-assisted re-link at first).
@@ -802,22 +885,13 @@ can stay a plain data file that contains nothing secret. That is what the
 plan now assumes; the export format is unchanged apart from the new
 per-report fields.
 
-Still open:
+8. **Produce brands**: soft signal for produce, size still hard (8.3).
+9. **Anonymous AI parsing**: allowed, with per-device daily caps (6.2,
+   Phase 3).
+10. **Contributors earn access**: yes, only for verified and non-redundant
+    reports, with a daily credit cap so spam cannot buy access (6.3.2).
+11. **Free tier**: available without sign-in, limited to the top 20–30
+    products per region; everything else shows a locked summary and needs
+    a subscription or contributor credit (6.3, 6.3.1).
 
-8. **Produce brands**: should brand become a soft signal for items tagged
-   as produce so blueberries from six packers compare as one product per
-   size? Recommended: yes.
-9. **Anonymous AI parsing** (new): once the OpenRouter key is behind the
-   server, every scan costs you money even from users who never sign in.
-   Options: (a) allow it with per-device and per-IP daily caps
-   (recommended to start, keeps the free experience intact); (b) require
-   sign-in to scan, which simplifies abuse control but adds friction before
-   the user has seen any value.
-10. **Contributors earn access** (new): should users who upload N verified
-    reports per month keep pull access without paying? It is the cheapest
-    way to grow the dataset, and it aligns incentives with data quality
-    because only verified (confirmed or unflagged-for-14-days) reports
-    would count. Recommended: yes, with the threshold as a config value.
-11. **Free window shape**: a trial period (e.g. 30 days) or a usage
-    allowance (e.g. N pulls per month)? Either is one config value; the
-    client copy differs.
+Nothing is open. Implementation starts with Phase 0.
