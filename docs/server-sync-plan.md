@@ -408,6 +408,100 @@ PATCH  /api/admin/users/:id                 { status }
 CORS is restricted to the Netlify origin and `localhost` in dev. All
 inputs validated with `zod`; the same schemas generate the shared wire types.
 
+## 11a. What the real export shows (148 reports, 2025-04 to 2026-09)
+
+The export is committed at `shared/__fixtures__/price-reports-sample.json`
+and becomes the raw input for the matcher fixture. Reading it changed several
+details above; the refinements are listed here and folded into the phases.
+
+**Store strings are much messier than the `Name @ Address` form.**
+Of 35 distinct store strings, only 12 have the chain + address form.
+The rest are bare chain names with trailing whitespace (`"Kroger "`, 47 of
+the 148 reports are some spelling of Kroger with no address), bare addresses
+with no chain (`"9410 Webb Chapel Road"`, which is the same Walmart as
+`"Walmart Supercenter @ 9410 Webb Chapel Road"`), literal `"undefined"` from
+a reverse-geocode miss (`"undefined La Cima"`), and chain spelling variants
+(`HEB` / `H-E-B`, `Walmart` / `Walmart Supercenter`, `Halal Imports` /
+`Halal Import Foods`). Refinements to section 8.5:
+- Store resolution gets a normalization step: trim, drop `undefined`
+  fragments, split on ` @ `, and map the chain through a small alias table
+  (`heb→h-e-b`, `walmart supercenter→walmart`, `kroger marketplace→kroger`).
+- A report with only a chain name resolves to a **chain-level store**
+  (`Walmart`, no location). The `current_prices` view and the client group
+  by chain when location is unknown, so "Walmart $1.47" and "Walmart
+  Supercenter @ Webb Chapel $1.47" for the same eggs show as one chain with
+  a located and an unlocated entry rather than two unrelated stores.
+- A report with an address or coordinates but no chain name resolves by
+  geohash to an existing named store at that location when one exists
+  (the 11 `9410 Webb Chapel Road` reports attach to the Walmart there).
+- The `store` field the client sends is not changed by any of this; the
+  server records the raw string and the resolved `store_id`.
+
+**Prices need a parser, and the outlier check earns its keep.**
+Seven of 148 prices are not `d.dd`: `$10`, `$19.7`, `548` (a missed decimal
+point, really $5.48), `3/10.00` twice (a multi-buy the older prompt did not
+divide), `$1 off`, and `6.5`. Refinements to section 9.4:
+- Server-side `parsePrice`: strip `$`, accept `d`, `d.d`, `d.dd`; convert
+  `N/X.XX` and `N for X.XX` to `X.XX / N`; reject anything else (`$1 off`)
+  with a per-item error the client shows as "fix the price to sync this".
+- Integers ≥ 100 with no decimal point are accepted but flagged
+  `price_outlier` when the product median says they are 100× off; the
+  client offers a one-tap "did you mean $5.48?" correction.
+- The 18 oz spinach at `$19.7` (surely $1.97) and 8-pack mints at `$14.77`
+  are exactly the honest-mistake case the outlier flag is for. They are
+  stored, shown as "unusual price", and de-ranked, not hidden.
+
+**Units are inconsistent in case, plurality, and punctuation.**
+33 distinct unit strings for what is roughly 12 real units: `oz`, `OZ`,
+`Oz`, `OZ.`, `ounce`; `lb`, `lbs`, `LBS`, `pound`; `gal`, `gallon`,
+`GALLONS`; plus free text (`X 10 OZ`, `LB 4 0Z`, `284-sheet rolls`,
+`fruit ice bars`, `bags`, `rolls`). Refinements to section 8.1:
+- `shared/units.ts` lowercases, strips trailing periods and plural `s`,
+  then maps through an alias table. Unrecognized strings become
+  `family: unknown`, which the matcher treats as "size not known" rather
+  than as a mismatch, so old reports still cluster on name + brand.
+- `rolls`, `bags`, `can`, `bottle`, `pack`, `package`, `each`, `count`
+  are all count-like. `count`, `each`, `pack`, `package`, `ct` are treated
+  as one family; the others keep their label (6 rolls ≠ 6 count).
+
+**Brand handling needs three tweaks.** Real pairs that should match:
+`"Acne Foaming Wash" / PanOxyl` vs `"PanOxyl 10% Foam Acne Foaming Wash" /
+PanOxyl`; `"Classic Macaroni and Cheese" / Annie's Homegrown` vs `"Natural
+Classic Macaroni and Cheese" / Annie's`; `"Cold Brew Coffee" / Stok` vs
+`"Unsweetened Cold Brew Coffee" / Stok`. Refinements to section 8.3:
+- Remove the brand's tokens from the name tokens before computing
+  `nameSim`, so a brand repeated in the name neither helps nor hurts.
+- Brands match when one brand's token set is a subset of the other's
+  (`annies` ⊂ `annies homegrown`, `clif` ⊂ `clif bar`, `clif kid`).
+- 11 reports have an empty brand; they stay "unknown", never a mismatch.
+
+**Known misses to accept for now** (the Phase 2 save-time prompt is the fix):
+- `"Z Bar Crafted Specially for Active Kids"` vs `"Z Bar Whole Grain
+  Bars"` (same 36-ct Sam's Club item, $18.68 both): name overlap too low.
+- `"Clif ZBar …"` vs `"Z Bar …"`: `ZBar` tokenizes as one token. A
+  synonym entry (`zbar→z bar`) is cheap but does not generalize.
+- `"Ferrero Collection Fine Assorted Confections"` vs `"Ferrero Collection
+  With Raffaello"`: probably the same 4.6 oz box, scored as different.
+- `"Buldak Spicy Ramen (Rose)"` vs `"Buldak Spicy Ramen, Artificial Spicy
+  Chicken Flavor"` lands in the grey zone; decision 5 in section 15 decides
+  whether flavor variants should merge.
+
+**Produce raises a new question.** Blueberries appear under five brands
+(Driscoll's, Simple Truth Organic, Field & Vine, Berry Fresh, Twin River,
+California Giant) at 18 oz or 1 pint, and apples under none. With brand as a
+hard constraint these are five products, which is technically right but
+probably not what a shopper comparing "blueberries 18 oz" wants. See
+decision 8 in section 15.
+
+**Same-store history already exists in the data.** Great Value 2% milk at
+Webb Chapel is $2.76 on 2026-05-29 and $2.96 on 2026-06-14; Stok cold brew
+at Kroger on 07-31 and 08-23. These are the "newer report supersedes" cases
+from section 10 and go straight into the fixture.
+
+**Size.** 148 reports serialize to 36 KB. Pull-everything is fine for a long
+time; even 10,000 community reports would be about 2.5 MB, well inside
+`localStorage` limits.
+
 ## 12. Testing
 
 - **Matcher fixture**: a labeled file `shared/__fixtures__/product-pairs.json`
@@ -416,11 +510,17 @@ inputs validated with `zod`; the same schemas generate the shared wire types.
   variants (different products), Stok Cold Brew at two stores (same),
   Great Value vs Eggland's Best eggs (different brand, same size), 12 ct
   vs 18 ct eggs (size mismatch), blank-brand vs filled-brand of the same
-  item, and the sale-price outlier. The thresholds in 8.3 are tuned until
-  this fixture passes; it is the regression suite from then on.
-  **I need the real export file for this.** It did not arrive with the
-  request; committing a sanitized copy (no lat/lon if you prefer) under
-  `shared/__fixtures__/` would be ideal.
+  item, the PanOxyl / Annie's / Stok pairs from section 11a, the
+  blueberry-brand cases, and the sale-price outlier. The thresholds in 8.3
+  are tuned until this fixture passes; it is the regression suite from
+  then on. The raw export is already committed at
+  `shared/__fixtures__/price-reports-sample.json`; the labeled pairs file
+  is derived from it in Phase 0.
+- **Store resolution fixture**: the 35 distinct store strings from the
+  export, labeled with the expected chain and whether they should share a
+  `store_id`.
+- **Price parser fixture**: the seven odd price strings from the export
+  plus the normal forms.
 - **Server**: Vitest with an in-memory SQLite database. Route tests for
   push idempotency, author-only edits, pull cursoring, flag thresholds,
   and trust recomputation.
@@ -491,5 +591,13 @@ inputs validated with `zod`; the same schemas generate the shared wire types.
    product line usually share a price. Should the matcher merge them into
    one product (fewer clusters, occasional wrong merge) or keep them
    separate (recommended to start; merge later by hand if it is noisy)?
-6. **The real export file** for the matcher fixture (section 12).
+6. ~~The real export file~~ Received and committed under
+   `shared/__fixtures__/`. If you would rather not have the raw export in
+   the repo (it includes store coordinates), say so and I will replace it
+   with the derived labeled pairs only.
 7. **Phase 4 items**: worth planning now, or park them?
+8. **Produce brands** (new, from section 11a): should the matcher ignore
+   brand for items tagged as produce (`fruit`, `vegetable`, `produce`,
+   `berries`, `apples`) so blueberries from five packers compare as one
+   product per size? Recommended: yes, brand becomes a soft signal for
+   produce and stays hard for everything else.
