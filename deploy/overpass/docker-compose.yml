@@ -1,0 +1,44 @@
+services:
+  overpass:
+    image: wiktorn/overpass-api:latest
+    container_name: overpass
+    restart: unless-stopped
+    environment:
+      OVERPASS_META: "no"
+      OVERPASS_MODE: "init"
+      OVERPASS_PLANET_URL: "https://download.geofabrik.de/north-america/us/texas-latest.osm.bz2"
+      OVERPASS_DIFF_URL: "https://download.geofabrik.de/north-america/us/texas-updates/"
+      OVERPASS_RULES_LOAD: "10"
+      OVERPASS_UPDATE_SLEEP: "900"
+    volumes:
+      - overpass_db:/db
+    expose:
+      - "80"
+    # Not published directly to the host — Caddy terminates TLS and proxies
+    # to this container over the shared "web" network instead.
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+    depends_on:
+      - overpass
+
+networks:
+  web:
+
+volumes:
+  overpass_db:
+  caddy_data:
+  caddy_config:

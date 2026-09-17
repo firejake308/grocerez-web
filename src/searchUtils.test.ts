@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { filterBySearchQuery, tokenize } from './searchUtils';
-import { PriceData } from './PriceData';
+import PriceData from './PriceData';
 
 describe('tokenize', () => {
   it('converts to lowercase and splits by whitespace', () => {
@@ -24,6 +24,8 @@ describe('filterBySearchQuery', () => {
       price: '3.49',
       store: 'Kroger @ 9150 North Tarrant Parkway',
       date: '2026-07-15',
+      priceImage: null,
+      productImage: null,
       itemName: 'Oreo BTS Brown Sugar Pancake Flavor Cream Sandwich Cookies',
       brand: 'Oreo',
       tags: ['cookies', 'snacks', 'dessert'],
@@ -36,6 +38,8 @@ describe('filterBySearchQuery', () => {
       price: '3.49',
       store: 'Kroger @ 9150 North Tarrant Parkway',
       date: '2026-07-15',
+      priceImage: null,
+      productImage: null,
       itemName: 'Oreo Double Stuf Chocolate Sandwich Cookies',
       brand: 'Oreo',
       tags: ['cookies', 'chocolate', 'sandwich cookies', 'dessert'],
@@ -48,6 +52,8 @@ describe('filterBySearchQuery', () => {
       price: '1.47',
       store: 'Walmart Supercenter @ 9410 Webb Chapel Road',
       date: '2026-08-01',
+      priceImage: null,
+      productImage: null,
       itemName: 'Large White Eggs',
       brand: 'Great Value',
       tags: ['eggs', 'dairy', 'breakfast'],
@@ -60,6 +66,8 @@ describe('filterBySearchQuery', () => {
       price: '3.87',
       store: 'Walmart',
       date: '2026-08-23',
+      priceImage: null,
+      productImage: null,
       itemName: 'Large Eggs',
       brand: 'Eggland\'s Best',
       tags: ['eggs', 'breakfast', 'protein', 'baking'],
@@ -72,6 +80,8 @@ describe('filterBySearchQuery', () => {
       price: '6.79',
       store: 'Kroger',
       date: '2026-08-23',
+      priceImage: null,
+      productImage: null,
       itemName: 'Cold Brew Coffee',
       brand: 'Stok',
       tags: ['coffee', 'cold brew', 'beverage'],
@@ -84,6 +94,8 @@ describe('filterBySearchQuery', () => {
       price: '5.97',
       store: 'Walmart Supercenter @ 9410 Webb Chapel Road',
       date: '2026-08-01',
+      priceImage: null,
+      productImage: null,
       itemName: 'Cold Brew Coffee',
       brand: 'Stok',
       tags: ['coffee', 'cold brew', 'beverage'],
@@ -96,6 +108,8 @@ describe('filterBySearchQuery', () => {
       price: '1.29',
       store: 'Kroger',
       date: '2026-07-16',
+      priceImage: null,
+      productImage: null,
       itemName: 'Soon Veggie Cup Noodles',
       brand: 'Nongshim',
       tags: ['instant noodles', 'ramen', 'cup noodles', 'vegetarian'],
