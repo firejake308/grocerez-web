@@ -6,5 +6,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // server/ is a standalone package (own deps, own lockfile, own
+    // vitest.config.ts) and is tested with `npm test` from inside it.
+    exclude: ['**/node_modules/**', 'server/**'],
   },
 });

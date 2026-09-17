@@ -1,0 +1,63 @@
+# Local/home-box deployment: the sync API next to a self-hosted Overpass
+# instance, both reachable through one Cloudflare Tunnel. See
+# docs/server-sync-plan.md section 13.1 for why this beats a cloud VM here.
+#
+# Quick start:
+#   cp .env.example .env            # fill in real values
+#   docker compose up -d api        # the API alone; Overpass/tunnel are optional
+#
+# `overpass` and `cloudflared` are commented out below until you have a
+# regional extract and a tunnel token -- see server/README.md.
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '8787:8787'
+    volumes:
+      - ./data:/data
+    environment:
+      DATABASE_PATH: /data/grocerez.db
+      PORT: '8787'
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
+      OVERPASS_URL: ${OVERPASS_URL:-http://overpass:80/api/interpreter}
+      NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8787/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Self-hosted Overpass over a regional extract (section 8.6). Point
+  # OVERPASS_PLANET_URL at a .osm.pbf/.osm.bz2 for your region -- see
+  # https://download.geofabrik.de/ -- and give it time to import on first run.
+  # overpass:
+  #   image: wiktorn/overpass-api
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./overpass-db:/db
+  #   environment:
+  #     OVERPASS_PLANET_URL: file:///db/region.osm.bz2
+  #     OVERPASS_META: 'no'
+  #     OVERPASS_RULES_LOAD: '10'
+  #   ports:
+  #     - '12345:80'
+
+  # Public HTTPS without port forwarding (section 13.1). Create a tunnel at
+  # https://one.dash.cloudflare.com -> Zero Trust -> Networks -> Tunnels,
+  # route it at the api service's port, and put its token here.
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   restart: unless-stopped
+  #   command: tunnel run
+  #   environment:
+  #     TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+  #   depends_on:
+  #     - api

@@ -812,7 +812,23 @@ now lags the app prompt by the two sale sentences.
 
 **Phase 1: sync works between two devices**
 - `server/` skeleton: Hono, Drizzle, SQLite, migrations, Dockerfile,
-  Compose with `cloudflared`; deployed on the home box.
+  Compose with `cloudflared`; deployed on the home box. — **skeleton done**
+  on this branch (project setup, tests, and Docker; auth/push/pull/matching
+  below are not built yet). Notes from implementation: the full data model
+  from sections 5/6 is in `server/src/db/schema.ts` and migrated via
+  Drizzle; `server/src/app.ts` takes its database as a parameter so tests
+  run against an isolated in-memory SQLite instance rather than a shared
+  file; `health`/`db-check` endpoints and CORS are the only routes so far.
+  `drizzle-orm`/`drizzle-kit` were pinned above the versions in an npm
+  advisory for SQL-identifier escaping (`GHSA-gpj5-g38j-94v9`) rather than
+  the versions originally planned. The Dockerfile mirrors the monorepo's
+  layout inside the image (`/app/shared` next to `/app/server`) instead of
+  flattening it, so the relative imports server code will make into
+  `shared/` resolve the same way they do outside Docker; it is reviewed but
+  not build-verified from this session because this sandbox's network
+  policy blocks Docker Hub's image CDN -- run `docker build` once yourself
+  before deploying. Overpass and the Cloudflare Tunnel are commented out in
+  `docker-compose.yml` until a regional extract and a tunnel token exist.
 - Email + code sign-in (6.1), device registration (6.2); anonymous
   devices can pull. Entitlement tables and the free-set job exist, but
   `ENTITLEMENTS_ENFORCED=false` so everyone sees everything while the

@@ -1,6 +1,16 @@
+/**
+ * Minimal shape of the Web Crypto API used here, spelled out locally so this
+ * file needs neither DOM lib (for the server's Node-only tsconfig) nor
+ * @types/node's Node-flavored `crypto` global (for the client's browser one).
+ */
+interface MinimalCrypto {
+  randomUUID?: () => string;
+  getRandomValues?: (array: Uint8Array) => Uint8Array;
+}
+
 /** Client-generated report ids. UUID v4 where available, otherwise a random hex string. */
 export const newReportId = (): string => {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
+  const c = (globalThis as { crypto?: MinimalCrypto }).crypto;
   if (c && typeof c.randomUUID === 'function') return c.randomUUID();
   if (c && typeof c.getRandomValues === 'function') {
     const bytes = new Uint8Array(16);
