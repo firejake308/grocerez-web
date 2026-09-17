@@ -28,6 +28,8 @@ Constraints from the request:
 - No image similarity. Matching uses item name, brand, size, tags, and price
   plausibility only.
 - Keep the existing JSON export/import working.
+- Sync is the feature that will eventually be paid for, so it requires an
+  email account; local use and scanning do not.
 
 ## 2. Current state of the app (what the plan builds on)
 
@@ -58,7 +60,8 @@ Constraints from the request:
                  │                       ▼
  ┌────────────────────────────────────────────────────┐
  │ server/  (Node + Hono + SQLite, deployed separately)│
- │   auth        anonymous device accounts            │
+ │   auth        email + code sign-in, device tokens  │
+│   geo         nearby stores (own Overpass behind it)│
  │   ingest      validate → resolve store → resolve   │
  │               product → anomaly checks → store     │
  │   moderation  flags, confirmations, trust scoring  │
@@ -124,8 +127,21 @@ for now (`currency` column present, defaulted, not yet exposed).
 - `status`: `active` | `restricted` | `banned`
 - counters: `reports_count`, `confirmed_count`, `upheld_flags_count`
 
+**users** (additional columns, from section 6)
+- `email` (unique, lowercased), `plan`, `plan_expires_at`, `home_lat`, `home_lon`
+
+**auth_codes**: `email`, `code_hash`, `expires_at`, `attempts`
+
+**sessions**: `id`, `user_id`, `token_hash`, `created_at`, `last_seen_at`, `expires_at`
+
+**devices**: `id`, `token_hash`, `user_id` (nullable until sign-in), `created_at`, `last_seen_at`
+
+**subscriptions**: `user_id`, `provider`, `provider_ref`, `status`, `current_period_end`
+
 **stores**
 - `id`, `name` (chain/display name, e.g. "Kroger"), `address`, `lat`, `lon`
+- `chain_key` (normalized, aliased chain name); `is_chain_level` (true when
+  the store has no location, see 8.5)
 - `geohash7` (about 150 m cell) for blocking
 - `store_key`: normalized name + geohash7, or name + address when no coordinates
 
@@ -156,23 +172,68 @@ for now (`currency` column present, defaulted, not yet exposed).
 **current_prices** (read model, maintained on write)
 - (`product_id`, `store_id`) → `report_id`, `price_cents`, `observed_date`, `expires_at`, `confidence`, `is_stale`
 
-## 6. Identity and auth
+## 6. Identity, auth, and entitlements
 
-Recommendation for Phase 1: **anonymous device accounts**.
+Decision (yours): **syncing requires an email account; scanning and local
+use do not.** Sync is the monetized feature, so the account is also where
+entitlement (free trial vs. paid) is tracked.
 
-- When the user turns on sync, the client calls `POST /api/auth/anonymous`
-  and receives `{ userId, token }`. The token is stored in `localStorage`
-  and sent as `Authorization: Bearer`. The server stores only a hash.
-- Optional display name; otherwise reports show as "Shopper 4f2a".
-- The token is included in the JSON export so restoring a backup restores
-  identity. (Trade-off: the backup file becomes sensitive. Flag for review.)
-- Phase 3 adds email linking via magic link for recovery and multi-device.
+### 6.1 Sign-in: email + one-time code
 
-This is deliberately low-friction, which means identities are cheap to
-create. The trust system (section 9) is designed so that a fresh identity
-has very little influence, and rate limits are applied per IP as well as per
-user. It does not fully prevent Sybil attacks; if that becomes a real
-problem, email or OAuth accounts are the next step.
+Passwordless, code-based rather than link-based:
+
+1. Client `POST /api/auth/request-code { email }`. Server creates a
+   6-digit code (hashed, 10-minute expiry, 5 attempts) and emails it.
+2. User types the code. Client `POST /api/auth/verify { email, code }`
+   → `{ userId, sessionToken, entitlement }`.
+3. Session token (random 256-bit, hashed at rest, 90-day sliding expiry)
+   goes in `localStorage` and in `Authorization: Bearer`.
+
+Why a code and not a magic link: on phones the link often opens in the
+default browser rather than the installed PWA, and the app's navigation is
+`history.pushState` with no URL routing, so a link would need new routing
+just to land. A code is typed into the app the user is already in.
+
+Email delivery: Resend (free tier covers thousands/month) with a
+`MAIL_PROVIDER=console` mode in dev that prints the code to the server log.
+Provider is behind one interface so it can be swapped.
+
+Signing in on a second device is the same flow, so **account recovery is
+inherent** as long as the user still controls the email. Recovery for a lost
+mailbox is deferred (Phase 4).
+
+### 6.2 Device identity for anonymous users
+
+Users who never sign in still hit the server once the AI-parse proxy exists
+(Phase 3), because every scan costs money. So the client also keeps a
+**device token** (`POST /api/devices/register`, no email) used only for
+rate limiting and abuse control. Signing in links the device to the account.
+No reports are accepted from a device token alone.
+
+### 6.3 Entitlements (the paywall hook)
+
+Modeled now, enforced later:
+
+- `users.plan`: `free` | `paid`; `users.plan_expires_at`.
+- `subscriptions`: `user_id`, `provider` (`stripe`), `provider_ref`,
+  `status`, `current_period_end`. Written by a Stripe webhook in Phase 3.
+- Every account starts with a configurable free window
+  (`FREE_PULLS_PER_MONTH` or `FREE_TRIAL_DAYS`, whichever you pick).
+- `GET /api/sync/pull` returns **402 Payment Required** with
+  `{ reason, upgradeUrl }` when the entitlement has lapsed. Push is never
+  gated: contributions are always accepted, because they are the product.
+- The client shows the community cache it already has (read-only, marked
+  as "not updating") and an upgrade prompt.
+
+Open product question (decision 10 in section 15): whether active
+contributors earn free access.
+
+### 6.4 Data the server holds about a person
+
+Email (unique, lowercased), hashed session tokens, hashed codes, report and
+vote history, the device tokens linked to the account, and later a Stripe
+customer id. No passwords. Export/delete endpoints for the account are
+listed in Phase 4.
 
 ## 7. Sync protocol
 
@@ -201,12 +262,32 @@ Push: `POST /api/sync/push` with `{ reports: PriceReportUpsert[] }`.
 - Only the author's edits are accepted; last write by `updatedAt` wins for
   that author's own report (multi-device case).
 
-Pull: `GET /api/sync/pull?since=<seq>&limit=500` (later: `&lat=&lon=&radiusKm=`).
-- Returns reports with `seq > since`, including hidden/deleted state changes
-  so the client can drop them from its cache, plus the author's trust tier
-  and vote counts. Returns `nextSince`. Client loops until caught up.
+Pull: `GET /api/sync/pull?since=<seq>&lat=&lon=&radiusMi=50&limit=500`.
+Geo-scoped from day one (your decision 4).
+- `lat`/`lon` are required; `radiusMi` defaults to 50 and is capped at 100.
+- Returns reports whose resolved store lies inside the circle and whose
+  `seq > since`, including hidden/deleted state changes so the client can
+  drop them from its cache, plus the author's trust tier and vote counts.
+  Returns `nextSince`. Client loops until caught up.
+- The cursor is stored per **region key** (center rounded to 0.1°, plus
+  radius). Moving to a new region starts a fresh cursor and a fresh cache
+  for that region; the client keeps at most two regions cached.
+- Where the client gets `lat`/`lon`: the device's current position if
+  granted (the scanner already asks); else the coordinates of the user's
+  most recent located report; else a home area the user sets once in the
+  sync settings (a zip code or city, geocoded through the server's geo
+  proxy in section 8.6). Pull is skipped with a visible "set your area"
+  hint if none of these exist.
+- Reports at chain-level stores (no coordinates, see 8.5) carry an
+  `approx` location: the centroid of the reporter's located reports in the
+  same 7-day window, else the reporter's home area. They are included in
+  the pull when that approximate point is inside the circle and are shown
+  with a "location approximate" hint.
 - Community reports are cached in a separate `localStorage` key and are
   read-only in the UI.
+- Server-side the filter is a bounding-box prequery on `stores.lat/lon`
+  (indexed) followed by a haversine check. SQLite handles this fine at
+  this scale; no spatial extension needed.
 
 Triggers: on app load, after a save/edit/delete, on a manual "Sync now"
 button, and when `navigator.onLine` flips to true. Failed pushes stay in a
@@ -266,9 +347,22 @@ score = 0.65·nameSim + 0.20·brand + 0.15·tagSim − pricePen
 
 Decision:
 - `score ≥ 0.80` → attach to that product.
-- `0.60 ≤ score < 0.80` → create a new product with `possible_duplicate_of`
-  set, so an admin (or later, users) can merge.
-- `< 0.60` → new product.
+- **Flavor-variant rule** (your decision 5): when both brands are known and
+  match, and both sizes are known and match, the attach threshold drops to
+  `0.55`. This merges "Buldak Spicy Ramen (Rose)" and "Buldak Spicy Ramen,
+  Artificial Spicy Chicken Flavor" (same brand, same 24.65 oz) into one
+  product while still keeping "Oreo Double Stuf 2.71 oz" apart from the
+  11.18 oz BTS pack. Each report keeps its own `item_name`, so the variant
+  is never lost; the product's `canonical_name` is the token intersection
+  ("Buldak Spicy Ramen"), and the client shows "3 variants" when names
+  differ. Clearance pricing on one flavor shows up as a per-store price
+  report like any other and is subject to the outlier hint; if that turns
+  out to be noisy, a `variant_key` column can split pricing per variant
+  later without re-clustering.
+- `0.60 ≤ score < 0.80` (or `0.40 ≤ score < 0.55` under the flavor rule)
+  → create a new product with `possible_duplicate_of` set, so an admin (or
+  later, users) can merge.
+- Below that → new product.
 
 A brand mismatch (`brand = 0`) rejects the candidate unless the brand word
 appears in the other side's name tokens (handles `brand: "Oreo"` vs
@@ -296,6 +390,29 @@ coordinates exist; otherwise chain name + normalized address. Two reports
 within about 250 m with the same chain name resolve to the same store. No
 fuzzy matching on store names beyond normalization; Overpass returns
 consistent names for the same location.
+
+### 8.6 Geo proxy (Overpass and Nominatim behind the API)
+
+You are standing up your own Overpass instance because the public one rate
+limited the app. The client currently calls `overpass-api.de` and
+`nominatim.openstreetmap.org` directly from `src/PriceScanner.tsx`. Once the
+API exists, those calls move behind it:
+
+- `GET /api/geo/nearby-stores?lat=&lon=` → `[{ storeId?, name, address,
+  lat, lon, distanceM }]`. The server first answers from its own `stores`
+  table (anything within 150 m that it has seen before), and only falls
+  through to Overpass for unknown locations. Results are written back to
+  `stores`, so Overpass traffic drops toward zero for stores anyone has
+  scanned at before.
+- `GET /api/geo/reverse?lat=&lon=` and `GET /api/geo/geocode?q=` wrap
+  Nominatim for the home-area setting (section 7). Cached by rounded
+  coordinates.
+- Overpass runs on a regional extract (Texas is a few GB; the whole US is
+  workable on a home box), which is another reason to keep it next to the
+  API rather than in a cloud VM with metered disk.
+- The client falls back to the public endpoints only when the API is
+  unreachable and the sync feature is off, so anonymous users are not
+  broken by an API outage.
 
 ## 9. Trust, flagging, and moderation
 
@@ -384,12 +501,24 @@ is enough to start.
 ## 11. API surface
 
 ```
-POST   /api/auth/anonymous                 → { userId, token }
-PATCH  /api/me                             { displayName }
-GET    /api/me                             → profile, tier, counts
+POST   /api/devices/register               → { deviceToken }
+POST   /api/auth/request-code              { email }
+POST   /api/auth/verify                    { email, code } → { userId, sessionToken, entitlement }
+POST   /api/auth/signout
+PATCH  /api/me                             { displayName, homeLat, homeLon }
+GET    /api/me                             → profile, tier, counts, entitlement
 
 POST   /api/sync/push                      { reports: [...] } → per-id results
-GET    /api/sync/pull?since=&limit=        → { reports, nextSince }
+GET    /api/sync/pull?since=&lat=&lon=&radiusMi=&limit=
+                                           → { reports, nextSince } | 402
+
+GET    /api/geo/nearby-stores?lat=&lon=    → stores table first, Overpass fallback
+GET    /api/geo/reverse?lat=&lon=
+GET    /api/geo/geocode?q=
+
+POST   /api/parse                          multipart images → parsed fields   (Phase 3)
+POST   /api/billing/checkout               → Stripe Checkout URL             (Phase 3)
+POST   /api/billing/webhook                (Stripe → server)                 (Phase 3)
 
 GET    /api/products/match?itemName=&brand=&quantity=&quantityUnits=
                                            → top candidates with scores   (Phase 2)
@@ -530,31 +659,78 @@ time; even 10,000 community reports would be about 2.5 MB, well inside
 
 ## 13. Deployment and operations
 
-- `server/Dockerfile` (multi-stage, node:20-alpine). `fly.toml` or Railway
-  config with a mounted volume for `data/grocerez.db`.
-- Env: `PORT`, `DATABASE_PATH`, `ADMIN_TOKEN`, `CORS_ORIGINS`.
-- Backups: nightly `sqlite3 .backup` to object storage, or Litestream
-  streaming replication if on Fly.
-- Client: `VITE_SYNC_API_URL` env var; sync features hidden when unset so
-  the current Netlify deploy is unaffected until the server is live.
-- Logging: request logs + a counter of hidden reports and open flags, so
-  abuse is visible without an admin UI.
+### 13.1 Hosting comparison
+
+You have a home machine with good bandwidth that will host Overpass anyway,
+so the real question is whether the sync API runs there too.
+
+| | Home box + Cloudflare Tunnel | Fly.io | Railway | Cheap VPS (Hetzner, DO) |
+|---|---|---|---|---|
+| Monthly cost | $0 (tunnel is free) | ~$5–10 with a volume | ~$5–10 | ~$5 |
+| Overpass next to the API | Yes, same Compose file | No (disk is expensive) | No | Possible but 40+ GB disk costs extra |
+| Public HTTPS + dynamic IP | Tunnel handles both, no port forwarding | Built in | Built in | Caddy + a domain |
+| Uptime | Tied to home power, ISP, and reboots | Managed | Managed | Managed VM, you patch it |
+| Latency for users elsewhere | Fine for a regional app | Multi-region | Single region | Single region |
+| Backups | You script them (see below) | Volume snapshots | Snapshots | You script them |
+| Move later | Compose file moves as-is | Fly-specific config | Railway-specific | Compose file moves as-is |
+
+Recommendation: **start on the home box** with a single Docker Compose
+stack (`api`, `overpass`, `cloudflared`), because Overpass already forces
+that box to exist and the tunnel removes the networking pain. Structure
+`server/` so the API container has no dependency on being co-located with
+Overpass beyond an `OVERPASS_URL` env var. If home uptime becomes a
+problem, the API container and its SQLite file move to a $5 VPS in an
+afternoon, and Overpass stays home behind the same tunnel.
+
+### 13.2 Layout
+
+- `server/Dockerfile` (multi-stage, `node:20-alpine`).
+- `server/docker-compose.yml`: `api` (volume `./data:/data`), `overpass`
+  (`wiktorn/overpass-api` image with the regional extract), `cloudflared`
+  (tunnel token from env).
+- Env: `PORT`, `DATABASE_PATH`, `ADMIN_TOKEN`, `CORS_ORIGINS`,
+  `MAIL_PROVIDER`, `RESEND_API_KEY`, `MAIL_FROM`, `OVERPASS_URL`,
+  `NOMINATIM_URL` (public Nominatim is fine at these volumes; self-host
+  only if it also rate limits), later `OPENROUTER_API_KEY`,
+  `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET`, `PHOTO_DIR`.
+- Client: `VITE_SYNC_API_URL`; sync UI is hidden when unset so the current
+  Netlify deploy is unaffected until the server is live.
+
+### 13.3 Backups and ops
+
+- Nightly `sqlite3 /data/grocerez.db ".backup /data/backup/…"` plus
+  `rclone` to Backblaze B2 or S3 (a few cents a month). Photos (Phase 3)
+  go to the same bucket. Restore is documented in `server/README.md` and
+  tested once before launch.
+- Litestream is the upgrade if you want continuous replication instead of
+  nightly snapshots; it runs as a sidecar in the same Compose file.
+- Health endpoint `GET /healthz`; an external ping (UptimeRobot free tier)
+  tells you when the home box is down.
+- Request logs plus counters for hidden reports, open flags, 402s, and
+  parse-proxy spend per day, so abuse and cost are visible without an
+  admin UI.
 
 ## 14. Phases
 
 **Phase 0: groundwork (client only, no server yet)**
-- Add `id`/`updatedAt`/`origin` to `PriceData` with a load-time migration;
-  switch edit/delete from array index to id.
+- Add `id` / `updatedAt` / `origin` to `PriceData` with a load-time
+  migration; switch edit/delete from array index to id.
 - Extract `tokenize` and the prefix rule into `shared/normalize.ts`; add
-  `shared/units.ts` from the benchmark's unit policy. All tests green.
-- Scanner and edit form gain optional `isSale` and `expiresAt` fields; the
-  prompt asks for `saleEndDate`.
+  `shared/units.ts` and `shared/price.ts` (the parser from 11a) with the
+  fixtures from section 12. All existing tests green.
+- Scanner and edit form gain optional `isSale` and `expiresAt`; the prompt
+  asks for `saleEndDate`.
 
 **Phase 1: sync works between two devices**
-- `server/` skeleton: Hono, Drizzle, SQLite, migrations, Dockerfile.
-- Anonymous auth, push, pull, store resolution, product matching (8.1–8.3),
+- `server/` skeleton: Hono, Drizzle, SQLite, migrations, Dockerfile,
+  Compose with `cloudflared`; deployed on the home box.
+- Email + code sign-in (6.1), device registration (6.2), entitlement
+  columns present but not enforced (6.3).
+- Push, geo-scoped pull, store resolution with chain aliases and
+  chain-level stores, product matching with the flavor rule,
   `current_prices` maintenance.
-- Client: sync settings screen (enable, display name, sync now, last
+- Geo proxy (8.6) backed by your Overpass; client switches to it.
+- Client: sync settings screen (sign in, home area, sync now, last
   synced), background sync triggers, community cache, search over both
   sets, read-only rendering of community reports with author tier and date.
 - Deliverable: scan on phone A, see the price on phone B.
@@ -562,42 +738,86 @@ time; even 10,000 community reports would be about 2.5 MB, well inside
 **Phase 2: trust and moderation**
 - Votes (confirm/flag), trust scoring, hide threshold, ingest checks, rate
   limits, admin endpoints + CLI.
-- Client: confirm/flag buttons, "unverified"/"unusual price"/"stale" badges,
-  current-vs-history price view per product.
-- Save-time product match prompt (8.4).
+- Client: confirm/flag buttons, "unverified" / "unusual price" / "stale" /
+  "location approximate" badges, current-vs-history price view per product.
+- Save-time product match prompt (8.4), which also catches the known
+  misses from 11a.
 
-**Phase 3: scale and recovery**
-- Geo-scoped pulls; email linking for account recovery; product merge
-  review page; price history chart on the product view.
+**Phase 3: cost control and monetization**
+- **AI parse proxy.** `POST /api/parse` takes the two images (multipart,
+  resized client-side to ≤ 1280 px), calls OpenRouter with a server-side
+  key, returns the parsed fields. `VITE_OPENROUTER_API_KEY` is removed from
+  the client bundle. Rate limits: per device token and per account; a
+  daily spend cap with a hard stop. Anonymous scanning stays possible via
+  the device token (decision 9 in section 15 asks whether it should).
+- **Photo evidence.** Because the parse proxy already receives the
+  price-tag photo, it stores a downscaled copy (~200 KB) keyed by the
+  eventual report id when the user saves. Visible only to the author and
+  to admins reviewing a flag. Retention: 90 days, or indefinitely while a
+  flag is open. Stored on local disk under `PHOTO_DIR`, backed up with the
+  database.
+- **Entitlement enforcement.** Stripe Checkout for a monthly plan,
+  webhook writes `subscriptions`, pull returns 402 after the free window,
+  client upgrade screen. Contribution-earns-access rule if decision 10 says
+  so.
 
-**Phase 4: optional, discussed but not committed**
-- Photo evidence: upload the price-tag photo with a report so flag review
-  has something to look at. Not image similarity, just storage. Needs an
-  object store and a size cap.
-- Move the OpenRouter call behind the server so the API key leaves the
-  client bundle, and so the server can rate-limit parsing per user.
+**Phase 4: polish and longer-tail**
+- Account recovery for a lost mailbox (admin-assisted re-link at first).
+- Account data export and deletion endpoints.
+- Product merge review page; price history chart on the product view.
+- Second cached region; radius slider in settings.
 
-## 15. Decisions I need from you
+## 15. Decisions
 
-1. **Auth level for Phase 1**: anonymous device accounts (recommended, above)
-   vs. requiring an email up front.
-2. **Hosting**: Fly.io / Railway / a box you already have. This only
-   changes the deploy files.
-3. **Include the sync token in JSON exports** so a restored backup keeps the
-   same identity? Convenient, but the backup becomes a credential.
-4. **Pull scope**: everything (simplest, fine for now) vs. geo-scoped from
-   day one.
-5. **Flavor variants**: the benchmark policy notes flavors of the same
-   product line usually share a price. Should the matcher merge them into
-   one product (fewer clusters, occasional wrong merge) or keep them
-   separate (recommended to start; merge later by hand if it is noisy)?
-6. ~~The real export file~~ Received and committed under
-   `shared/__fixtures__/`. If you would rather not have the raw export in
-   the repo (it includes store coordinates), say so and I will replace it
-   with the derived labeled pairs only.
-7. **Phase 4 items**: worth planning now, or park them?
-8. **Produce brands** (new, from section 11a): should the matcher ignore
-   brand for items tagged as produce (`fruit`, `vegetable`, `produce`,
-   `berries`, `apples`) so blueberries from five packers compare as one
-   product per size? Recommended: yes, brand becomes a soft signal for
-   produce and stays hard for everything else.
+Answered:
+
+1. **Auth**: email required for sync; local use and scanning stay
+   account-free. Implemented as email + 6-digit code (6.1), with device
+   tokens for anonymous rate limiting (6.2) and entitlement columns from
+   day one (6.3).
+2. **Hosting**: compared in 13.1. Recommendation is the home box with a
+   Cloudflare Tunnel, co-located with your Overpass instance, in a Compose
+   stack that can move to a VPS later.
+3. **Sync token in the export file**: explained below; recommendation is
+   **no**, and with email sign-in there is no longer a reason to.
+4. **Pull scope**: geo-scoped from day one, 50-mile default, 100-mile cap
+   (section 7).
+5. **Flavor variants**: merged under a lower threshold when brand and size
+   match exactly; each report keeps its own name (8.3).
+6. **Export file**: received and committed as the fixture.
+7. **Phase 4 items**: planned. The OpenRouter proxy and photo evidence are
+   now Phase 3; account recovery is Phase 4.
+
+**About decision 3, what "token in the export" would have meant.** The sync
+token is the credential the app sends with every request; the server treats
+whoever presents it as you. Putting it in the backup JSON would have made
+the backup work like a saved password: restoring the file on a new phone
+would sign that phone in automatically, which is convenient. The cost is
+that anyone who gets the file (shared by mistake, left in a downloads folder
+on a shared computer, attached to a bug report) could upload price reports
+under your name, flag other people's reports as you, and, once sync is paid,
+use your subscription. Revoking it would mean signing out everywhere. With
+email + code sign-in, a new phone just asks for a code, so the backup file
+can stay a plain data file that contains nothing secret. That is what the
+plan now assumes; the export format is unchanged apart from the new
+per-report fields.
+
+Still open:
+
+8. **Produce brands**: should brand become a soft signal for items tagged
+   as produce so blueberries from six packers compare as one product per
+   size? Recommended: yes.
+9. **Anonymous AI parsing** (new): once the OpenRouter key is behind the
+   server, every scan costs you money even from users who never sign in.
+   Options: (a) allow it with per-device and per-IP daily caps
+   (recommended to start, keeps the free experience intact); (b) require
+   sign-in to scan, which simplifies abuse control but adds friction before
+   the user has seen any value.
+10. **Contributors earn access** (new): should users who upload N verified
+    reports per month keep pull access without paying? It is the cheapest
+    way to grow the dataset, and it aligns incentives with data quality
+    because only verified (confirmed or unflagged-for-14-days) reports
+    would count. Recommended: yes, with the threshold as a config value.
+11. **Free window shape**: a trial period (e.g. 30 days) or a usage
+    allowance (e.g. N pulls per month)? Either is one config value; the
+    client copy differs.
