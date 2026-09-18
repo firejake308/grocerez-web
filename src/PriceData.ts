@@ -30,6 +30,20 @@ interface PriceData {
     isSale?: boolean;
     /** Sale end date, YYYY-MM-DD, when printed on the tag. */
     expiresAt?: string | null;
+
+    // --- Sync fields (docs/server-sync-plan.md section 7). All optional so pre-sync data still loads. ---
+    /** Author's server user id. Set on pulled community reports; on own reports after first push. */
+    userId?: string;
+    /** Assigned by the server after push (or carried on pulled reports). */
+    productId?: string;
+    storeId?: string;
+    /** ISO timestamp of the last successful push of this version. Absent or older than updatedAt means "pending". */
+    syncedAt?: string | null;
+    /** Tombstone: set when the user deletes an already-synced report; purged once the delete is pushed. */
+    deletedAt?: string | null;
+    /** Trust tier of the author, for community reports only. */
+    authorTier?: 'new' | 'restricted' | 'established' | 'trusted';
+    confirmCount?: number;
 }
 
 export default PriceData;

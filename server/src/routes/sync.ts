@@ -31,7 +31,8 @@ const reportSchema = z.object({
   deletedAt: z.string().nullable().optional(),
 });
 
-const pushSchema = z.object({ reports: z.array(reportSchema).max(500) });
+/** The batch is validated per report, not as a whole: one malformed legacy report must not block the other 499. */
+const pushSchema = z.object({ reports: z.array(z.unknown()).max(500) });
 
 /** Recomputes a product's cached stats from its current active reports. Call after any insert/update/delete that changes them. */
 function refreshProductAfterWrite(db: AppDb, productId: string): void {
@@ -201,7 +202,15 @@ export function syncRoutes(db: AppDb) {
     const parsed = pushSchema.safeParse(body);
     if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' }, 400);
 
-    const results = parsed.data.reports.map((r) => pushOneReport(db, auth.userId, r));
+    const results = parsed.data.reports.map((raw): PriceReportPushResult => {
+      const report = reportSchema.safeParse(raw);
+      if (!report.success) {
+        const id = typeof raw === 'object' && raw !== null && typeof (raw as { id?: unknown }).id === 'string' ? (raw as { id: string }).id : '';
+        const issue = report.error.issues[0];
+        return { id, status: 'rejected', error: `${issue?.path.join('.') || 'report'}: ${issue?.message ?? 'invalid'}` };
+      }
+      return pushOneReport(db, auth.userId, report.data);
+    });
     return c.json({ results });
   });
 

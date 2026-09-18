@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import HomeScreen from './HomeScreen';
 import PriceScanner from './PriceScanner';
 import AllPriceScans from './AllPriceScans';
@@ -6,8 +6,11 @@ import EditPriceScan from './EditPriceScan';
 import PriceData, { GroceryItem } from './PriceData';
 import AddItemScreen from './AddItemScreen';
 import { normalizePriceData } from './normalizePriceData';
+import SyncSettingsScreen from './SyncSettingsScreen';
+import { useSync } from './sync/useSync';
+import { syncEnabled } from './sync/config';
 
-type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit';
+type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit' | 'sync';
 
 const push = (screen: Screen, state?: Record<string, unknown>) => {
   window.history.pushState({ screen, ...state }, '');
@@ -34,6 +37,10 @@ const App = () => {
     }
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const sync = useSync(priceData, setPriceData);
+  // Tombstones (deleted-but-not-yet-pushed) stay in priceData until the delete syncs; never show them.
+  const mine = useMemo(() => priceData.filter((item) => !item.deletedAt), [priceData]);
+  const searchable = useMemo(() => [...mine, ...sync.community], [mine, sync.community]);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(() => {
     const saved = localStorage.getItem('groceryItems');
     return saved ? JSON.parse(saved) : [];
@@ -90,7 +97,15 @@ const App = () => {
   };
 
   const handleDeletePriceData = (id: string) => {
-    setPriceData((current) => current.filter((item) => item.id !== id));
+    const now = new Date().toISOString();
+    setPriceData((current) =>
+      current.flatMap((item) => {
+        if (item.id !== id) return [item];
+        // A report the server already has becomes a tombstone until the delete is pushed.
+        if (syncEnabled() && item.syncedAt) return [{ ...item, deletedAt: now, updatedAt: now }];
+        return [];
+      }),
+    );
   };
 
   const handleAddGroceryItem = (item: GroceryItem) => {
@@ -109,7 +124,7 @@ const App = () => {
   const handleExportData = () => {
     const exportPayload = {
       exportedAt: new Date().toISOString(),
-      priceData: stripImagesFromPriceData(priceData),
+      priceData: stripImagesFromPriceData(mine),
       groceryItems,
     };
     const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
@@ -166,7 +181,7 @@ const App = () => {
       {currentScreen === 'home' && (
         <HomeScreen
           onScan={() => navigateTo('scanner')}
-          priceData={priceData}
+          priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
           onAddItem={() => navigateTo('addItem')}
@@ -174,6 +189,9 @@ const App = () => {
           onDeleteItem={handleDeleteGroceryItem}
           onExportData={handleExportData}
           onImportData={handleImportData}
+          syncEnabled={sync.enabled}
+          syncSignedIn={Boolean(sync.auth)}
+          onOpenSync={() => navigateTo('sync')}
         />
       )}
 
@@ -181,7 +199,7 @@ const App = () => {
         <AddItemScreen
           onBack={() => window.history.back()}
           onSave={handleAddGroceryItem}
-          priceData={priceData}
+          priceData={searchable}
         />
       )}
 
@@ -194,11 +212,15 @@ const App = () => {
 
       {currentScreen === 'allPrices' && (
         <AllPriceScans
-          priceData={priceData}
+          priceData={mine}
           onBack={() => window.history.back()}
           onEdit={handleEditPriceData}
           onDelete={handleDeletePriceData}
         />
+      )}
+
+      {currentScreen === 'sync' && (
+        <SyncSettingsScreen sync={sync} onBack={() => window.history.back()} />
       )}
 
       {currentScreen === 'edit' && editingItem && (

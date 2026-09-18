@@ -45,5 +45,10 @@ export const normalizePriceData = (item: PartialPriceData): PriceData => {
     origin: item.origin === 'community' ? 'community' : 'mine',
     isSale: item.isSale === true,
     expiresAt: typeof item.expiresAt === 'string' && DATE_ONLY.test(item.expiresAt) ? item.expiresAt : null,
+    ...(typeof item.userId === 'string' && item.userId ? { userId: item.userId } : {}),
+    ...(typeof item.productId === 'string' && item.productId ? { productId: item.productId } : {}),
+    ...(typeof item.storeId === 'string' && item.storeId ? { storeId: item.storeId } : {}),
+    ...(typeof item.syncedAt === 'string' && item.syncedAt ? { syncedAt: item.syncedAt } : {}),
+    ...(typeof item.deletedAt === 'string' && item.deletedAt ? { deletedAt: item.deletedAt } : {}),
   };
 };

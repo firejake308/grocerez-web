@@ -140,7 +140,14 @@ const AddItemScreen = ({ onBack, onSave, priceData }: { onBack: VoidFunction; on
                     <div className="flex items-center space-x-3">
                       <input type="radio" name="match" checked={selectedIndex === idx} onChange={() => setSelectedIndex(idx)} />
                       <div>
-                        <div className="font-medium text-gray-800">{r.itemName}</div>
+                        <div className="font-medium text-gray-800 flex items-center gap-2">
+                          {r.itemName}
+                          {r.origin === 'community' && (
+                            <span className="text-[10px] uppercase tracking-wide bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
+                              Community{r.authorTier && r.authorTier !== 'new' ? ` · ${r.authorTier}` : ''}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500">{r.brand} • {r.store}</div>
                         {(r.quantity || r.quantity_units) && (
                           <div className="text-xs text-gray-500">{r.quantity} {r.quantity_units}</div>

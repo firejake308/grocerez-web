@@ -4,18 +4,7 @@ import PriceData from './PriceData';
 import ProductDetails from './ProductDetails';
 import { parsePriceImage } from './parsePriceImage';
 import { newReportId } from '../shared/ids';
-
-interface OverpassNode {
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: {
-    name?: string;
-    shop?: string;
-    'addr:housenumber'?: string;
-    'addr:street'?: string;
-  };
-}
+import { locateStore } from './sync/storeLocator';
 
 const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceData: PriceData) => void}) => {
   // Track current step in the scanning process
@@ -152,149 +141,43 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     const requestId = locationRequestIdRef.current + 1;
     locationRequestIdRef.current = requestId;
     setIsLocating(true);
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const { latitude, longitude } = position.coords;
-            setStoreLat(latitude);
-            setStoreLng(longitude);
-            // Query nodes and ways tagged as shops or supermarkets within 150m
-            const query = `[out:json];(node["shop"](around:150,${latitude},${longitude});way["shop"](around:150,${latitude},${longitude});node["amenity"="supermarket"](around:150,${latitude},${longitude});way["amenity"="supermarket"](around:150,${latitude},${longitude}););out center;`;
-            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-            // Use AbortController to avoid hanging requests
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            const response = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (!response.ok) {
-              throw new Error("Failed to fetch location data");
-            }
-            const data = await response.json();
-            // Overpass returns elements array; pick the nearest element if any
-            if (Array.isArray(data.elements) && data.elements.length > 0) {
-              const nearbyNodes = data.elements as OverpassNode[];
-              // nodes have top-level lat/lon; ways (polygons like large stores) expose coords under center
-              const elemLat = (el: OverpassNode) => el.lat ?? el.center?.lat ?? latitude;
-              const elemLon = (el: OverpassNode) => el.lon ?? el.center?.lon ?? longitude;
-              const nearest = nearbyNodes.reduce((prev, curr) => {
-                const pd = Math.hypot(elemLat(prev) - latitude, elemLon(prev) - longitude);
-                const cd = Math.hypot(elemLat(curr) - latitude, elemLon(curr) - longitude);
-                return cd < pd ? curr : prev;
-              }, nearbyNodes[0]);
 
-              const name = nearest.tags?.name || nearest.tags?.shop || '';
-              const lat = elemLat(nearest);
-              const lon = elemLon(nearest);
-
-              // Try to get street address — use OSM tags first, fall back to Nominatim
-              const osmHouseNumber = nearest.tags?.['addr:housenumber'];
-              const osmStreet = nearest.tags?.['addr:street'];
-              let address = osmHouseNumber && osmStreet ? `${osmHouseNumber} ${osmStreet}` : '';
-
-              if (!address) {
-                try {
-                  const revRes = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
-                  );
-                  if (revRes.ok) {
-                    const revData = await revRes.json();
-                    const addr = revData.address || {};
-                    if (addr.house_number && addr.road) {
-                      address = `${addr.house_number} ${addr.road}`;
-                    } else if (addr.road) {
-                      address = addr.road;
-                    }
-                  }
-                } catch {
-                  // address stays empty; we'll show just the name
-                }
-              }
-
-              if (locationRequestIdRef.current !== requestId) {
-                return;
-              }
-
-              setStoreLocation(name && address ? `${name} @ ${address}` : name || address);
-              if (lat !== latitude || lon !== longitude) {
-                setStoreLat(lat);
-                setStoreLng(lon);
-              }
-            } else {
-              // No nearby shop nodes found — try reverse geocoding to get house number/road
-              try {
-                const revRes = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-                );
-                if (revRes.ok) {
-                  const revData = await revRes.json();
-                  const addr = revData.address || {};
-                  if (locationRequestIdRef.current !== requestId) {
-                    return;
-                  }
-
-                  if (addr.house_number && addr.road) {
-                    setStoreLocation(`${addr.house_number} ${addr.road}`);
-                  } else if (addr.road) {
-                    setStoreLocation(addr.road);
-                  } else if (addr.suburb) {
-                    setStoreLocation(addr.suburb);
-                  } else {
-                    setStoreLocation("");
-                  }
-                } else {
-                  if (locationRequestIdRef.current !== requestId) {
-                    return;
-                  }
-
-                  setStoreLocation("");
-                }
-              } catch (err) {
-                console.error("Reverse geocoding fallback error:", err);
-                if (locationRequestIdRef.current !== requestId) {
-                  return;
-                }
-
-                setStoreLocation("");
-              }
-            }
-          } catch (error) {
-            console.error("Reverse geocoding error:", error);
-            if (locationRequestIdRef.current !== requestId) {
-              return;
-            }
-
-            setStoreLocation(""); // Empty to prompt manual entry
-            setStoreLat(null);
-            setStoreLng(null);
-          } finally {
-            if (locationRequestIdRef.current === requestId) {
-              setIsLocating(false);
-            }
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          if (locationRequestIdRef.current !== requestId) {
-            return;
-          }
-
-          setStoreLocation(""); // Empty to prompt manual entry
-          setStoreLat(null);
-          setStoreLng(null);
-          setIsLocating(false);
-        },
-        { timeout: 10000 }
-      );
-    } else {
-      if (locationRequestIdRef.current !== requestId) {
-        return;
-      }
-
+    if (!navigator.geolocation) {
       setStoreLocation(""); // Empty to prompt manual entry
       setIsLocating(false);
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setStoreLat(latitude);
+        setStoreLng(longitude);
+        try {
+          // Sync server's geo proxy when configured, public Overpass/Nominatim otherwise.
+          const located = await locateStore(latitude, longitude);
+          if (locationRequestIdRef.current !== requestId) return;
+          setStoreLocation(located.label);
+          setStoreLat(located.lat);
+          setStoreLng(located.lon);
+        } catch (error) {
+          console.error("Store lookup error:", error);
+          if (locationRequestIdRef.current !== requestId) return;
+          setStoreLocation(""); // Empty to prompt manual entry
+        } finally {
+          if (locationRequestIdRef.current === requestId) setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        if (locationRequestIdRef.current !== requestId) return;
+        setStoreLocation(""); // Empty to prompt manual entry
+        setStoreLat(null);
+        setStoreLng(null);
+        setIsLocating(false);
+      },
+      { timeout: 10000 }
+    );
   };
 
   const retakePhoto = () => {

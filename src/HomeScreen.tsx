@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Plus, Camera, Trash2, Download, Upload } from 'lucide-react';
+import { Plus, Camera, Trash2, Download, Upload, Cloud, CloudOff } from 'lucide-react';
 import PriceData, { GroceryItem } from './PriceData';
 
 const HomeScreen = ({
@@ -11,7 +11,10 @@ const HomeScreen = ({
   onToggleItem,
   onDeleteItem,
   onExportData,
-  onImportData
+  onImportData,
+  syncEnabled,
+  syncSignedIn,
+  onOpenSync
 }: {
   onScan: VoidFunction;
   priceData: PriceData[];
@@ -22,6 +25,9 @@ const HomeScreen = ({
   onDeleteItem: (id: string) => void;
   onExportData: VoidFunction;
   onImportData: (file: File) => void;
+  syncEnabled: boolean;
+  syncSignedIn: boolean;
+  onOpenSync: VoidFunction;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +73,18 @@ const HomeScreen = ({
           />
         </div>
         <h1 className="text-2xl font-bold text-white text-center flex-1">GrocerEZ</h1>
-        <div className="flex-1" />
+        <div className="flex-1 flex justify-end">
+          {syncEnabled && (
+            <button
+              onClick={onOpenSync}
+              title="Community prices"
+              aria-label="Community prices"
+              className="text-white p-1.5 rounded hover:bg-green-700"
+            >
+              {syncSignedIn ? <Cloud size={20} /> : <CloudOff size={20} />}
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Main Content Area */}

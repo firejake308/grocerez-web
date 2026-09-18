@@ -1,6 +1,6 @@
 # Price Report Server Sync: Implementation Plan
 
-Status: **draft for review**. Nothing in this document is implemented yet.
+Status: **Phases 0 and 1 implemented** on branch `claude/price-report-server-sync-2k2iup`; section 14 records what each phase shipped and what it deliberately left out. Phases 2-4 are still the plan as written.
 
 ## 1. Goal
 
@@ -922,14 +922,53 @@ now lags the app prompt by the two sale sentences.
     pushes a scan, and a second, entirely anonymous device -- never
     signed in, identified only by a device token -- pulls it back by
     location alone.
-- Geo proxy (8.6) backed by your Overpass; client switches to it.
+- Geo proxy (8.6) backed by your Overpass; client switches to it. —
+  **done**: `GET /api/geo/nearby-stores` answers from the `stores` table
+  when a store is already known within ~75 m, otherwise asks Overpass (if
+  `OVERPASS_URL` is set), records each named result through
+  `resolveStore` so the same spot never triggers Overpass again and a
+  later push resolves to the same store id, and degrades to the table's
+  answer if Overpass is down. `/reverse` and `/geocode` wrap Nominatim
+  with an identifying User-Agent, a serialized 1.1 s gap per its usage
+  policy, and in-memory caches. All three require a session or device
+  token. The client (`src/sync/storeLocator.ts`) uses the proxy when
+  `VITE_SYNC_API_URL` is set and falls back to the public endpoints on
+  any failure, so anonymous users are never broken by an API outage.
+  Rate limiting per device is still Phase 2.
 - Client: sync settings screen (sign in, home area, sync now, last
   synced), background sync triggers, community cache, search over both
-  sets, read-only rendering of community reports with author tier and date.
-- **Deliverable: scan on phone A, see the price on phone B — done on the
-  server side** (verified by the live smoke test above); the client half
-  (background sync, community cache, search over both sets) is still
-  section 7's outstanding client work, listed two bullets up.
+  sets, read-only rendering of community reports with author tier and
+  date. — **done**, all under `src/sync/` plus `SyncSettingsScreen.tsx`,
+  and hidden entirely unless `VITE_SYNC_API_URL` is set. Notes from
+  implementation:
+  - `engine.ts` is the whole protocol as pure functions plus one
+    orchestrator, `runSync`, that takes the API client, storage, and
+    location lookup as parameters; 14 tests cover pending detection,
+    push-result folding (tombstone purge, rejected-stays-pending), region
+    cursors, pull merging, the 401-signs-out-locally path, and the
+    no-location case (push still happens, pull is skipped with a hint).
+  - Deleting an already-synced report writes a tombstone (`deletedAt`)
+    that is hidden from every screen and purged once the server accepts
+    the delete; a never-synced report is just removed.
+  - Background sync never triggers the geolocation prompt: it uses the
+    device position only when permission is already granted (Permissions
+    API), then the newest located own report, then the home area.
+  - The server's push now validates each report individually instead of
+    the batch as a whole, since one legacy report with an empty store
+    (the export has two) would otherwise 400 the other 499.
+  - Verified in a real headless browser against a live server
+    (Playwright): a device that never signed in pulled phone A's scan by
+    location and showed it, with the Community badge, in Add Item search;
+    signed in through the settings screen with the emailed code; imported
+    a backup and had it pushed by the debounced trigger (stamped with
+    `syncedAt`/`productId`/`storeId`, resolved to the same store id as
+    phone A's scan); and deleted it, which synced as a tombstone.
+- **Deliverable: scan on phone A, see the price on phone B — done end to
+  end**, server and client, per the browser run above. What Phase 1 still
+  lacks is only what the plan assigns to later phases: votes and trust
+  (Phase 2), rate limits (Phase 2), entitlement enforcement (Phase 3), and
+  a home-box deployment, which needs your Overpass extract and tunnel
+  token.
 
 **Phase 2: trust and moderation**
 - Votes (confirm/flag), trust scoring, hide threshold, ingest checks, rate

@@ -258,6 +258,43 @@ describe('sync push/pull', () => {
     expect(body.results[1].status).toBe('rejected');
   });
 
+  it('rejects a malformed report individually instead of failing the whole batch', async () => {
+    const token = await signIn('legacy@example.com');
+    const res = await push(token, [
+      {
+        id: 'legacy-no-store',
+        itemName: 'MAC & CHEESE',
+        brand: '',
+        tags: [],
+        quantity: 40,
+        quantityUnits: 'OZ',
+        price: '11.38',
+        store: '', // an old report saved before the store field was required
+        observedDate: '2025-04-15',
+        updatedAt: '2025-04-15T00:00:00.000Z',
+      },
+      {
+        id: 'fine-report',
+        itemName: 'Milk',
+        brand: '',
+        tags: [],
+        quantity: 1,
+        quantityUnits: 'gallon',
+        price: '3.49',
+        store: 'Kroger @ 9150 North Tarrant Parkway',
+        latitude: KROGER_LAT,
+        longitude: KROGER_LON,
+        observedDate: '2026-09-01',
+        updatedAt: '2026-09-01T12:00:00.000Z',
+      },
+    ]);
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.results[0]).toMatchObject({ id: 'legacy-no-store', status: 'rejected' });
+    expect(body.results[0].error).toMatch(/store/);
+    expect(body.results[1].status).toBe('active');
+  });
+
   it('attaches a second, differently-worded report to the same product across two authors', async () => {
     const alice = await signIn('alice@example.com');
     const bob = await signIn('bob@example.com');

@@ -1,3 +1,27 @@
+# GrocerEZ
+
+Scan grocery price tags, keep a price history, and (optionally) share prices
+with other shoppers through the sync server in `server/`. See
+`docs/server-sync-plan.md` for the design.
+
+## Environment variables (client)
+
+| Variable | Purpose |
+|---|---|
+| `VITE_OPENROUTER_API_KEY` | OpenRouter key for price-tag parsing (Phase 3 moves this behind the server). |
+| `VITE_SYNC_API_URL` | Base URL of the sync server, e.g. `http://localhost:8787`. Unset = the whole sync feature is hidden and the app behaves as before. |
+
+Run the client with sync against a local server:
+
+```bash
+(cd server && npm install && npm run dev)          # API on :8787, sign-in codes print to its console
+VITE_SYNC_API_URL=http://localhost:8787 npm run dev # client on :5173
+```
+
+`server/README.md` covers the server itself.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
