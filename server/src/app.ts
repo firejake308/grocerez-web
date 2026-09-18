@@ -7,6 +7,7 @@ import { ConsoleMailer, type Mailer } from './lib/mail.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { meRoutes } from './routes/me.js';
+import { syncRoutes } from './routes/sync.js';
 
 export interface AppContext {
   db: AppDb;
@@ -36,9 +37,10 @@ export function createApp({ db, corsOrigins, mailer = new ConsoleMailer() }: App
   app.route('/api/auth', authRoutes({ db, mailer }));
   app.route('/api/devices', deviceRoutes(db));
   app.route('/api/me', meRoutes(db));
+  app.route('/api/sync', syncRoutes(db));
 
-  // Sync, product, flag, and admin routes are added as each is implemented
-  // (see docs/server-sync-plan.md sections 7-9).
+  // Product-match suggestions, flag/vote, and admin routes are added as
+  // each is implemented (see docs/server-sync-plan.md sections 8-9).
 
   return app;
 }

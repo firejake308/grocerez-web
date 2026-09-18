@@ -852,12 +852,68 @@ now lags the app prompt by the two sale sentences.
   a placeholder (`enforced: false`) until Phase 3.
 - Push, geo-scoped pull (anonymous devices included), store resolution
   with chain aliases and chain-level stores, product matching with the
-  flavor rule, `current_prices` maintenance.
+  flavor rule, `current_prices` maintenance. — **done** on this branch:
+  `POST /api/sync/push` and `GET /api/sync/pull`, plus the matcher and
+  store resolver they call. Notes from implementation:
+  - The scoring formula itself (`shared/matching.ts`) is pure and
+    dependency-free per the plan's own file layout, so the client can
+    reuse it later (section 8.4's save-time prompt) without pulling in
+    anything server-specific. `server/src/services/products.ts` is only
+    the orchestration: candidate lookup via `product_tokens`, calling into
+    `shared/matching.ts` for the score, and the create/attach/review
+    write path.
+  - **The produce rule needed a fix to actually do what decision 8 asked
+    for.** As specified (brand scored 0.5, but the flavor-variant
+    threshold-lowering keyed only on `brandsKnownAndEqual`), six
+    differently-branded blueberry packers landed in `review`, not
+    `attach` -- a real testing finding, not a typo: the fixture-backed
+    test failed first, then got fixed. The threshold now also lowers when
+    a match went through the produce soft-brand path
+    (`producePath` on the score result), so same-size produce actually
+    clusters as the plan intended, and it's covered by both a
+    `shared/matching.test.ts` case and an end-to-end
+    `services/products.test.ts` case merging six real packer brands from
+    the export into one product.
+  - `narrowCanonicalName` implements the "Buldak Spicy Ramen (Rose)" +
+    "...Artificial Spicy Chicken Flavor" → "Buldak Spicy Ramen" example
+    from section 8.3 literally: it keeps the existing canonical name's
+    *word order and casing*, dropping only the words not shared with the
+    newly attached report, rather than trying to reconstruct a phrase
+    from an unordered token set.
+  - Store resolution (`server/src/services/stores.ts`) implements the
+    chain-alias table and chain-level/address-only/geohash cases from
+    11a directly, tested against the real messy strings from the export
+    (bare chains, bare addresses, `undefined` geocode fragments, HEB/
+    H-E-B and Walmart/Walmart Supercenter variants). Geohashing is a
+    small from-scratch implementation (`server/src/lib/geohash.ts`,
+    checked against the standard Wikipedia worked example) rather than a
+    dependency, since it's about 30 lines and the only other option
+    pulled in a native module for one function.
+  - `current_prices` uses newest-`observedDate`-wins with ties going to
+    the latest push, per section 10; it does not yet implement that
+    section's "an older trusted report can outrank a newer unverified
+    one" refinement, or staleness/confidence, since both depend on trust
+    tiers and votes that don't exist until Phase 2.
+  - Pull's geo filter is a real bounding-box-then-haversine query, but
+    only over stores that already have coordinates; chain-level stores
+    (no location) and the "approximate location from the reporter's other
+    reports" fallback from section 7 are not implemented, so a bare
+    "Kroger" report with no address never reaches a geo-scoped pull yet.
+  - Verified with 60 new tests (21 for the matcher against real export
+    pairs, 14 for store resolution, 11 for the product service, 9
+    route-level for push/pull, 5 for the geohash helper) and a live smoke
+    test that is the literal deliverable below: one signed-in account
+    pushes a scan, and a second, entirely anonymous device -- never
+    signed in, identified only by a device token -- pulls it back by
+    location alone.
 - Geo proxy (8.6) backed by your Overpass; client switches to it.
 - Client: sync settings screen (sign in, home area, sync now, last
   synced), background sync triggers, community cache, search over both
   sets, read-only rendering of community reports with author tier and date.
-- Deliverable: scan on phone A, see the price on phone B.
+- **Deliverable: scan on phone A, see the price on phone B — done on the
+  server side** (verified by the live smoke test above); the client half
+  (background sync, community cache, search over both sets) is still
+  section 7's outstanding client work, listed two bullets up.
 
 **Phase 2: trust and moderation**
 - Votes (confirm/flag), trust scoring, hide threshold, ingest checks, rate
