@@ -829,13 +829,30 @@ now lags the app prompt by the two sale sentences.
   policy blocks Docker Hub's image CDN -- run `docker build` once yourself
   before deploying. Overpass and the Cloudflare Tunnel are commented out in
   `docker-compose.yml` until a regional extract and a tunnel token exist.
-- Email + code sign-in (6.1), device registration (6.2); anonymous
-  devices can pull. Entitlement tables and the free-set job exist, but
-  `ENTITLEMENTS_ENFORCED=false` so everyone sees everything while the
-  dataset is seeded (6.3).
-- Push, geo-scoped pull, store resolution with chain aliases and
-  chain-level stores, product matching with the flavor rule,
-  `current_prices` maintenance.
+- Email + code sign-in (6.1), device registration (6.2) — **done** on this
+  branch: `POST /api/auth/request-code` and `/verify` (10-minute code,
+  5 attempts, 60-second resend cooldown, 90-day session), `POST
+  /api/devices/register`, and `GET`/`PATCH /api/me` (profile, trust tier,
+  and a not-yet-enforced entitlement summary). Notes from implementation:
+  `resolveSession`/`resolveDevice` share one `Authorization: Bearer`
+  header, checked as a session first and a device token second, via
+  `requireAuth`/`requireUser` middleware; `server/src/services/trust.ts`
+  implements the section 9.2 formula early since `/api/me` needed a tier to
+  report, though `confirmedCount`/`upheldFlagsCount` stay at zero until
+  Phase 2's voting exists; the 6-digit code is hashed with `scrypt` (a
+  slow hash, since 5 attempts and a 10-minute expiry are a thinner defense
+  than for a 256-bit token) while session and device tokens use `sha256`
+  (fast is fine at that entropy); linking an anonymous device to an
+  account on sign-in (`linkDeviceToUser`) is implemented but not yet
+  called from a route, since nothing consumes it until push/pull exist.
+  Verified with 37 passing tests (unit, service, and route-level through
+  the live Hono app) and a live smoke test of the full request-code →
+  verify → `/api/me` → sign-out flow. Entitlement tables and the
+  free-set job (6.3) do not exist yet -- `/api/me`'s entitlement summary is
+  a placeholder (`enforced: false`) until Phase 3.
+- Push, geo-scoped pull (anonymous devices included), store resolution
+  with chain aliases and chain-level stores, product matching with the
+  flavor rule, `current_prices` maintenance.
 - Geo proxy (8.6) backed by your Overpass; client switches to it.
 - Client: sync settings screen (sign in, home area, sync now, last
   synced), background sync triggers, community cache, search over both
