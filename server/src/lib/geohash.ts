@@ -55,3 +55,8 @@ export function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: n
     Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_RADIUS_MI * Math.asin(Math.sqrt(a));
 }
+
+/** Same distance in meters, for the ~150m store-proximity checks (plan section 8.6). */
+export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  return haversineMiles(lat1, lon1, lat2, lon2) * 1609.344;
+}

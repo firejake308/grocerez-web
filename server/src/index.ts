@@ -7,7 +7,12 @@ import { env } from './env.js';
 const { db, sqlite } = runMigrations(env.DATABASE_PATH);
 const mailer = createMailer(env.MAIL_PROVIDER, env.RESEND_API_KEY, env.MAIL_FROM);
 
-const app = createApp({ db, corsOrigins: env.CORS_ORIGINS, mailer });
+const app = createApp({
+  db,
+  corsOrigins: env.CORS_ORIGINS,
+  mailer,
+  geo: { overpassUrl: env.OVERPASS_URL, nominatimUrl: env.NOMINATIM_URL, userAgent: 'GrocerEZ-sync/0.1' },
+});
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`grocerez-server listening on http://localhost:${info.port}`);

@@ -8,12 +8,16 @@ import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { meRoutes } from './routes/me.js';
 import { syncRoutes } from './routes/sync.js';
+import { geoRoutes } from './routes/geo.js';
+import type { GeoDeps } from './services/geo.js';
 
 export interface AppContext {
   db: AppDb;
   corsOrigins: string[];
   /** Defaults to logging codes to the console; tests inject a fake to capture them. */
   mailer?: Mailer;
+  /** Overpass/Nominatim settings; tests inject a fake fetch. Defaults to no Overpass and public Nominatim. */
+  geo?: GeoDeps;
 }
 
 /**
@@ -21,7 +25,12 @@ export interface AppContext {
  * parameters rather than reading globals, so tests can spin up an app over
  * an isolated in-memory database and a fake mailer.
  */
-export function createApp({ db, corsOrigins, mailer = new ConsoleMailer() }: AppContext) {
+export function createApp({
+  db,
+  corsOrigins,
+  mailer = new ConsoleMailer(),
+  geo = { overpassUrl: '', nominatimUrl: 'https://nominatim.openstreetmap.org' },
+}: AppContext) {
   const app = new Hono<AppEnv>();
 
   app.use('*', cors({ origin: corsOrigins }));
@@ -38,6 +47,7 @@ export function createApp({ db, corsOrigins, mailer = new ConsoleMailer() }: App
   app.route('/api/devices', deviceRoutes(db));
   app.route('/api/me', meRoutes(db));
   app.route('/api/sync', syncRoutes(db));
+  app.route('/api/geo', geoRoutes(db, geo));
 
   // Product-match suggestions, flag/vote, and admin routes are added as
   // each is implemented (see docs/server-sync-plan.md sections 8-9).
