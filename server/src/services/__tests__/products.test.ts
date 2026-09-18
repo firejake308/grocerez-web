@@ -76,12 +76,25 @@ describe('resolveProduct', () => {
     expect(a.productId).not.toBe(b.productId);
   });
 
-  it('merges six blueberry packers at 18 oz into one product (produce rule)', () => {
+  it('keeps six different-brand blueberry packers at 18 oz as separate products', () => {
+    // Produce gets no special treatment: a brand mismatch rejects a match
+    // here exactly like it does for eggs. An earlier version scored
+    // produce brand as a soft signal so these would cluster into one
+    // product, but that broke current_prices (keyed by product + store
+    // only): two brands at the same store would fight over one "current
+    // price" slot, silently hiding whichever brand wasn't scanned most
+    // recently.
     const brands = ["Driscoll's", 'Berry Fresh', 'Twin River', 'Field & Vine', 'Simple Truth Organic', 'California Giant Berry Farms'];
     const ids = brands.map((brand) =>
       resolveProduct(db, item({ itemName: 'Blueberries', brand, tags: ['berries', 'fruit', 'produce'], quantity: 18, quantityUnits: 'ounce' }), 599).productId,
     );
-    expect(new Set(ids).size).toBe(1);
+    expect(new Set(ids).size).toBe(brands.length);
+  });
+
+  it('still merges same-brand blueberries reported with slightly different wording', () => {
+    const a = resolveProduct(db, item({ itemName: 'Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'produce'], quantity: 18, quantityUnits: 'ounce' }), 599);
+    const b = resolveProduct(db, item({ itemName: 'Fresh Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'fresh produce'], quantity: 18, quantityUnits: 'ounce' }), 599);
+    expect(b.productId).toBe(a.productId);
   });
 
   it('narrows the canonical name toward shared words when flavor variants attach', () => {
@@ -120,11 +133,13 @@ describe('resolveProduct', () => {
     // Seed enough history (>= 3 reports, per plan section 8.3) with a
     // median around $2.50 so a $1.00 sale actually crosses the outlier
     // ratio (< 0.35x median) and the 0.15 penalty genuinely applies --
-    // not just a price penalty of zero that happens not to matter.
-    const productId = resolveProduct(db, item({ itemName: 'Cosmic Crisp Apples', tags: ['fruit', 'produce'], quantity: 1, quantityUnits: 'pound' }), 249).productId;
+    // not just a price penalty of zero that happens not to matter. Same
+    // brand and size put this on the flavor rule's lowered threshold, so
+    // the penalty alone isn't enough to knock it out of 'attach'.
+    const productId = resolveProduct(db, item({ itemName: 'Cosmic Crisp Apples', brand: 'Kroger', tags: ['fruit', 'produce'], quantity: 1, quantityUnits: 'pound' }), 249).productId;
     const prices = [249];
     for (const cents of [259, 269, 239]) {
-      resolveProduct(db, item({ itemName: 'Cosmic Crisp Apples', tags: ['fruit', 'produce'], quantity: 1, quantityUnits: 'pound' }), cents);
+      resolveProduct(db, item({ itemName: 'Cosmic Crisp Apples', brand: 'Kroger', tags: ['fruit', 'produce'], quantity: 1, quantityUnits: 'pound' }), cents);
       prices.push(cents);
       refreshProductStats(db, productId, prices); // simulates what the push route does after each insert
     }
@@ -132,7 +147,7 @@ describe('resolveProduct', () => {
     expect(product.reportCount).toBeGreaterThanOrEqual(3);
     expect(79 / product.medianPriceCents!).toBeLessThan(0.35); // confirms the penalty branch is actually exercised below
 
-    const saleReport = resolveProduct(db, item({ itemName: 'Cosmic Crisp Apples', tags: ['fruit', 'produce'], quantity: 1, quantityUnits: 'pound' }), 79);
+    const saleReport = resolveProduct(db, item({ itemName: 'Cosmic Crisp Apples', brand: 'Kroger', tags: ['fruit', 'produce'], quantity: 1, quantityUnits: 'pound' }), 79);
     expect(saleReport.decision).toBe('attach');
     expect(saleReport.productId).toBe(productId);
   });

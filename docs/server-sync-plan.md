@@ -437,13 +437,21 @@ A brand mismatch (`brand = 0`) rejects the candidate unless the brand word
 appears in the other side's name tokens (handles `brand: "Oreo"` vs
 `itemName: "Oreo Double Stuf", brand: ""`).
 
-**Produce rule** (your decision 8): when either side carries a produce tag
-(`produce`, `fruit`, `vegetable`, `berries`, `apples`, `bulk`, `bagged`, or
-a name token from a short produce vocabulary), brand becomes a soft
-signal: mismatch neither rejects nor penalizes, and `brand` scores a flat
-0.5. Size stays a hard requirement, so 18 oz blueberries from six packers
-become one product and the 1-pint clamshells another. The packer name is
-kept on each report and shown in the price list.
+**Produce gets no special treatment (decision 8, reversed).** The original
+answer to decision 8 was yes: treat brand as a soft signal for produce, so
+18 oz blueberries from six packers cluster into one product. That was
+implemented and tested in Phase 1, and it worked as scored -- but it broke
+`current_prices`, which is keyed by `(product_id, store_id)` only, with no
+brand or variant dimension. Two brands merged into one product at the same
+store would fight over that single "current price" slot: whichever was
+scanned more recently would silently overwrite the other's price in the
+summary view, even though a shopper standing at the shelf sees two
+genuinely different prices side by side. Fixing that properly means widening
+`current_prices`' key to include brand or a general `variant_key` -- more
+schema and query machinery than the search-clustering benefit was worth.
+Produce is now scored exactly like everything else: a brand mismatch
+rejects the candidate, full stop. Different-brand blueberries are different
+products, the same way Great Value and Eggland's Best eggs are.
 
 Thresholds are starting points. Section 12 describes the labeled fixture
 used to tune them.
@@ -695,12 +703,14 @@ Classic Macaroni and Cheese" / Annie's`; `"Cold Brew Coffee" / Stok` vs
   Chicken Flavor"` lands in the grey zone; decision 5 in section 15 decides
   whether flavor variants should merge.
 
-**Produce raises a new question.** Blueberries appear under five brands
-(Driscoll's, Simple Truth Organic, Field & Vine, Berry Fresh, Twin River,
-California Giant) at 18 oz or 1 pint, and apples under none. With brand as a
-hard constraint these are five products, which is technically right but
-probably not what a shopper comparing "blueberries 18 oz" wants. See
-decision 8 in section 15.
+**Produce is six separate products, by design.** Blueberries appear under
+six brands (Driscoll's, Simple Truth Organic, Field & Vine, Berry Fresh,
+Twin River, California Giant) at 18 oz or 1 pint. With brand as a hard
+constraint (decision 8, reversed -- see section 8.3) these are six
+products. A shopper comparing "blueberries 18 oz" across brands is a
+search/display concern for the client to solve (grouping products by
+name+size in results), not a reason to merge them into one product server
+side and lose per-brand pricing.
 
 **Same-store history already exists in the data.** Great Value 2% milk at
 Webb Chapel is $2.76 on 2026-05-29 and $2.96 on 2026-06-14; Stok cold brew
@@ -862,18 +872,24 @@ now lags the app prompt by the two sale sentences.
     the orchestration: candidate lookup via `product_tokens`, calling into
     `shared/matching.ts` for the score, and the create/attach/review
     write path.
-  - **The produce rule needed a fix to actually do what decision 8 asked
-    for.** As specified (brand scored 0.5, but the flavor-variant
-    threshold-lowering keyed only on `brandsKnownAndEqual`), six
-    differently-branded blueberry packers landed in `review`, not
-    `attach` -- a real testing finding, not a typo: the fixture-backed
-    test failed first, then got fixed. The threshold now also lowers when
-    a match went through the produce soft-brand path
-    (`producePath` on the score result), so same-size produce actually
-    clusters as the plan intended, and it's covered by both a
-    `shared/matching.test.ts` case and an end-to-end
-    `services/products.test.ts` case merging six real packer brands from
-    the export into one product.
+  - **The produce rule was implemented, found to have a real problem, and
+    then reversed -- not by a bug in the code, but by a bug in the design
+    it was carrying out.** First pass: as specified (brand scored 0.5,
+    flavor-variant threshold-lowering keyed only on `brandsKnownAndEqual`),
+    six differently-branded blueberry packers landed in `review`, not
+    `attach`; that got fixed so the threshold also lowered on the produce
+    path, and the fixture test then correctly merged all six into one
+    product. Walking through what that merge implies for
+    `current_prices` (keyed by product + store only, no brand dimension)
+    surfaced the real issue: two brands sharing one product at the same
+    store would fight over a single "current price" slot, and a newer
+    scan of either brand would silently hide the other's real, different
+    price. Rather than widen `current_prices`' key to fix that, decision 8
+    was reversed: produce is scored exactly like every other item now, and
+    the `producePath` concept was removed from `shared/matching.ts`
+    entirely (`isProduceItem` along with it). The six-blueberry-packer
+    test now asserts they stay as six separate products, alongside a new
+    test confirming same-brand produce still merges on reworded reports.
   - `narrowCanonicalName` implements the "Buldak Spicy Ramen (Rose)" +
     "...Artificial Spicy Chicken Flavor" → "Buldak Spicy Ramen" example
     from section 8.3 literally: it keeps the existing canonical name's
@@ -983,7 +999,11 @@ can stay a plain data file that contains nothing secret. That is what the
 plan now assumes; the export format is unchanged apart from the new
 per-report fields.
 
-8. **Produce brands**: soft signal for produce, size still hard (8.3).
+8. **Produce brands**: originally a soft signal so same-size produce from
+   different packers would cluster. Reversed after Phase 1 implementation
+   showed it breaks `current_prices` (keyed by product + store, no brand
+   dimension) -- see section 8.3. Produce is now scored like everything
+   else; a brand mismatch rejects the match.
 9. **Anonymous AI parsing**: allowed, with per-device daily caps (6.2,
    Phase 3).
 10. **Contributors earn access**: yes, only for verified and non-redundant

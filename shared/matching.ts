@@ -22,27 +22,6 @@ export interface NormalizedItem {
   nameTokens: Set<string>;
   tagTokens: Set<string>;
   size: ParsedQuantity;
-  isProduce: boolean;
-}
-
-const PRODUCE_TAGS = new Set([
-  'produce', 'fruit', 'fruits', 'vegetable', 'vegetables', 'veggie', 'veggies',
-  'berries', 'berry', 'apples', 'apple', 'bulk', 'bagged',
-]);
-
-/** A short backstop vocabulary; tags carry most of the signal (the parse prompt already asks for them). */
-const PRODUCE_NAME_WORDS = new Set([
-  'apple', 'banana', 'onion', 'potato', 'avocado', 'blueberry', 'strawberry', 'blackberry',
-  'raspberry', 'mango', 'tomato', 'lemon', 'lime', 'orange', 'grape', 'melon', 'spinach',
-  'lettuce', 'carrot', 'cilantro', 'cucumber', 'pepper', 'broccoli', 'cauliflower', 'celery',
-  'kale', 'peach', 'pear', 'plum', 'cherry', 'date', 'kiwi', 'grapefruit', 'pineapple',
-]);
-
-export function isProduceItem(item: Pick<MatchableItem, 'tags' | 'itemName' | 'brand'>): boolean {
-  if (item.tags.some((t) => PRODUCE_TAGS.has(t.toLowerCase().trim()))) return true;
-  const tokens = nameTokens(item.itemName, item.brand);
-  for (const word of tokens) if (PRODUCE_NAME_WORDS.has(word)) return true;
-  return false;
 }
 
 export function normalizeItem(item: MatchableItem): NormalizedItem {
@@ -51,7 +30,6 @@ export function normalizeItem(item: MatchableItem): NormalizedItem {
     nameTokens: nameTokens(item.itemName, item.brand),
     tagTokens: tokenize(item.tags.join(' ')),
     size: parseQuantity(item.quantity, item.quantityUnits),
-    isProduce: isProduceItem(item),
   };
 }
 
@@ -86,8 +64,6 @@ export interface MatchScoreResult {
   sizeMismatch: boolean;
   brandsKnownAndEqual: boolean;
   sizesKnownAndEqual: boolean;
-  /** True when either side is produce, so brand was scored as a soft 0.5 rather than compared for real. */
-  producePath: boolean;
 }
 
 /**
@@ -95,30 +71,31 @@ export interface MatchScoreResult {
  * 8.3). `pricePenalty` is computed by the caller from the candidate
  * product's aggregate stats (report count, median price) since that's
  * server-side state this pure function doesn't have.
+ *
+ * Brand is treated the same for every item, produce included: a genuine
+ * mismatch rejects the candidate outright. An earlier version scored
+ * produce brand as a soft signal instead (six blueberry packers are "the
+ * same" for search purposes), but that broke `current_prices`, which is
+ * keyed by (product, store) only -- Driscoll's and Berry Fresh blueberries
+ * at the same store would fight over one "current price" slot, and
+ * whichever was scanned more recently would silently hide the other
+ * brand's real, different price. Fixing that properly means keying
+ * `current_prices` by variant too, which is more machinery than the
+ * search benefit is worth right now; different produce brands are simply
+ * different products, like any other brand mismatch.
  */
 export function scoreMatch(a: NormalizedItem, b: NormalizedItem, pricePenalty = 0): MatchScoreResult {
   const sizeCmp = compareQuantities(a.size, b.size);
   if (sizeCmp === 'different') {
-    return { score: 0, sizeMismatch: true, brandsKnownAndEqual: false, sizesKnownAndEqual: false, producePath: false };
+    return { score: 0, sizeMismatch: true, brandsKnownAndEqual: false, sizesKnownAndEqual: false };
   }
 
-  const produce = a.isProduce || b.isProduce;
   const brandCmp = compareBrandKeys(a, b);
-
-  // A genuine brand mismatch rejects the candidate outright -- except for
-  // produce, where brand is a soft signal (decision 8: six blueberry
-  // packers are the same product at the same size).
-  if (brandCmp === 'different' && !produce) {
-    return {
-      score: 0,
-      sizeMismatch: false,
-      brandsKnownAndEqual: false,
-      sizesKnownAndEqual: sizeCmp === 'same',
-      producePath: false,
-    };
+  if (brandCmp === 'different') {
+    return { score: 0, sizeMismatch: false, brandsKnownAndEqual: false, sizesKnownAndEqual: sizeCmp === 'same' };
   }
 
-  const brandScore = produce ? 0.5 : brandCmp === 'equal' ? 1 : brandCmp === 'unknown' ? 0.5 : 0;
+  const brandScore = brandCmp === 'equal' ? 1 : 0.5; // 'unknown'
   const nameSim = diceSimilarity(a.nameTokens, b.nameTokens);
   const tagSim = diceSimilarity(a.tagTokens, b.tagTokens);
   const score = 0.65 * nameSim + 0.2 * brandScore + 0.15 * tagSim - pricePenalty;
@@ -128,27 +105,22 @@ export function scoreMatch(a: NormalizedItem, b: NormalizedItem, pricePenalty = 
     sizeMismatch: false,
     brandsKnownAndEqual: brandCmp === 'equal',
     sizesKnownAndEqual: sizeCmp === 'same',
-    producePath: produce,
   };
 }
 
 export type MatchDecision = 'attach' | 'review' | 'new';
 
 /**
- * Turns a score into attach/review/new (section 8.3). Both the
- * flavor-variant rule and the produce rule lower the thresholds when brand
- * was never a real signal against attaching -- either because it's known
- * and matches (flavor variants of the same product) or because it was
- * scored as a soft 0.5 on purpose (produce, decision 8). Without this,
- * "six blueberry packers are one product" doesn't actually happen: their
- * differing brands keep the score in the review band under the standard
- * 0.8 threshold even though nothing else about them differs.
+ * Turns a score into attach/review/new (section 8.3). The flavor-variant
+ * rule lowers both thresholds when brand and size already agree, so
+ * differently-worded variants of the same product (a Buldak flavor, a
+ * blueberry size) cluster together without needing a near-identical name.
  */
 export function decideMatch(result: MatchScoreResult): MatchDecision {
   if (result.sizeMismatch) return 'new';
-  const lowered = result.sizesKnownAndEqual && (result.brandsKnownAndEqual || result.producePath);
-  const attachThreshold = lowered ? 0.55 : 0.8;
-  const reviewThreshold = lowered ? 0.4 : 0.6;
+  const flavorEligible = result.brandsKnownAndEqual && result.sizesKnownAndEqual;
+  const attachThreshold = flavorEligible ? 0.55 : 0.8;
+  const reviewThreshold = flavorEligible ? 0.4 : 0.6;
   if (result.score >= attachThreshold) return 'attach';
   if (result.score >= reviewThreshold) return 'review';
   return 'new';

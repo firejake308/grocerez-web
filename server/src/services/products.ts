@@ -5,7 +5,6 @@ import { newId } from '../lib/ids.js';
 import {
   compareBrandKeys,
   decideMatch,
-  isProduceItem,
   narrowCanonicalName,
   normalizeItem,
   scoreMatch,
@@ -72,7 +71,7 @@ function findCandidates(db: AppDb, normalized: NormalizedItem): ProductRow[] {
 
   return rows.filter((row) => {
     const rowNormalized = normalizeProductRow(row);
-    const brandOk = compareBrandKeys(normalized, rowNormalized) !== 'different' || normalized.isProduce || rowNormalized.isProduce;
+    const brandOk = compareBrandKeys(normalized, rowNormalized) !== 'different';
     const sizeOk = row.sizeFamily === 'unknown' || normalized.size.family === 'unknown' || row.sizeFamily === normalized.size.family;
     return brandOk && sizeOk;
   });
@@ -173,5 +172,3 @@ export function resolveProduct(db: AppDb, item: MatchableItem, priceCents: numbe
   const productId = createProduct(db, item, normalized, null);
   return { productId, decision: 'new' };
 }
-
-export { isProduceItem };

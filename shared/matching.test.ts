@@ -4,7 +4,6 @@ import {
   scoreMatch,
   decideMatch,
   compareBrandKeys,
-  isProduceItem,
   narrowCanonicalName,
   type MatchableItem,
 } from './matching';
@@ -52,7 +51,7 @@ describe('real pairs from the export (docs/server-sync-plan.md section 11a)', ()
     expect(decide(a, b)).toBe('new');
   });
 
-  it('keeps different-brand eggs at the same size apart (brand mismatch is a hard reject outside produce)', () => {
+  it('keeps different-brand eggs at the same size apart (brand mismatch is always a hard reject)', () => {
     const a = item({ itemName: 'Large White Eggs', brand: 'Great Value', tags: ['eggs', 'dairy', 'breakfast'], quantity: 12, quantityUnits: 'count' });
     const b = item({ itemName: 'Large Eggs', brand: "Eggland's Best", tags: ['eggs', 'breakfast', 'protein', 'baking'], quantity: 12, quantityUnits: 'count' });
     expect(decide(a, b)).toBe('new');
@@ -64,17 +63,30 @@ describe('real pairs from the export (docs/server-sync-plan.md section 11a)', ()
     expect(decide(a, b)).toBe('attach');
   });
 
-  it('treats six blueberry packers at the same size as one product (produce rule)', () => {
+  it('keeps six different-brand blueberry packers at the same size apart, same as any other item', () => {
+    // An earlier version treated produce brand as a soft signal so these
+    // would cluster into one product. That broke current_prices, which is
+    // keyed by (product, store) only: two brands at the same store would
+    // fight over one "current price" slot, and the newer scan would
+    // silently hide the other brand's real, different price. Produce gets
+    // no special treatment now -- a brand mismatch rejects the match here
+    // exactly like it does for eggs.
     const driscolls = item({ itemName: 'Organic Blueberries', brand: "Driscoll's", tags: ['berries', 'fruit', 'organic produce', 'fresh fruit'], quantity: 18, quantityUnits: 'ounce' });
     const berryFresh = item({ itemName: 'Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'produce', 'fresh fruit'], quantity: 18, quantityUnits: 'ounce' });
     const twinRiver = item({ itemName: 'Blueberries', brand: 'Twin River', tags: ['fruit', 'berry', 'fresh produce'], quantity: 18, quantityUnits: 'ounce' });
-    expect(decide(driscolls, berryFresh)).toBe('attach');
-    expect(decide(berryFresh, twinRiver)).toBe('attach');
+    expect(decide(driscolls, berryFresh)).toBe('new');
+    expect(decide(berryFresh, twinRiver)).toBe('new');
   });
 
-  it('keeps 18 oz blueberries apart from 1-pint blueberries (size still hard for produce)', () => {
+  it('still merges same-brand blueberries reported with slightly different wording', () => {
+    const a = item({ itemName: 'Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'produce'], quantity: 18, quantityUnits: 'ounce' });
+    const b = item({ itemName: 'Fresh Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'fresh produce'], quantity: 18, quantityUnits: 'ounce' });
+    expect(decide(a, b)).toBe('attach');
+  });
+
+  it('keeps 18 oz blueberries apart from 1-pint blueberries (size is always hard)', () => {
     const ounces = item({ itemName: 'Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'produce'], quantity: 18, quantityUnits: 'ounce' });
-    const pint = item({ itemName: 'Organic Blueberries', brand: "Driscoll's", tags: ['berries', 'fruit', 'organic produce'], quantity: 1, quantityUnits: 'pint' });
+    const pint = item({ itemName: 'Organic Blueberries', brand: 'Berry Fresh', tags: ['berries', 'fruit', 'organic produce'], quantity: 1, quantityUnits: 'pint' });
     expect(decide(ounces, pint)).toBe('new');
   });
 
@@ -90,10 +102,12 @@ describe('real pairs from the export (docs/server-sync-plan.md section 11a)', ()
     expect(decide(a, b)).toBe('review');
   });
 
-  it('a $4 apple report at $1 is a real sale, not an error -- price never vetoes a match', () => {
-    const usual = item({ itemName: 'Cosmic Crisp Apples', tags: ['fruit', 'produce', 'apples'], quantity: 1, quantityUnits: 'pound' });
-    const onSale = item({ itemName: 'Cosmic Crisp Apples', tags: ['fruit', 'produce', 'apples'], quantity: 1, quantityUnits: 'pound' });
-    // Even with the maximum price penalty (0.15) applied, identical names/tags/size clear the attach threshold.
+  it('a $4 item report at $1 is a real sale, not an error -- price never vetoes a match', () => {
+    const usual = item({ itemName: 'Cosmic Crisp Apples', brand: 'Kroger', tags: ['fruit', 'produce', 'apples'], quantity: 1, quantityUnits: 'pound' });
+    const onSale = item({ itemName: 'Cosmic Crisp Apples', brand: 'Kroger', tags: ['fruit', 'produce', 'apples'], quantity: 1, quantityUnits: 'pound' });
+    // Identical brand and size put this on the flavor-rule's lowered
+    // threshold (0.55), so even the maximum price penalty (0.15) applied
+    // on top of an otherwise-perfect match still clears it comfortably.
     expect(decide(usual, onSale, 0.15)).toBe('attach');
   });
 });
@@ -121,20 +135,6 @@ describe('compareBrandKeys', () => {
     const a = normalizeItem(item({ brand: 'Great Value' }));
     const b = normalizeItem(item({ brand: "Eggland's Best" }));
     expect(compareBrandKeys(a, b)).toBe('different');
-  });
-});
-
-describe('isProduceItem', () => {
-  it('detects produce by tag', () => {
-    expect(isProduceItem(item({ itemName: 'Yellow Onions', tags: ['produce', 'vegetable'] }))).toBe(true);
-  });
-
-  it('detects produce by name as a backstop when tags are missing', () => {
-    expect(isProduceItem(item({ itemName: 'Honeycrisp Apples', tags: [] }))).toBe(true);
-  });
-
-  it('does not flag an unrelated packaged good', () => {
-    expect(isProduceItem(item({ itemName: 'Cold Brew Coffee', brand: 'Stok', tags: ['coffee', 'beverage'] }))).toBe(false);
   });
 });
 
