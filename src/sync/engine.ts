@@ -45,6 +45,9 @@ export function toUpsert(item: PriceData): PriceReportUpsert {
     isSale: item.isSale ?? false,
     updatedAt: item.updatedAt,
     deletedAt: item.deletedAt ?? null,
+    // Set when the save-time match prompt (section 8.4) confirmed this is an
+    // existing product; the server attaches directly instead of matching.
+    productId: item.productId ?? null,
   };
 }
 
@@ -119,7 +122,19 @@ export function communityToPriceData(report: SyncedPriceReport): PriceData {
     syncedAt: report.updatedAt,
     authorTier: report.authorTier,
     confirmCount: report.confirmCount,
+    reviewReason: report.reviewReason,
+    isStale: report.isStale,
+    myVote: report.myVote,
   };
+}
+
+/** Applies a vote's resulting counts to one cached report, wherever it's cached. Used to reflect confirm/flag/withdraw immediately, without waiting for the next pull. */
+export function patchSyncedReport(
+  reports: SyncedPriceReport[],
+  reportId: string,
+  patch: Partial<Pick<SyncedPriceReport, 'status' | 'reviewReason' | 'confirmCount' | 'myVote'>>,
+): SyncedPriceReport[] {
+  return reports.map((r) => (r.id === reportId ? { ...r, ...patch } : r));
 }
 
 /** Drops the least-recently-used regions beyond the cap. */

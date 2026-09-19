@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type PriceData from '../PriceData';
-import { ApiError, createSyncApi, type GeocodeResult, type Profile } from './api';
+import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Profile, type VoteState } from './api';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
-import { cachedCommunity, pendingReports, runSync } from './engine';
+import { cachedCommunity, patchSyncedReport, pendingReports, runSync } from './engine';
 import { getSyncLocation } from './location';
 import { localSyncStorage, type HomeArea, type SyncAuth } from './storage';
 
@@ -30,6 +30,17 @@ export interface SyncController {
   updateDisplayName: (name: string) => Promise<void>;
   searchHomeArea: (q: string) => Promise<GeocodeResult[]>;
   chooseHomeArea: (area: HomeArea | null) => Promise<void>;
+  /** Confirm / flag / withdraw a community report (plan section 9.3). Throws if not signed in. */
+  confirmReport: (reportId: string) => Promise<void>;
+  flagReport: (reportId: string, reason: FlagReason, note?: string) => Promise<void>;
+  removeVote: (reportId: string) => Promise<void>;
+}
+
+export class SignInRequiredError extends Error {
+  constructor() {
+    super('Sign in to do that.');
+    this.name = 'SignInRequiredError';
+  }
 }
 
 /** Delay between a local change and the push it triggers, so a burst of edits becomes one request. */
@@ -200,6 +211,45 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     void syncNow();
   }, [api, storage, syncNow]);
 
+  /** Applies a vote's returned state to the cached region (so the UI updates immediately) and to `community`. */
+  const applyVote = useCallback((reportId: string, state: VoteState) => {
+    const patch = { status: state.status, reviewReason: state.reviewReason, confirmCount: state.confirmCount, myVote: state.myVote };
+    const key = storage.getCurrentRegionKey();
+    if (key) {
+      const regions = storage.getRegions();
+      const region = regions[key];
+      if (region) {
+        const nextReports = patchSyncedReport(region.reports, reportId, patch);
+        storage.setRegions({ ...regions, [key]: { ...region, reports: nextReports } });
+      }
+    }
+    setCommunity((current) => current.map((item) => (item.id === reportId ? { ...item, ...patch } : item)));
+  }, [storage]);
+
+  const requireSession = (): string => {
+    const token = storage.getAuth()?.sessionToken;
+    if (!token) throw new SignInRequiredError();
+    return token;
+  };
+
+  const confirmReport = useCallback(async (reportId: string) => {
+    const state = await api.confirmReport(requireSession(), reportId);
+    applyVote(reportId, state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, applyVote, storage]);
+
+  const flagReport = useCallback(async (reportId: string, reason: FlagReason, note?: string) => {
+    const state = await api.flagReport(requireSession(), reportId, reason, note);
+    applyVote(reportId, state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, applyVote, storage]);
+
+  const removeVote = useCallback(async (reportId: string) => {
+    const state = await api.removeVote(requireSession(), reportId);
+    applyVote(reportId, state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, applyVote, storage]);
+
   return {
     enabled,
     auth,
@@ -214,5 +264,8 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     updateDisplayName,
     searchHomeArea,
     chooseHomeArea,
+    confirmReport,
+    flagReport,
+    removeVote,
   };
 }

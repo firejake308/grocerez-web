@@ -7,6 +7,7 @@ import {
   communityToPriceData,
   evictRegions,
   mergePull,
+  patchSyncedReport,
   pendingReports,
   regionKey,
   runSync,
@@ -53,7 +54,10 @@ const synced = (overrides: Partial<SyncedPriceReport>): SyncedPriceReport => ({
   expiresAt: null,
   isSale: false,
   status: 'active',
+  reviewReason: null,
   confirmCount: 0,
+  isStale: false,
+  myVote: null,
   updatedAt: '2026-09-01T12:00:00.000Z',
   ...overrides,
 });
@@ -82,7 +86,12 @@ describe('toUpsert', () => {
       quantityUnits: null,
       latitude: 32.9019798,
       deletedAt: null,
+      productId: null,
     });
+  });
+
+  it('carries a save-time-confirmed productId (plan section 8.4) so the server attaches directly instead of matching', () => {
+    expect(toUpsert(report({ productId: 'confirmed-product-1' }))).toMatchObject({ productId: 'confirmed-product-1' });
   });
 });
 
@@ -135,6 +144,25 @@ describe('communityToPriceData', () => {
     const pd = communityToPriceData(synced({ priceCents: 605, quantity: null, quantityUnits: null }));
     expect(pd).toMatchObject({ price: '6.05', store: 'Kroger', origin: 'community', authorTier: 'established', quantity: 1, quantity_units: '' });
   });
+
+  it('carries the moderation fields badges are built from', () => {
+    const pd = communityToPriceData(synced({ reviewReason: 'price_outlier', isStale: true, myVote: 'confirm' }));
+    expect(pd).toMatchObject({ reviewReason: 'price_outlier', isStale: true, myVote: 'confirm' });
+  });
+});
+
+describe('patchSyncedReport', () => {
+  it('updates only the matching report', () => {
+    const reports = [synced({ id: 'a', confirmCount: 0 }), synced({ id: 'b', confirmCount: 0 })];
+    const patched = patchSyncedReport(reports, 'a', { confirmCount: 1, myVote: 'confirm' });
+    expect(patched.find((r) => r.id === 'a')).toMatchObject({ confirmCount: 1, myVote: 'confirm' });
+    expect(patched.find((r) => r.id === 'b')).toMatchObject({ confirmCount: 0, myVote: null });
+  });
+
+  it('is a no-op for an id that is not cached', () => {
+    const reports = [synced({ id: 'a' })];
+    expect(patchSyncedReport(reports, 'nope', { confirmCount: 5 })).toEqual(reports);
+  });
 });
 
 describe('evictRegions', () => {
@@ -170,6 +198,11 @@ describe('runSync', () => {
       nearbyStores: record('nearbyStores', async () => ({ stores: [] })),
       reverse: record('reverse', async () => ({ houseNumber: null, road: null, suburb: null, label: null })),
       geocode: record('geocode', async () => ({ results: [] })),
+      confirmReport: record('confirmReport', async () => { throw new Error('unused'); }),
+      flagReport: record('flagReport', async () => { throw new Error('unused'); }),
+      removeVote: record('removeVote', async () => { throw new Error('unused'); }),
+      matchProduct: record('matchProduct', async () => ({ candidates: [] })),
+      productPrices: record('productPrices', async () => { throw new Error('unused'); }),
       ...overrides,
     };
     return { api, calls };

@@ -1,4 +1,10 @@
-import type { PriceReportUpsert, PullResponseBody, PushResponseBody } from '../../shared/types';
+import type {
+  PriceReportUpsert,
+  ProductMatchCandidate,
+  ProductPricesResponse,
+  PullResponseBody,
+  PushResponseBody,
+} from '../../shared/types';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -40,8 +46,19 @@ export interface GeocodeResult {
   lon: number;
 }
 
+export type FlagReason = 'wrong_price' | 'wrong_item' | 'expired' | 'duplicate' | 'spam' | 'other';
+
+export interface VoteState {
+  reportId: string;
+  status: 'active' | 'hidden' | 'deleted';
+  reviewReason: 'price_outlier' | 'new_user' | 'flagged' | 'banned' | null;
+  confirmCount: number;
+  flagWeight: number;
+  myVote: 'confirm' | 'flag' | null;
+}
+
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   token?: string | null;
   body?: unknown;
   timeoutMs?: number;
@@ -106,6 +123,24 @@ export function createSyncApi(baseUrl: string, fetchImpl: typeof fetch = (...arg
       request<ReverseResult>(`/api/geo/reverse?lat=${lat}&lon=${lon}`, { token, timeoutMs: 12_000 }),
     geocode: (token: string, q: string) =>
       request<{ results: GeocodeResult[] }>(`/api/geo/geocode?q=${encodeURIComponent(q)}`, { token, timeoutMs: 12_000 }),
+    confirmReport: (token: string, reportId: string) =>
+      request<VoteState>(`/api/reports/${encodeURIComponent(reportId)}/confirm`, { method: 'POST', token }),
+    flagReport: (token: string, reportId: string, reason: FlagReason, note?: string) =>
+      request<VoteState>(`/api/reports/${encodeURIComponent(reportId)}/flag`, { method: 'POST', token, body: { reason, note } }),
+    removeVote: (token: string, reportId: string) =>
+      request<VoteState>(`/api/reports/${encodeURIComponent(reportId)}/vote`, { method: 'DELETE', token }),
+    /** Section 8.4's save-time prompt: "is this the same as an item we already know?" */
+    matchProduct: (token: string, item: { itemName: string; brand?: string; tags?: string[]; quantity?: number; quantityUnits?: string; price?: string }) => {
+      const q = new URLSearchParams({ itemName: item.itemName });
+      if (item.brand) q.set('brand', item.brand);
+      if (item.tags?.length) q.set('tags', item.tags.join(','));
+      if (item.quantity) q.set('quantity', String(item.quantity));
+      if (item.quantityUnits) q.set('quantityUnits', item.quantityUnits);
+      if (item.price) q.set('price', item.price);
+      return request<{ candidates: ProductMatchCandidate[] }>(`/api/products/match?${q.toString()}`, { token, timeoutMs: 8_000 });
+    },
+    productPrices: (token: string, productId: string) =>
+      request<ProductPricesResponse>(`/api/products/${encodeURIComponent(productId)}/prices`, { token, timeoutMs: 12_000 }),
   };
 }
 

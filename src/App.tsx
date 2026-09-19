@@ -7,10 +7,11 @@ import PriceData, { GroceryItem } from './PriceData';
 import AddItemScreen from './AddItemScreen';
 import { normalizePriceData } from './normalizePriceData';
 import SyncSettingsScreen from './SyncSettingsScreen';
+import ProductPricesScreen from './ProductPricesScreen';
 import { useSync } from './sync/useSync';
 import { syncEnabled } from './sync/config';
 
-type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit' | 'sync';
+type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit' | 'sync' | 'productPrices';
 
 const push = (screen: Screen, state?: Record<string, unknown>) => {
   window.history.pushState({ screen, ...state }, '');
@@ -37,6 +38,7 @@ const App = () => {
     }
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingProductId, setViewingProductId] = useState<string | null>(null);
   const sync = useSync(priceData, setPriceData);
   // Tombstones (deleted-but-not-yet-pushed) stay in priceData until the delete syncs; never show them.
   const mine = useMemo(() => priceData.filter((item) => !item.deletedAt), [priceData]);
@@ -55,6 +57,9 @@ const App = () => {
       setCurrentScreen(screen);
       if (screen === 'edit') {
         setEditingId(typeof e.state?.editingId === 'string' ? e.state.editingId : null);
+      }
+      if (screen === 'productPrices') {
+        setViewingProductId(typeof e.state?.productId === 'string' ? e.state.productId : null);
       }
     };
 
@@ -200,6 +205,8 @@ const App = () => {
           onBack={() => window.history.back()}
           onSave={handleAddGroceryItem}
           priceData={searchable}
+          sync={sync.enabled ? sync : undefined}
+          onViewPriceHistory={sync.enabled ? (productId) => { setViewingProductId(productId); navigateTo('productPrices', { productId }); } : undefined}
         />
       )}
 
@@ -221,6 +228,10 @@ const App = () => {
 
       {currentScreen === 'sync' && (
         <SyncSettingsScreen sync={sync} onBack={() => window.history.back()} />
+      )}
+
+      {currentScreen === 'productPrices' && viewingProductId && (
+        <ProductPricesScreen productId={viewingProductId} sync={sync} onBack={() => window.history.back()} />
       )}
 
       {currentScreen === 'edit' && editingItem && (

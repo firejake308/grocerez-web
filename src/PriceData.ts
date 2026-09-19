@@ -44,6 +44,12 @@ interface PriceData {
     /** Trust tier of the author, for community reports only. */
     authorTier?: 'new' | 'restricted' | 'established' | 'trusted';
     confirmCount?: number;
+    /** 'price_outlier' shows an "unusual price" hint; others are moderation states the client doesn't render specially. */
+    reviewReason?: 'price_outlier' | 'new_user' | 'flagged' | 'banned' | null;
+    /** Expired sale, or 45+ days with no confirmation/rescan (docs/server-sync-plan.md section 10). Community reports only. */
+    isStale?: boolean;
+    /** The signed-in caller's own vote on this report, when known (community reports only). */
+    myVote?: 'confirm' | 'flag' | null;
 }
 
 export default PriceData;

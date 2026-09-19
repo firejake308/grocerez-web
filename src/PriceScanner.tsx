@@ -5,6 +5,10 @@ import ProductDetails from './ProductDetails';
 import { parsePriceImage } from './parsePriceImage';
 import { newReportId } from '../shared/ids';
 import { locateStore } from './sync/storeLocator';
+import { createSyncApi } from './sync/api';
+import { SYNC_API_URL, syncEnabled } from './sync/config';
+import { localSyncStorage } from './sync/storage';
+import type { ProductMatchCandidate } from '../shared/types';
 
 const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceData: PriceData) => void}) => {
   // Track current step in the scanning process
@@ -29,12 +33,16 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
   const [isSale, setIsSale] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
-  
+  // Save-time product match prompt (plan section 8.4): "is this the same item we already know?"
+  const [matchCandidate, setMatchCandidate] = useState<ProductMatchCandidate | null>(null);
+  const [confirmedProductId, setConfirmedProductId] = useState<string | null>(null);
+
   // Camera refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const hasRequestedLocationRef = useRef(false);
+  const hasRequestedMatchRef = useRef(false);
   const locationRequestIdRef = useRef(0);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
@@ -51,6 +59,41 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       locationRequestIdRef.current += 1;
     }
   }, [scanStep]);
+
+  // Look for an existing product this might be, once, on arriving at details.
+  useEffect(() => {
+    if (scanStep === 'details' && !hasRequestedMatchRef.current && syncEnabled()) {
+      hasRequestedMatchRef.current = true;
+      const token = localSyncStorage.getAuth()?.sessionToken ?? localSyncStorage.getDeviceToken();
+      if (!token) return; // no device token yet (e.g. first launch); the matcher still runs server-side on push
+      createSyncApi(SYNC_API_URL)
+        .matchProduct(token, {
+          itemName,
+          brand: brand || undefined,
+          tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+          quantity: quantity > 0 ? quantity : undefined,
+          quantityUnits: quantity_units || undefined,
+          price: scannedPrice ?? undefined,
+        })
+        .then(({ candidates }) => {
+          if (candidates.length > 0) setMatchCandidate(candidates[0]);
+        })
+        .catch((err) => console.warn('Product match lookup failed:', err));
+    }
+    if (scanStep !== 'details') {
+      hasRequestedMatchRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanStep]);
+
+  const confirmMatch = () => {
+    if (matchCandidate) setConfirmedProductId(matchCandidate.productId);
+    setMatchCandidate(null);
+  };
+
+  const rejectMatch = () => {
+    setMatchCandidate(null);
+  };
 
   const stopCamera = useCallback(() => {
     cameraStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -215,7 +258,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
         quantity: quantity,
         quantity_units: quantity_units,
         latitude: storeLat,
-        longitude: storeLng
+        longitude: storeLng,
+        ...(confirmedProductId ? { productId: confirmedProductId } : {}),
       };
       
       if (onSave) {
@@ -403,6 +447,10 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       setIsSale={setIsSale}
       expiresAt={expiresAt}
       setExpiresAt={setExpiresAt}
+      matchCandidate={matchCandidate}
+      confirmedProductId={confirmedProductId}
+      onConfirmMatch={confirmMatch}
+      onRejectMatch={rejectMatch}
     />;
   }
 

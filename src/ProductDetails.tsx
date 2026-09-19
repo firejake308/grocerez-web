@@ -1,4 +1,5 @@
 import { ArrowLeft, Camera, MapPin, ShoppingBag } from "lucide-react";
+import type { ProductMatchCandidate } from '../shared/types';
 
 interface ProductDetailsProps {
   scannedPrice: string | null;
@@ -24,6 +25,11 @@ interface ProductDetailsProps {
   setIsSale: (isSale: boolean) => void;
   expiresAt: string | null;
   setExpiresAt: (expiresAt: string | null) => void;
+  /** Save-time match prompt (plan section 8.4): the top existing product this scan might be. */
+  matchCandidate: ProductMatchCandidate | null;
+  confirmedProductId: string | null;
+  onConfirmMatch: VoidFunction;
+  onRejectMatch: VoidFunction;
 }
 
 const ProductDetails: React.FC<ProductDetailsProps> = ({ 
@@ -49,7 +55,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   isSale,
   setIsSale,
   expiresAt,
-  setExpiresAt
+  setExpiresAt,
+  matchCandidate,
+  confirmedProductId,
+  onConfirmMatch,
+  onRejectMatch,
 }) => {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -63,6 +73,24 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Content */}
       <div className="flex-1 p-4 overflow-auto">
+        {matchCandidate && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-blue-900">
+              Is this the same as <span className="font-semibold">{matchCandidate.canonicalName}</span>
+              {matchCandidate.sizeLabel ? ` (${matchCandidate.sizeLabel})` : ''}? Seen at {matchCandidate.storeCount} store{matchCandidate.storeCount === 1 ? '' : 's'}
+              {matchCandidate.medianPriceCents ? `, usually $${(matchCandidate.medianPriceCents / 100).toFixed(2)}` : ''}.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button onClick={onConfirmMatch} className="flex-1 bg-blue-600 text-white text-sm py-1.5 rounded-md">Yes, same item</button>
+              <button onClick={onRejectMatch} className="flex-1 border border-blue-300 text-blue-700 text-sm py-1.5 rounded-md">No, different</button>
+            </div>
+          </div>
+        )}
+        {confirmedProductId && !matchCandidate && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-900">
+            Linked to an existing item. Your price will be added to its history.
+          </div>
+        )}
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <h2 className="font-semibold text-lg mb-3">Price Information</h2>
           <div className="flex justify-between items-center mb-4">

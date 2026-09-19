@@ -970,13 +970,74 @@ now lags the app prompt by the two sale sentences.
   a home-box deployment, which needs your Overpass extract and tunnel
   token.
 
-**Phase 2: trust and moderation**
+**Phase 2: trust and moderation** — **done** on this branch.
 - Votes (confirm/flag), trust scoring, hide threshold, ingest checks, rate
-  limits, admin endpoints + CLI.
-- Client: confirm/flag buttons, "unverified" / "unusual price" / "stale" /
-  "location approximate" badges, current-vs-history price view per product.
+  limits, admin endpoints + CLI. — **done**: `server/src/services/trust.ts`
+  implements the section 9.2 Laplace-smoothed formula and tiers
+  (new/restricted/established/trusted), recomputed per-user on every vote
+  and on a 6-hour timer (`server/src/index.ts`); `votes.ts` implements
+  confirm/flag with one vote per user per report, flag weight equal to the
+  flagger's own trust score, and the ≥1.5-combined-weight-from-≥2-flaggers
+  hide threshold from 9.3 — a hidden report only ever comes back through
+  admin resolution, never by a flagger withdrawing their vote, which a
+  test caught by asserting the wrong behavior first and had to be fixed to
+  match the plan rather than the other way round. `freshness.ts` adds the
+  45-day staleness window and the "a newer unverified report disagreeing
+  >15% with a recent (≤30 day) trusted one doesn't override
+  `current_prices`" rule from section 10 that Phase 1 deferred.
+  `rateLimit.ts` is a self-pruning sliding-window counter table applied to
+  new reports (per user and per IP), votes, and the geo proxy. Admin
+  (9.5) is both `server/src/routes/admin.ts` (JSON endpoints behind
+  `ADMIN_TOKEN`, 503 when unset) and `server/src/admin-cli.ts` (the same
+  service functions called directly, for when there's no reason to run a
+  server round trip): list/resolve flags, merge products (following merge
+  chains), ban/restrict/reactivate a user, force a trust recompute.
+  Verified with 122 new tests (177 total) plus a live admin-CLI smoke test
+  against a running server database.
+- Client: confirm/flag buttons, "unverified" / "unusual price" / "stale"
+  badges, current-vs-history price view per product. — **done**:
+  `PriceBadges.tsx` renders the three badges on community reports;
+  confirm/flag controls live inline in `AddItemScreen`'s search results
+  and on each history row in the new `ProductPricesScreen.tsx` (current
+  price per store plus full history, reachable via a "View price history"
+  link on any community result with a `productId`); `useSync.ts` applies
+  a vote's result to both the region cache and in-memory `community`
+  state immediately, without waiting for the next pull, via
+  `patchSyncedReport`. The "location approximate" badge is not
+  implemented -- it depends on the chain-level-store fallback Phase 1 also
+  deferred -- and badges only show on community reports, not the user's
+  own, since a scan you made yourself has no unverified/outlier/stale
+  status to flag. **A real bug surfaced by live verification, not by
+  tests:** `AddItemScreen` computed its search results into local state
+  once, at search time; confirming or flagging a report updated the sync
+  layer correctly but the on-screen button never changed, because it was
+  still reading the stale snapshot. Fixed by re-deriving each displayed
+  row's volatile fields (vote counts, `myVote`, status) from the live
+  `priceData` prop on every render (`liveResults` in
+  `src/AddItemScreen.tsx`), which is also why this needed a real browser
+  rather than the unit tests -- they mock the sync layer at a level where
+  the stale-closure bug is invisible.
 - Save-time product match prompt (8.4), which also catches the known
-  misses from 11a.
+  misses from 11a. — **done**: `GET /api/products/match` (backed by
+  `matchCandidates` in `server/src/services/products.ts`) returns the top
+  existing product a new scan might be; `PriceScanner.tsx` calls it once
+  on entering the details step and `ProductDetails.tsx` shows a "Yes, same
+  item / No, different" card, confirming which sets `productId` on the
+  saved report so the push handler's `followMerge` uses it directly and
+  skips the automatic matcher (`server/src/routes/sync.ts`). Verified by
+  typecheck, lint, and the existing unit/route-level tests only, not a
+  full browser run -- the scanner's camera capture (`getUserMedia`) is not
+  practical to drive from Playwright in this environment.
+- Verified end to end in a live browser (Playwright) as a second,
+  never-signed-in device: searching pulled-in community reports shows the
+  unusual-price badge; confirming while signed out prompts to sign in;
+  signing in and confirming shows the updated count immediately; flagging
+  replaces the confirm vote and shows "Flagged"; opening price history
+  shows the current per-store price and the full history with the same
+  badges. The one address-book-style detail worth flagging: flagging a
+  report you'd previously confirmed replaces your vote entirely (one vote
+  per user, per the data model) rather than adding a second one -- so a
+  flag after a confirm correctly drops the confirm count back down.
 
 **Phase 3: cost control and monetization**
 - **AI parse proxy.** `POST /api/parse` takes the two images (multipart,
