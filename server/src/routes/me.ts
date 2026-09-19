@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { users } from '../db/schema.js';
 import { requireUser, type AppEnv } from '../lib/authenticate.js';
-import { trustTier } from '../services/trust.js';
+import { tierForUser } from '../services/trust.js';
 
 const updateMeSchema = z.object({
   displayName: z.string().trim().min(1).max(60).optional(),
@@ -18,7 +18,7 @@ const toProfile = (user: typeof users.$inferSelect) => ({
   displayName: user.displayName,
   homeLat: user.homeLat,
   homeLon: user.homeLon,
-  tier: trustTier(user.reportsCount, user.confirmedCount, user.upheldFlagsCount),
+  tier: tierForUser(user),
   counts: {
     reports: user.reportsCount,
     confirmed: user.confirmedCount,

@@ -2,13 +2,17 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { sql } from 'drizzle-orm';
 import type { AppDb } from './db/client.js';
-import type { AppEnv } from './lib/authenticate.js';
+import { authenticate, type AppEnv } from './lib/authenticate.js';
 import { ConsoleMailer, type Mailer } from './lib/mail.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { meRoutes } from './routes/me.js';
 import { syncRoutes } from './routes/sync.js';
 import { geoRoutes } from './routes/geo.js';
+import { reportRoutes } from './routes/reports.js';
+import { productRoutes } from './routes/products.js';
+import { adminRoutes } from './routes/admin.js';
+import { consumeRateLimit, LIMITS } from './services/rateLimit.js';
 import type { GeoDeps } from './services/geo.js';
 
 export interface AppContext {
@@ -18,6 +22,10 @@ export interface AppContext {
   mailer?: Mailer;
   /** Overpass/Nominatim settings; tests inject a fake fetch. Defaults to no Overpass and public Nominatim. */
   geo?: GeoDeps;
+  /** Shared secret for /api/admin (plan section 9.5). Empty disables those routes. */
+  adminToken?: string;
+  /** Injectable clock for time-based rules (rate limits, staleness) in tests. */
+  now?: () => Date;
 }
 
 /**
@@ -30,6 +38,8 @@ export function createApp({
   corsOrigins,
   mailer = new ConsoleMailer(),
   geo = { overpassUrl: '', nominatimUrl: 'https://nominatim.openstreetmap.org' },
+  adminToken = '',
+  now = () => new Date(),
 }: AppContext) {
   const app = new Hono<AppEnv>();
 
@@ -46,11 +56,24 @@ export function createApp({
   app.route('/api/auth', authRoutes({ db, mailer }));
   app.route('/api/devices', deviceRoutes(db));
   app.route('/api/me', meRoutes(db));
-  app.route('/api/sync', syncRoutes(db));
-  app.route('/api/geo', geoRoutes(db, geo));
+  app.route('/api/sync', syncRoutes(db, now));
 
-  // Product-match suggestions, flag/vote, and admin routes are added as
-  // each is implemented (see docs/server-sync-plan.md sections 8-9).
+  // The geo proxy is metered per caller so a single device can't use the
+  // server as a relay to Nominatim or the Overpass box (section 9.4).
+  app.use('/api/geo/*', async (c, next) => {
+    // Runs before the geo router's requireAuth, so resolve the caller here;
+    // an unauthenticated request passes through to be rejected there.
+    const auth = authenticate(db, c.req.header('Authorization'));
+    const key = auth ? (auth.kind === 'session' ? `geo:user:${auth.userId}` : `geo:device:${auth.deviceId}`) : null;
+    if (key && !consumeRateLimit(db, key, LIMITS.geoPerCallerHour, now)) {
+      return c.json({ error: 'Too many location lookups in the last hour. Try again later.' }, 429);
+    }
+    await next();
+  });
+  app.route('/api/geo', geoRoutes(db, geo));
+  app.route('/api/reports', reportRoutes(db, now));
+  app.route('/api/products', productRoutes(db, now));
+  app.route('/api/admin', adminRoutes(db, adminToken, now));
 
   return app;
 }

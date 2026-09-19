@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
-import { products, productTokens } from '../db/schema.js';
+import { priceReports, products, productTokens } from '../db/schema.js';
 import { newId } from '../lib/ids.js';
 import {
   compareBrandKeys,
@@ -133,6 +133,61 @@ export function refreshProductStats(db: AppDb, productId: string, activePriceCen
         ? sorted[(sorted.length - 1) / 2]
         : Math.round((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2);
   db.update(products).set({ reportCount: sorted.length, medianPriceCents: median }).where(eq(products.id, productId)).run();
+}
+
+/** Follows merged_into pointers to the live product, or null if the id is unknown. */
+export function followMerge(db: AppDb, productId: string, depth = 0): string | null {
+  const row = db.select({ id: products.id, mergedInto: products.mergedInto }).from(products).where(eq(products.id, productId)).all()[0];
+  if (!row) return null;
+  if (row.mergedInto && depth < 10) return followMerge(db, row.mergedInto, depth + 1) ?? row.id;
+  return row.id;
+}
+
+/** Recomputes a product's cached stats from its active reports. Call after any write that changes them. */
+export function refreshProductFromReports(db: AppDb, productId: string): void {
+  const prices = db
+    .select({ priceCents: priceReports.priceCents })
+    .from(priceReports)
+    .where(and(eq(priceReports.productId, productId), eq(priceReports.status, 'active')))
+    .all()
+    .map((r) => r.priceCents);
+  refreshProductStats(db, productId, prices);
+}
+
+export interface MatchCandidate {
+  productId: string;
+  canonicalName: string;
+  brandKey: string;
+  sizeLabel: string | null;
+  sizeBaseQty: number | null;
+  reportCount: number;
+  medianPriceCents: number | null;
+  score: number;
+  decision: MatchDecision;
+}
+
+/** Section 8.4's save-time prompt: the same candidates and scores push would use, without writing anything. */
+export function matchCandidates(db: AppDb, item: MatchableItem, priceCents: number | null, limit = 3): MatchCandidate[] {
+  const normalized = normalizeItem(item);
+  return findCandidates(db, normalized)
+    .map((product) => {
+      const penalty = priceCents === null ? 0 : pricePenalty(product, priceCents);
+      const result = scoreMatch(normalized, normalizeProductRow(product), penalty);
+      return {
+        productId: product.id,
+        canonicalName: product.canonicalName,
+        brandKey: product.brandKey,
+        sizeLabel: product.sizeLabel,
+        sizeBaseQty: product.sizeBaseQty,
+        reportCount: product.reportCount,
+        medianPriceCents: product.medianPriceCents,
+        score: result.score,
+        decision: decideMatch(result),
+      };
+    })
+    .filter((c) => c.decision !== 'new')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 }
 
 export interface ResolveProductResult {

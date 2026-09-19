@@ -30,6 +30,8 @@ export const users = sqliteTable('users', {
   reportsCount: integer('reports_count').notNull().default(0),
   confirmedCount: integer('confirmed_count').notNull().default(0),
   upheldFlagsCount: integer('upheld_flags_count').notNull().default(0),
+  /** Flags this user raised that an admin dismissed; every three count as one "bad" report in the trust score (section 9.3). */
+  dismissedFlagsCount: integer('dismissed_flags_count').notNull().default(0),
 
   // Entitlements (section 6.3). Enforcement is gated by ENTITLEMENTS_ENFORCED
   // and lands in Phase 3; the columns exist now so nothing migrates later.
@@ -163,10 +165,12 @@ export const priceReports = sqliteTable('price_reports', {
   observedDate: text('observed_date').notNull(),
   expiresAt: text('expires_at'),
   isSale: integer('is_sale', { mode: 'boolean' }).notNull().default(false),
+  /** Staleness reference (section 10): observed_date, bumped to the date of each confirmation. */
+  freshnessDate: text('freshness_date').notNull().default(''),
 
   source: text('source', { enum: ['scan', 'manual', 'import'] }).notNull().default('scan'),
   status: text('status', { enum: ['active', 'hidden', 'deleted'] }).notNull().default('active'),
-  reviewReason: text('review_reason', { enum: ['price_outlier', 'flagged', 'new_user'] }),
+  reviewReason: text('review_reason', { enum: ['price_outlier', 'flagged', 'new_user', 'banned'] }),
 
   confirmCount: integer('confirm_count').notNull().default(0),
   flagWeight: real('flag_weight').notNull().default(0),
@@ -187,6 +191,8 @@ export const reportVotes = sqliteTable('report_votes', {
   kind: text('kind', { enum: ['confirm', 'flag'] }).notNull(),
   reason: text('reason', { enum: ['wrong_price', 'wrong_item', 'expired', 'duplicate', 'spam', 'other'] }),
   note: text('note'),
+  /** Flags only: the voter's trust score at the time, so a fresh account's flag counts less (section 9.3). */
+  weight: real('weight').notNull().default(0),
   createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   resolution: text('resolution', { enum: ['upheld', 'dismissed'] }),
   resolvedAt: text('resolved_at'),
@@ -202,10 +208,27 @@ export const currentPrices = sqliteTable('current_prices', {
   priceCents: integer('price_cents').notNull(),
   observedDate: text('observed_date').notNull(),
   expiresAt: text('expires_at'),
+  /** The author's trust score; the client dims low-confidence prices. */
   confidence: real('confidence').notNull().default(1),
   isStale: integer('is_stale', { mode: 'boolean' }).notNull().default(false),
+  /**
+   * Section 10's override: when a newer report from an unverified author
+   * disagrees with a recent trusted one, the trusted report is current and
+   * the newer one is kept here so the client can show "reported $X on
+   * <date> (unverified)".
+   */
+  contestedReportId: text('contested_report_id').references(() => priceReports.id),
 }, (t) => ([
   primaryKey({ columns: [t.productId, t.storeId] }),
+]));
+
+/** Sliding-window rate limiting (section 9.4). One row per counted event; rows older than the window are pruned on check. */
+export const rateLimitEvents = sqliteTable('rate_limit_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  bucket: text('bucket').notNull(),
+  createdAt: text('created_at').notNull(),
+}, (t) => ([
+  index('rate_limit_events_bucket_idx').on(t.bucket, t.createdAt),
 ]));
 
 // --- Entitlements: free tier and contributor credits (section 6.3) -------
