@@ -1,4 +1,5 @@
 import type {
+  ParsedPriceFields,
   PriceReportUpsert,
   ProductMatchCandidate,
   ProductPricesResponse,
@@ -21,7 +22,13 @@ export interface Profile {
   homeLon: number | null;
   tier: 'new' | 'restricted' | 'established' | 'trusted';
   counts: { reports: number; confirmed: number; upheldFlags: number };
-  entitlement: { enforced: boolean; plan: 'free' | 'paid'; planExpiresAt: string | null };
+  entitlement: {
+    enforced: boolean;
+    level: 'public' | 'contributor' | 'subscriber';
+    plan: 'free' | 'paid';
+    planExpiresAt: string | null;
+    credits: { earned: number; needed: number };
+  };
 }
 
 export interface NearbyStore {
@@ -141,6 +148,11 @@ export function createSyncApi(baseUrl: string, fetchImpl: typeof fetch = (...arg
     },
     productPrices: (token: string, productId: string) =>
       request<ProductPricesResponse>(`/api/products/${encodeURIComponent(productId)}/prices`, { token, timeoutMs: 12_000 }),
+    /** The AI parse proxy (Phase 3): moves the OpenRouter call server-side so its key never ships in the client bundle. */
+    parseImages: (token: string, priceImage: string, productImage: string, reportId?: string) =>
+      request<ParsedPriceFields>('/api/parse', { method: 'POST', token, body: { priceImage, productImage, reportId }, timeoutMs: 45_000 }),
+    checkoutSubscription: (token: string) =>
+      request<{ url: string }>('/api/billing/checkout', { method: 'POST', token, timeoutMs: 15_000 }),
   };
 }
 

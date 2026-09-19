@@ -203,6 +203,8 @@ describe('runSync', () => {
       removeVote: record('removeVote', async () => { throw new Error('unused'); }),
       matchProduct: record('matchProduct', async () => ({ candidates: [] })),
       productPrices: record('productPrices', async () => { throw new Error('unused'); }),
+      parseImages: record('parseImages', async () => { throw new Error('unused'); }),
+      checkoutSubscription: record('checkoutSubscription', async () => { throw new Error('unused'); }),
       ...overrides,
     };
     return { api, calls };
@@ -261,6 +263,40 @@ describe('runSync', () => {
     const summary = await runSync(d.deps);
     expect((calls[0].args[1] as { since: number }).since).toBe(41);
     expect(summary.community.map((r) => r.id).sort()).toEqual(['c1', 'old']);
+  });
+
+  it('keeps a previously-seen locked summary when a later sync finds nothing new (section 6.3)', async () => {
+    const locked1 = { productId: 'p1', canonicalName: 'Olipop', storeCount: 1, reportCount: 1, newestDate: '2026-06-01' };
+    const { api } = fakeApi({
+      pull: async () => ({ accessLevel: 'public' as const, reports: [], locked: [locked1], nextSince: 1 }),
+    });
+    const d = deps(api, [], false);
+    const first = await runSync(d.deps);
+    expect(first.locked).toEqual([locked1]);
+
+    // A second sync with the cursor already at 1 finds nothing new -- the locked cache must not be wiped.
+    const d2 = { ...d.deps, api: { ...api, pull: async () => ({ accessLevel: 'public' as const, reports: [], locked: [], nextSince: 1 }) } };
+    const second = await runSync(d2);
+    expect(second.locked).toEqual([locked1]);
+  });
+
+  it('drops a product from the locked cache once a full report for it arrives', async () => {
+    const locked1 = { productId: 'p1', canonicalName: 'Olipop', storeCount: 1, reportCount: 1, newestDate: '2026-06-01' };
+    const { api } = fakeApi({
+      pull: async () => ({ accessLevel: 'public' as const, reports: [], locked: [locked1], nextSince: 1 }),
+    });
+    const d = deps(api, [], false);
+    const first = await runSync(d.deps);
+    expect(first.locked).toEqual([locked1]);
+
+    // The product entered the free set: now a real report for it comes back instead of a locked summary.
+    const d2 = {
+      ...d.deps,
+      api: { ...api, pull: async () => ({ accessLevel: 'public' as const, reports: [synced({ id: 'r1', seq: 2, productId: 'p1' })], locked: [], nextSince: 2 }) },
+    };
+    const second = await runSync(d2);
+    expect(second.locked).toEqual([]);
+    expect(second.community.map((r) => r.id)).toEqual(['r1']);
   });
 
   it('signs out locally and continues as a device when the session is rejected', async () => {

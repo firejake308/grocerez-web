@@ -42,7 +42,7 @@ Constraints from the request:
 | Search tokenizes name + brand + tags and uses a prefix-match rule | `src/searchUtils.ts` | Product matcher reuses `tokenize` and the prefix rule as its first layer |
 | The benchmark defines unit equivalence (64 fl oz == 0.5 gal, 1 lb == 16 oz; count-like units are not interchangeable) | `benchmark/ground_truth.json` `_policy` | Same rules become the size-comparison step of the matcher |
 | Images are stripped from `localStorage` and from exports | `src/App.tsx` | Phase 1 syncs no images; photo evidence is an optional later phase |
-| The OpenRouter key ships in the client bundle as `VITE_OPENROUTER_API_KEY` | `src/parsePriceImage.ts` | Out of scope, but once a server exists it is the natural place to proxy that call. Noted in Phase 4 |
+| The OpenRouter key shipped in the client bundle as `VITE_OPENROUTER_API_KEY` | `src/parsePriceImage.ts` | Fixed in Phase 3: the call moved behind `POST /api/parse` once the server existed to proxy it |
 
 ## 3. Architecture overview
 
@@ -592,21 +592,32 @@ POST   /api/auth/verify                    { email, code } → { userId, session
 POST   /api/auth/signout
 PATCH  /api/me                             { displayName, homeLat, homeLon }
 GET    /api/me                             → profile, tier, counts, entitlement
+                                             (entitlement includes credits: { earned,
+                                              needed } directly -- no separate
+                                              /api/me/credits endpoint; nothing else
+                                              needed one)
 
 POST   /api/sync/push                      { reports: [...] } → per-id results
 GET    /api/sync/pull?since=&lat=&lon=&radiusMi=&limit=
                                            → { accessLevel, reports, locked, nextSince }
                                              (device token or session; never 402,
                                               locked prices are omitted instead)
-GET    /api/me/credits                     → { earned, needed, level }
 
 GET    /api/geo/nearby-stores?lat=&lon=    → stores table first, Overpass fallback
 GET    /api/geo/reverse?lat=&lon=
 GET    /api/geo/geocode?q=
 
-POST   /api/parse                          multipart images → parsed fields   (Phase 3)
-POST   /api/billing/checkout               → Stripe Checkout URL             (Phase 3)
-POST   /api/billing/webhook                (Stripe → server)                 (Phase 3)
+POST   /api/parse                          { priceImage, productImage, reportId? }
+                                           → parsed fields (device token or session;
+                                             JSON with base64 data URLs, not
+                                             multipart -- the client already had
+                                             those from the canvas capture)
+GET    /api/reports/:id/photo              → the price-tag photo, if any (author
+                                             or admin token only)
+POST   /api/billing/checkout               → Stripe Checkout URL (session required;
+                                             503 until STRIPE_SECRET is set)
+POST   /api/billing/webhook                (Stripe → server; 503 until
+                                             STRIPE_WEBHOOK_SECRET is set)
 
 GET    /api/products/match?itemName=&brand=&quantity=&quantityUnits=
                                            → top candidates with scores   (Phase 2)
@@ -1039,24 +1050,132 @@ now lags the app prompt by the two sale sentences.
   per user, per the data model) rather than adding a second one -- so a
   flag after a confirm correctly drops the confirm count back down.
 
-**Phase 3: cost control and monetization**
-- **AI parse proxy.** `POST /api/parse` takes the two images (multipart,
-  resized client-side to ≤ 1280 px), calls OpenRouter with a server-side
-  key, returns the parsed fields. `VITE_OPENROUTER_API_KEY` is removed from
-  the client bundle. Rate limits: per device token and per account; a
-  daily spend cap with a hard stop. Anonymous scanning stays possible via
-  the device token (decision 9 in section 15 asks whether it should).
-- **Photo evidence.** Because the parse proxy already receives the
-  price-tag photo, it stores a downscaled copy (~200 KB) keyed by the
-  eventual report id when the user saves. Visible only to the author and
-  to admins reviewing a flag. Retention: 90 days, or indefinitely while a
-  flag is open. Stored on local disk under `PHOTO_DIR`, backed up with the
-  database.
-- **Entitlement enforcement.** `ENTITLEMENTS_ENFORCED=true`: public
-  devices get the free set plus locked summaries; contributor credits
-  (6.3.2) unlock the rest; Stripe Checkout for a monthly plan with a
-  webhook writing `subscriptions`. Client: locked-item teaser in search,
-  subscribe screen, credits progress on the account screen.
+**Phase 3: cost control and monetization** — **done** on this branch,
+except Stripe itself (see below).
+- **AI parse proxy.** — **done**: `POST /api/parse` (`server/src/routes/parse.ts`,
+  `services/parse.ts`) takes the two photos as base64 data URLs (not
+  multipart -- the client already produced data URLs for the canvas
+  capture, and matching that existing shape avoided pulling in a
+  multipart-form parser for no real benefit), calls OpenRouter with a
+  server-side key, and returns just the parsed fields -- the client
+  already has the photos it sent, so they don't round-trip back. With no
+  `OPENROUTER_API_KEY` configured it returns the same canned response the
+  client used to return in Vite dev mode, so a from-scratch checkout still
+  works without a real key. `VITE_OPENROUTER_API_KEY` is gone from the
+  client bundle; `src/parsePriceImage.ts` now calls the proxy instead of
+  OpenRouter directly. Rate limits: `LIMITS.parsePerCallerDay` (50) per
+  device token or account (`rateLimit.ts` gained an optional `windowMs`
+  param so the existing hourly-window code could serve a daily one too),
+  plus a real daily *spend* cap (`PARSE_DAILY_BUDGET_CENTS`) computed from
+  OpenRouter's own `usage.total_tokens` at a configurable $/1K-token
+  estimate (`parse_spend_daily`, one row per UTC day) -- approximate, not
+  real billing data, but closer to an actual spend cap than a second call
+  counter would be. Anonymous scanning stays allowed (decision 9), so this
+  takes a device token, not just a session. The client now also resizes
+  each photo to ≤ 1280 px on the long edge at capture time
+  (`PriceScanner.tsx`'s `captureImage`), which shrinks both the upload and
+  the copy kept for photo evidence below.
+- **Photo evidence.** — **done**: `services/photos.ts` decodes the
+  price-tag photo the parse call already received and writes it to
+  `PHOTO_DIR/<reportId>.jpg`. The report id is now generated once, up
+  front, when a scan starts (`PriceScanner.tsx`'s `reportIdRef`) instead
+  of at save time, specifically so the parse call -- which happens before
+  the user finishes editing -- can file the photo under the same id the
+  report is eventually saved with; a `report_photos` table (no foreign
+  key, since the price_reports row may not exist yet, or may never exist
+  if the scan is abandoned) tracks which ids have a photo and when.
+  `GET /api/reports/:id/photo` is visible to the report's own author
+  (session) or an admin (the same shared `ADMIN_TOKEN` as `/api/admin`,
+  not a session -- reviewing a flag is an admin action); `admin-cli.ts`
+  gained a `photo <reportId> <outFile>` command. Retention (90 days, or
+  indefinitely while a report is hidden with an open flag) runs in the
+  same periodic maintenance timer as trust recomputation.
+- **Entitlement enforcement.** — **done**, still off by default
+  (`ENTITLEMENTS_ENFORCED=false`) so seed/dev users keep seeing
+  everything. `services/entitlements.ts` implements all of 6.3: the free
+  tier (`computeFreeTier`, top 25 by distinct-reporters × distinct-stores
+  over 90 days, a 7-day floor once a product enters, everything included
+  when a region has fewer than 25 candidates) recomputed periodically
+  per-region -- there is no live registry of "regions a pull was ever made
+  for", so `computeFreeTierForAllRegions` buckets every distinct store
+  location onto the same 0.1°-cell grid the pull cursor uses and
+  recomputes each cell at the default 50-mile radius; contributor credits
+  (`evaluateContributionCredits`, run on the same timer: verified via a
+  distinct confirmation or 14 days active-and-unflagged, non-redundant
+  against the pair's current price with a 5% threshold, `established`+
+  trust tier only, capped at 10/user/day, revoked via
+  `revokeCreditForReport` when admin.ts upholds a flag on the credited
+  report); and `entitlementLevel` (subscriber by `users.plan`/
+  `planExpiresAt`, contributor by 15+ unrevoked credits in the trailing 30
+  days, else public). `GET /api/sync/pull` gates on this only when
+  enforced and the caller is public-level: it now returns a real
+  `accessLevel` and a `locked` array of `{ canonicalName, storeCount,
+  reportCount, newestDate }` summaries (no price) for anything outside the
+  region's free set, computed over that pull's own page rather than a
+  separate full-history query. `GET /api/me` reports the caller's real
+  level and `credits: { earned, needed }` instead of the old
+  `enforced: false` placeholder. Client: `AddItemScreen`'s search results
+  now render a `LockedResultCard` (report/store counts, a Subscribe
+  button) alongside real results; `SyncSettingsScreen` gained a
+  Membership section with credits progress and a Subscribe button once
+  `entitlement.enforced` is true.
+- **Stripe.** — code is done, **not live-verified**: `services/billing.ts`
+  talks to Stripe's plain REST API over `fetch` rather than the `stripe`
+  SDK (matching this codebase's existing habit of a small typed call over
+  a dependency, as with Overpass/Nominatim/OpenRouter), and verifies the
+  webhook signature by hand per Stripe's documented HMAC-SHA256 scheme.
+  `POST /api/billing/checkout` (session required) creates a subscription
+  Checkout Session; `POST /api/billing/webhook` (unauthenticated, verified
+  only by signature) applies `checkout.session.completed` and
+  `customer.subscription.updated`/`.deleted` to `subscriptions` and
+  `users.plan`/`planExpiresAt`. Both 503 when their secret is unset, same
+  pattern as `ADMIN_TOKEN`. There is no real Stripe account in this
+  environment to test against, so this is reviewed against Stripe's
+  documented shapes and covered by unit tests with a faked `fetch` and a
+  hand-signed webhook payload, not a live Checkout session or a
+  `stripe listen`-forwarded webhook -- do that once before relying on it
+  in production, the same caveat Phase 1 left for the Dockerfile.
+- **Two real bugs, both found by live browser verification, not by
+  tests.** First: `reportRoutes` (`/api/reports/:id/confirm` etc.) applied
+  `requireUser` as a blanket `router.use('*', ...)`. `GET
+  /api/reports/:id/photo` is mounted at the same `/api/reports` prefix by
+  a separate router with its own, different auth (author or admin token,
+  not a session) -- but Hono composes middleware across every router
+  mounted at a matching path, not just the one that defined a given route,
+  so the blanket middleware intercepted photo requests too and 401'd them
+  before photos.ts ever ran. Fixed by applying `requireUser` to each of
+  reports.ts's three routes individually instead of as a wildcard, which
+  is correct regardless of what else later gets mounted at that prefix.
+  Second: the locked-summaries feature initially computed `locked` fresh
+  on every sync from just that call's pull pages, the way `pushed`/
+  `rejected` are -- but unlike `community` (which accumulates in
+  `region.reports`, persisted across syncs, and so survives a delta pull
+  that returns nothing new), a resync with nothing new since the last
+  cursor position returned an empty `locked` array, silently wiping every
+  locked teaser the UI had to show. A live Playwright pass caught this
+  immediately (search for a locked item worked once, then the entry
+  vanished on the next background sync). Fixed by adding `locked` to
+  `RegionCache` alongside `reports` and merging it the same way: each
+  page's locked summaries upsert into the cached map by product id, and a
+  product is only removed once a full report for it actually arrives
+  (meaning it entered the free set or the caller's level changed).
+- Verified with 64 new server tests (241 total: unit tests for the parse
+  proxy's mock/real paths and spend accumulation, photo storage/access/
+  retention, Stripe signature verification and event handling, and the
+  full entitlements service including free-tier ranking/stickiness and
+  contributor-credit eligibility; route tests for `/api/parse`'s rate and
+  spend limits, `/api/reports/:id/photo`'s author/admin/stranger access,
+  `/api/billing/*`'s 503-when-unconfigured and signed-webhook paths, and
+  `/api/sync/pull`'s locked-vs-unlocked gating under enforcement) and 2 new
+  client tests for the locked-cache merge/eviction behavior above. The
+  entitlements UI (locked teaser, sign-in-gated subscribe button, the
+  "not configured" error path, credits progress) was verified end to end
+  in a live browser against a server running with
+  `ENTITLEMENTS_ENFORCED=true`, which is what surfaced the second bug
+  above. The parse proxy and photo evidence were not driven through a
+  full browser run -- like Phase 2's save-time match prompt, the
+  scanner's `getUserMedia` camera capture isn't practical to automate in
+  this environment -- so they're covered by route-level tests only.
 
 **Phase 4: polish and longer-tail**
 - Account recovery for a lost mailbox (admin-assisted re-link at first).

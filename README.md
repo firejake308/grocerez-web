@@ -8,8 +8,7 @@ with other shoppers through the sync server in `server/`. See
 
 | Variable | Purpose |
 |---|---|
-| `VITE_OPENROUTER_API_KEY` | OpenRouter key for price-tag parsing (Phase 3 moves this behind the server). |
-| `VITE_SYNC_API_URL` | Base URL of the sync server, e.g. `http://localhost:8787`. Unset = the whole sync feature is hidden and the app behaves as before. |
+| `VITE_SYNC_API_URL` | Base URL of the sync server, e.g. `http://localhost:8787`. Unset = the whole sync feature is hidden, **and photo scanning no longer works** -- as of Phase 3 the AI parse call lives behind this server (`POST /api/parse`) so its OpenRouter key never ships in the client bundle. |
 
 Run the client with sync against a local server:
 

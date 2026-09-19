@@ -7,9 +7,14 @@
  *   merge <sourceProductId> <targetId>    merge one product into another
  *   user <userId> active|restricted|banned
  *   recompute-trust                       recompute every user's trust score
+ *   photo <reportId> <outFile>            save a report's price-tag photo evidence, if any
  */
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import { eq } from 'drizzle-orm';
 import { runMigrations } from './db/migrate.js';
 import { env } from './env.js';
+import { reportPhotos } from './db/schema.js';
 import { listFlags, mergeProducts, resolveFlag, setUserStatus } from './services/admin.js';
 import { recomputeAllTrust } from './services/trust.js';
 
@@ -44,8 +49,18 @@ try {
     case 'recompute-trust':
       out({ users: recomputeAllTrust(db) });
       break;
+    case 'photo': {
+      const [reportId, outFile] = args;
+      if (!reportId || !outFile) throw new Error('usage: photo <reportId> <outFile>');
+      const has = db.select().from(reportPhotos).where(eq(reportPhotos.reportId, reportId)).all()[0];
+      if (!has) throw new Error('No photo evidence stored for that report.');
+      const safe = reportId.replace(/[^a-zA-Z0-9-]/g, '');
+      await fs.copyFile(path.join(env.PHOTO_DIR, `${safe}.jpg`), outFile);
+      out({ savedTo: outFile });
+      break;
+    }
     default:
-      console.error('commands: flags [open|resolved] | resolve <flagId> upheld|dismissed | merge <src> <target> | user <id> <status> | recompute-trust');
+      console.error('commands: flags [open|resolved] | resolve <flagId> upheld|dismissed | merge <src> <target> | user <id> <status> | recompute-trust | photo <reportId> <outFile>');
       process.exitCode = 1;
   }
 } catch (err) {

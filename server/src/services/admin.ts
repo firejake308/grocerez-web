@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { currentPrices, priceReports, products, productTokens, reportVotes, stores, users } from '../db/schema.js';
+import { revokeCreditForReport } from './entitlements.js';
 import { refreshCurrentPrice } from './freshness.js';
 import { followMerge, refreshProductFromReports } from './products.js';
 import { recomputeUserTrust } from './trust.js';
@@ -106,6 +107,8 @@ export function resolveFlag(db: AppDb, flagId: string, resolution: 'upheld' | 'd
     db.update(priceReports).set({ status: 'hidden', reviewReason: 'flagged', flagWeight: 0 }).where(eq(priceReports.id, report.id)).run();
     const author = db.select().from(users).where(eq(users.id, report.userId)).all()[0];
     if (author) db.update(users).set({ upheldFlagsCount: author.upheldFlagsCount + 1 }).where(eq(users.id, author.id)).run();
+    // Section 6.3.2: an upheld flag revokes whatever contribution credit this report earned.
+    revokeCreditForReport(db, report.id, now);
   } else {
     const restored = report.status === 'hidden' && report.reviewReason === 'flagged';
     db.update(priceReports)

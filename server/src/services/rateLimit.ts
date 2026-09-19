@@ -8,17 +8,21 @@ export const LIMITS = {
   reportsPerIpHour: 200,
   votesPerUserHour: 30,
   geoPerCallerHour: 120,
+  /** Section 9.4/Phase 3, decision 9: anonymous AI parsing allowed, capped per caller per day. */
+  parsePerCallerDay: 50,
 } as const;
 
-const WINDOW_MS = 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+export const DAY_MS = 24 * HOUR_MS;
 
 /**
- * Sliding-window check: counts this bucket's events in the last hour and,
- * if under the limit, records one more. Old rows for the bucket are pruned
- * on every call so the table stays small without a scheduled job.
+ * Sliding-window check: counts this bucket's events in the window (an hour
+ * by default) and, if under the limit, records one more. Old rows for the
+ * bucket are pruned on every call so the table stays small without a
+ * scheduled job.
  */
-export function consumeRateLimit(db: AppDb, bucket: string, limit: number, now: () => Date = () => new Date()): boolean {
-  const windowStart = new Date(now().getTime() - WINDOW_MS).toISOString();
+export function consumeRateLimit(db: AppDb, bucket: string, limit: number, now: () => Date = () => new Date(), windowMs: number = HOUR_MS): boolean {
+  const windowStart = new Date(now().getTime() - windowMs).toISOString();
   db.delete(rateLimitEvents).where(and(eq(rateLimitEvents.bucket, bucket), lt(rateLimitEvents.createdAt, windowStart))).run();
   const [{ n }] = db
     .select({ n: count() })

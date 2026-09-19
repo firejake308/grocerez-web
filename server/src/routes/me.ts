@@ -5,6 +5,7 @@ import type { AppDb } from '../db/client.js';
 import { users } from '../db/schema.js';
 import { requireUser, type AppEnv } from '../lib/authenticate.js';
 import { tierForUser } from '../services/trust.js';
+import { CREDITS_PER_MONTH, creditsThisMonth, entitlementLevel } from '../services/entitlements.js';
 
 const updateMeSchema = z.object({
   displayName: z.string().trim().min(1).max(60).optional(),
@@ -12,7 +13,7 @@ const updateMeSchema = z.object({
   homeLon: z.number().min(-180).max(180).nullable().optional(),
 });
 
-const toProfile = (user: typeof users.$inferSelect) => ({
+const toProfile = (db: AppDb, user: typeof users.$inferSelect, enforced: boolean, now: () => Date) => ({
   id: user.id,
   email: user.email,
   displayName: user.displayName,
@@ -24,12 +25,16 @@ const toProfile = (user: typeof users.$inferSelect) => ({
     confirmed: user.confirmedCount,
     upheldFlags: user.upheldFlagsCount,
   },
-  // ENTITLEMENTS_ENFORCED lands in Phase 3 (plan section 6.3.3); everyone
-  // has full access while it's off.
-  entitlement: { enforced: false, plan: user.plan, planExpiresAt: user.planExpiresAt },
+  entitlement: {
+    enforced,
+    level: entitlementLevel(db, user, now),
+    plan: user.plan,
+    planExpiresAt: user.planExpiresAt,
+    credits: { earned: creditsThisMonth(db, user.id, now), needed: CREDITS_PER_MONTH },
+  },
 });
 
-export function meRoutes(db: AppDb) {
+export function meRoutes(db: AppDb, entitlementsEnforced = false, now: () => Date = () => new Date()) {
   const router = new Hono<AppEnv>();
 
   router.get('/', requireUser(db), (c) => {
@@ -39,7 +44,7 @@ export function meRoutes(db: AppDb) {
     if (auth.kind !== 'session') return c.json({ error: 'Sign-in required' }, 401);
     const user = db.select().from(users).where(eq(users.id, auth.userId)).all()[0];
     if (!user) return c.json({ error: 'Not found' }, 404);
-    return c.json(toProfile(user));
+    return c.json(toProfile(db, user, entitlementsEnforced, now));
   });
 
   router.patch('/', requireUser(db), async (c) => {
@@ -52,7 +57,7 @@ export function meRoutes(db: AppDb) {
     db.update(users).set(parsed.data).where(eq(users.id, auth.userId)).run();
     const user = db.select().from(users).where(eq(users.id, auth.userId)).all()[0];
     if (!user) return c.json({ error: 'Not found' }, 404);
-    return c.json(toProfile(user));
+    return c.json(toProfile(db, user, entitlementsEnforced, now));
   });
 
   return router;

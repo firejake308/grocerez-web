@@ -3,6 +3,8 @@ import { ChevronLeft, Flag, ThumbsUp } from 'lucide-react';
 import { GroceryItem } from './PriceData';
 import PriceData from './PriceData';
 import { filterBySearchQuery, tokenize } from './searchUtils';
+import { tokensMatch } from '../shared/normalize';
+import type { LockedSummary } from '../shared/types';
 import PriceBadges from './PriceBadges';
 import type { SyncController } from './sync/useSync';
 import { SignInRequiredError } from './sync/useSync';
@@ -83,6 +85,44 @@ const VoteControls = ({ item, sync }: { item: PriceData; sync?: SyncController }
   );
 };
 
+/**
+ * Section 6.3's upsell: a public-level caller sees this instead of nothing
+ * for a product outside the free set -- no price, just proof there's data
+ * to unlock. Server never sends the real price to a caller this can't see.
+ */
+const LockedResultCard = ({ item, sync }: { item: LockedSummary; sync?: SyncController }) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const subscribe = async () => {
+    if (!sync) return;
+    setBusy(true);
+    setError(null);
+    try {
+      window.location.href = await sync.checkoutSubscription();
+    } catch (err) {
+      setError(err instanceof SignInRequiredError ? 'Sign in (via the cloud button on Home) to subscribe.' : err instanceof Error ? err.message : 'Could not start checkout.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-start justify-between p-2 border rounded-md bg-gray-50">
+      <div>
+        <div className="font-medium text-gray-800">{item.canonicalName}</div>
+        <div className="text-sm text-gray-500">
+          {item.reportCount} price{item.reportCount === 1 ? '' : 's'} at {item.storeCount} store{item.storeCount === 1 ? '' : 's'} near you
+          {item.newestDate ? `, newest ${item.newestDate}` : ''}
+        </div>
+        {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
+      </div>
+      <button onClick={subscribe} disabled={busy} className="text-xs bg-blue-600 text-white px-2 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap">
+        Subscribe to see
+      </button>
+    </div>
+  );
+};
+
 const AddItemScreen = ({
   onBack,
   onSave,
@@ -102,6 +142,7 @@ const AddItemScreen = ({
 
   const [searchResults, setSearchResults] = useState<PriceData[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [searchedQuery, setSearchedQuery] = useState('');
 
   const parsePrice = (p: string) => {
     if (!p) return Infinity;
@@ -162,7 +203,18 @@ const AddItemScreen = ({
     deduped.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     setSelectedIndex(deduped.length ? 0 : null);
     setSearchResults(deduped);
+    setSearchedQuery(name);
   };
+
+  const lockedResults = useMemo(() => {
+    if (searchResults === null) return [];
+    const queryTokens = Array.from(tokenize(searchedQuery.trim().toLowerCase()));
+    if (queryTokens.length === 0) return [];
+    return (sync?.locked ?? []).filter((item) => {
+      const nameTokens = Array.from(tokenize(item.canonicalName.toLowerCase()));
+      return queryTokens.every((qt) => nameTokens.some((nt) => tokensMatch(qt, nt)));
+    });
+  }, [searchResults, searchedQuery, sync?.locked]);
 
   // searchResults is a snapshot taken at search time; re-derive the volatile fields
   // (vote counts, myVote, status) from the latest priceData so confirm/flag reflect instantly.
@@ -225,8 +277,12 @@ const AddItemScreen = ({
         {/* Search results */}
         {liveResults && (
           <div className="mt-4 bg-white p-2 rounded-md shadow-sm">
-            {liveResults.length === 0 ? (
+            {liveResults.length === 0 && lockedResults.length === 0 ? (
               <div className="p-4 text-gray-500">No matches found</div>
+            ) : liveResults.length === 0 ? (
+              <div className="space-y-2">
+                {lockedResults.map((item) => <LockedResultCard key={item.productId} item={item} sync={sync} />)}
+              </div>
             ) : (
               <div className="space-y-2">
                 {liveResults.map((r, idx) => (
@@ -266,6 +322,7 @@ const AddItemScreen = ({
                 <div className="pt-3">
                   <button onClick={handleAddSelected} disabled={selectedIndex === null} className="w-full bg-green-500 text-white p-3 rounded-md disabled:opacity-50">Add to List</button>
                 </div>
+                {lockedResults.map((item) => <LockedResultCard key={item.productId} item={item} sync={sync} />)}
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-import type { SyncedPriceReport } from '../../shared/types';
+import type { LockedSummary, SyncedPriceReport } from '../../shared/types';
 
 export interface SyncAuth {
   sessionToken: string;
@@ -17,6 +17,15 @@ export interface HomeArea {
 export interface RegionCache {
   since: number;
   reports: SyncedPriceReport[];
+  /**
+   * Section 6.3's locked summaries, keyed by productId. Unlike `reports`,
+   * a pull only re-sends these for products in this page's delta since the
+   * cursor, so they're merged (not replaced) across syncs the same way
+   * `reports` is -- otherwise a resync with nothing new since last time
+   * would wipe out every locked teaser the UI has to show. Optional so
+   * region caches persisted before Phase 3 still parse.
+   */
+  locked?: LockedSummary[];
   lastUsedAt: string;
 }
 

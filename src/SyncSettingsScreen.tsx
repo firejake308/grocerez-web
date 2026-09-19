@@ -218,6 +218,25 @@ const SyncSettingsScreen = ({ sync, onBack }: { sync: SyncController; onBack: Vo
               )}
               {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
             </section>
+
+            {sync.auth && sync.profile?.entitlement.enforced && (
+              <section className="bg-white rounded-lg shadow p-4">
+                <h2 className="font-semibold text-lg text-gray-800 mb-1">Membership</h2>
+                {sync.profile.entitlement.level === 'subscriber' ? (
+                  <p className="text-sm text-gray-600">You're subscribed -- every price is unlocked.</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {sync.profile.entitlement.credits.earned} of {sync.profile.entitlement.credits.needed} credits this month.
+                      Earn a credit for each verified, non-redundant price you share, or subscribe to unlock everything now.
+                    </p>
+                    <button onClick={() => void run(async () => { window.location.href = await sync.checkoutSubscription(); })} disabled={busy} className={primaryButton}>
+                      Subscribe
+                    </button>
+                  </>
+                )}
+              </section>
+            )}
           </>
         )}
       </main>

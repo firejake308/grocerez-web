@@ -44,6 +44,10 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
   const hasRequestedLocationRef = useRef(false);
   const hasRequestedMatchRef = useRef(false);
   const locationRequestIdRef = useRef(0);
+  // Generated once per scan, up front, so the parse call (which happens
+  // before the user finishes editing) can file the photo under the same id
+  // the report is eventually saved with (plan's Phase 3 photo evidence note).
+  const reportIdRef = useRef(newReportId());
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   // Try to get location when reaching details step
@@ -136,13 +140,17 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
+
+      // Resized client-side to <=1280px on the long edge (plan's Phase 3 AI
+      // parse proxy note) -- keeps both the upload and the stored photo small.
+      const MAX_DIMENSION = 1280;
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+
       const context = canvas.getContext('2d');
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
+
       const imageDataUrl = canvas.toDataURL('image/jpeg');
       
       if (scanStep === 'price') {
@@ -162,7 +170,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     if (!priceImage || !productImage) return;
     
     try {
-      const data = await parsePriceImage(priceImage, productImage);
+      const data = await parsePriceImage(priceImage, productImage, reportIdRef.current);
       setScannedPrice(data.price);
       setItemName(data.itemName);
       setBrand(data.brand);
@@ -242,7 +250,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     
     if (scannedPrice && productImage && storeLocation) {
       const completeData: PriceData = {
-        id: newReportId(),
+        id: reportIdRef.current,
         updatedAt: new Date().toISOString(),
         origin: 'mine',
         isSale,

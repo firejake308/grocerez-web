@@ -11,8 +11,9 @@ import { followMerge, refreshProductFromReports, resolveProduct } from '../servi
 import { isStaleReport, refreshCurrentPrice, todayOf } from '../services/freshness.js';
 import { consumeRateLimit, LIMITS } from '../services/rateLimit.js';
 import { tierForUser } from '../services/trust.js';
+import { entitlementLevel, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
 import { parsePrice } from '../../../shared/price.js';
-import type { PriceReportUpsert, PriceReportPushResult, SyncedPriceReport } from '../../../shared/types.js';
+import type { LockedSummary, PriceReportUpsert, PriceReportPushResult, SyncedPriceReport } from '../../../shared/types.js';
 import { products } from '../db/schema.js';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -189,7 +190,7 @@ function pushOneReport(db: AppDb, ctx: PushContext, input: PriceReportUpsert): P
   };
 }
 
-export function syncRoutes(db: AppDb, now: () => Date = () => new Date()) {
+export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitlementsEnforced = false) {
   const router = new Hono<AppEnv>();
 
   router.post('/push', requireUser(db), async (c) => {
@@ -268,7 +269,7 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date()) {
     }
 
     const today = todayOf(now());
-    const reports: SyncedPriceReport[] = page.map(({ report, store, author }) => ({
+    const toSyncedReport = ({ report, store, author }: (typeof page)[number]): SyncedPriceReport => ({
       id: report.id,
       seq: report.seq,
       userId: report.userId,
@@ -291,11 +292,49 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date()) {
       isStale: isStaleReport(report, today),
       myVote: myVotes.get(report.id) ?? null,
       updatedAt: report.updatedAt,
-    }));
+    });
 
-    // Entitlement enforcement (locked summaries, accessLevel other than
-    // 'unrestricted') lands in Phase 3 -- see plan section 6.3.3.
-    return c.json({ accessLevel: 'unrestricted', reports, locked: [], nextSince });
+    // Section 6.3: a public-level caller (no account, or signed in without
+    // a subscription or enough contributor credit) sees a locked summary
+    // instead of the price for anything outside the region's free set.
+    // Locked/free are always computed over this page's rows -- an
+    // approximation of "nearby" scoped to what this pull actually
+    // returned, not a separate full-history query.
+    const level = auth.kind === 'session'
+      ? (() => {
+          const caller = db.select().from(users).where(eq(users.id, auth.userId)).all()[0];
+          return caller ? entitlementLevel(db, caller, now) : 'public';
+        })()
+      : 'public';
+    const accessLevel = entitlementsEnforced ? level : 'unrestricted';
+
+    let reports: SyncedPriceReport[];
+    let locked: LockedSummary[];
+    if (entitlementsEnforced && level === 'public') {
+      const freeIds = freeTierProductIds(db, lat, lon, radiusMi);
+      const isLocked = (row: (typeof page)[number]) => !!row.report.productId && !freeIds.has(row.report.productId);
+      reports = page.filter((row) => !isLocked(row)).map(toSyncedReport);
+
+      const byProduct = new Map<string, { storeIds: Set<string>; newestDate: string }>();
+      for (const row of page.filter(isLocked)) {
+        const productId = row.report.productId!;
+        const entry = byProduct.get(productId) ?? { storeIds: new Set<string>(), newestDate: '' };
+        entry.storeIds.add(row.store.id);
+        if (row.report.observedDate > entry.newestDate) entry.newestDate = row.report.observedDate;
+        byProduct.set(productId, entry);
+      }
+      locked = [...byProduct.entries()]
+        .map(([productId, { storeIds, newestDate }]) => {
+          const product = db.select().from(products).where(eq(products.id, productId)).all()[0];
+          return product ? lockedSummaryFor(product, storeIds.size, newestDate) : null;
+        })
+        .filter((s): s is LockedSummary => s !== null);
+    } else {
+      reports = page.map(toSyncedReport);
+      locked = [];
+    }
+
+    return c.json({ accessLevel, reports, locked, nextSince });
   });
 
   return router;

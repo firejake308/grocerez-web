@@ -122,13 +122,40 @@ export interface ProductMatchCandidate {
   decision: 'attach' | 'review';
 }
 
+/**
+ * Fields extracted from a price-tag + product photo pair (Phase 3's
+ * `POST /api/parse`, replacing the client's direct OpenRouter call). Image
+ * data never round-trips through the server response -- the client already
+ * has the photos it sent.
+ */
+export interface ParsedPriceFields {
+  price: string;
+  itemName: string;
+  brand: string;
+  tags: string[];
+  quantity: number;
+  quantityUnits: string;
+  isSale: boolean;
+  expiresAt: string | null;
+}
+
+/** A product outside the free set, shown to a 'public'-level caller with no price (section 6.3). */
+export interface LockedSummary {
+  productId: string;
+  canonicalName: string;
+  storeCount: number;
+  reportCount: number;
+  newestDate: string;
+}
+
 export interface PullResponseBody {
   /**
-   * Always 'unrestricted' until entitlement enforcement ships in Phase 3
-   * (plan section 6.3.3); `locked` is always empty until then too.
+   * 'unrestricted' while ENTITLEMENTS_ENFORCED is off (plan section 6.3.3,
+   * off by default); otherwise the caller's real level, with `locked`
+   * populated only for a 'public' caller.
    */
   accessLevel: 'unrestricted' | 'public' | 'contributor' | 'subscriber';
   reports: SyncedPriceReport[];
-  locked: { productId: string; canonicalName: string; storeCount: number; reportCount: number; newestDate: string }[];
+  locked: LockedSummary[];
   nextSince: number;
 }

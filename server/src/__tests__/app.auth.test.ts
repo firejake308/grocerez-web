@@ -57,7 +57,7 @@ describe('auth, device, and me routes', () => {
     const me = await json(meRes);
     expect(me.email).toBe('shopper@example.com');
     expect(me.tier).toBe('new');
-    expect(me.entitlement).toEqual({ enforced: false, plan: 'free', planExpiresAt: null });
+    expect(me.entitlement).toEqual({ enforced: false, level: 'public', plan: 'free', planExpiresAt: null, credits: { earned: 0, needed: 15 } });
   });
 
   it('rejects a malformed email or code before touching the database', async () => {

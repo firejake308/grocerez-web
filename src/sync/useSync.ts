@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type PriceData from '../PriceData';
+import type { LockedSummary } from '../../shared/types';
 import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Profile, type VoteState } from './api';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
 import { cachedCommunity, patchSyncedReport, pendingReports, runSync } from './engine';
@@ -21,6 +22,8 @@ export interface SyncController {
   auth: SyncAuth | null;
   profile: Profile | null;
   community: PriceData[];
+  /** Section 6.3: products outside the free set, for a 'public'-level caller only. Always empty until ENTITLEMENTS_ENFORCED is on. */
+  locked: LockedSummary[];
   status: SyncStatus;
   homeArea: HomeArea | null;
   syncNow: () => Promise<void>;
@@ -34,6 +37,8 @@ export interface SyncController {
   confirmReport: (reportId: string) => Promise<void>;
   flagReport: (reportId: string, reason: FlagReason, note?: string) => Promise<void>;
   removeVote: (reportId: string) => Promise<void>;
+  /** Section 6.3.3: starts a Stripe Checkout session and returns its URL. Throws if not signed in, or if billing isn't configured server-side. */
+  checkoutSubscription: () => Promise<string>;
 }
 
 export class SignInRequiredError extends Error {
@@ -67,6 +72,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const [profile, setProfile] = useState<Profile | null>(null);
   const [homeArea, setHomeAreaState] = useState<HomeArea | null>(() => (enabled ? storage.getHomeArea() : null));
   const [community, setCommunity] = useState<PriceData[]>(() => (enabled ? cachedCommunity(storage) : []));
+  const [locked, setLocked] = useState<LockedSummary[]>([]);
   const [status, setStatus] = useState<SyncStatus>(() => ({
     running: false,
     lastSyncedAt: enabled ? storage.getLastSyncedAt() : null,
@@ -105,6 +111,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
         radiusMi: PULL_RADIUS_MI,
       });
       setCommunity(summary.community);
+      setLocked(summary.locked);
       setAuthState(storage.getAuth()); // runSync signs out locally on a 401
       setStatus((s) => ({
         ...s,
@@ -250,11 +257,18 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, applyVote, storage]);
 
+  const checkoutSubscription = useCallback(async () => {
+    const { url } = await api.checkoutSubscription(requireSession());
+    return url;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, storage]);
+
   return {
     enabled,
     auth,
     profile,
     community,
+    locked,
     status,
     homeArea,
     syncNow,
@@ -267,5 +281,6 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     confirmReport,
     flagReport,
     removeVote,
+    checkoutSubscription,
   };
 }

@@ -10,8 +10,11 @@ import { meRoutes } from './routes/me.js';
 import { syncRoutes } from './routes/sync.js';
 import { geoRoutes } from './routes/geo.js';
 import { reportRoutes } from './routes/reports.js';
+import { photoRoutes } from './routes/photos.js';
 import { productRoutes } from './routes/products.js';
 import { adminRoutes } from './routes/admin.js';
+import { parseRoutes, type ParseRouteDeps } from './routes/parse.js';
+import { billingRoutes, type BillingDeps } from './routes/billing.js';
 import { consumeRateLimit, LIMITS } from './services/rateLimit.js';
 import type { GeoDeps } from './services/geo.js';
 
@@ -22,8 +25,14 @@ export interface AppContext {
   mailer?: Mailer;
   /** Overpass/Nominatim settings; tests inject a fake fetch. Defaults to no Overpass and public Nominatim. */
   geo?: GeoDeps;
-  /** Shared secret for /api/admin (plan section 9.5). Empty disables those routes. */
+  /** Shared secret for /api/admin (plan section 9.5) and for admin access to /api/reports/:id/photo. Empty disables admin endpoints. */
   adminToken?: string;
+  /** Section 6.3.3. Off by default so seed/dev users keep seeing everything. */
+  entitlementsEnforced?: boolean;
+  /** AI parse proxy config (Phase 3). Empty apiKey means mock responses, not a crash. */
+  parse?: ParseRouteDeps;
+  /** Stripe checkout/webhook config (Phase 3). Empty secret means /api/billing/* answers 503. */
+  billing?: BillingDeps;
   /** Injectable clock for time-based rules (rate limits, staleness) in tests. */
   now?: () => Date;
 }
@@ -39,6 +48,9 @@ export function createApp({
   mailer = new ConsoleMailer(),
   geo = { overpassUrl: '', nominatimUrl: 'https://nominatim.openstreetmap.org' },
   adminToken = '',
+  entitlementsEnforced = false,
+  parse = { apiKey: '', centsPer1kTokens: 0.2, dailyBudgetCents: 500, photoDir: './data/photos' },
+  billing = { secretKey: '', webhookSecret: '', priceId: '', appUrl: 'http://localhost:5173' },
   now = () => new Date(),
 }: AppContext) {
   const app = new Hono<AppEnv>();
@@ -55,8 +67,8 @@ export function createApp({
 
   app.route('/api/auth', authRoutes({ db, mailer }));
   app.route('/api/devices', deviceRoutes(db));
-  app.route('/api/me', meRoutes(db));
-  app.route('/api/sync', syncRoutes(db, now));
+  app.route('/api/me', meRoutes(db, entitlementsEnforced, now));
+  app.route('/api/sync', syncRoutes(db, now, entitlementsEnforced));
 
   // The geo proxy is metered per caller so a single device can't use the
   // server as a relay to Nominatim or the Overpass box (section 9.4).
@@ -72,8 +84,11 @@ export function createApp({
   });
   app.route('/api/geo', geoRoutes(db, geo));
   app.route('/api/reports', reportRoutes(db, now));
+  app.route('/api/reports', photoRoutes(db, parse.photoDir, adminToken));
   app.route('/api/products', productRoutes(db, now));
   app.route('/api/admin', adminRoutes(db, adminToken, now));
+  app.route('/api/parse', parseRoutes(db, parse, now));
+  app.route('/api/billing', billingRoutes(db, billing, now));
 
   return app;
 }

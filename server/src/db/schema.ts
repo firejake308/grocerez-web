@@ -231,6 +231,23 @@ export const rateLimitEvents = sqliteTable('rate_limit_events', {
   index('rate_limit_events_bucket_idx').on(t.bucket, t.createdAt),
 ]));
 
+/** Phase 3 AI parse proxy's daily spend cap: one row per UTC day, running total. Not real billing data -- a token-count estimate (section 9.4/Phase 3). */
+export const parseSpendDaily = sqliteTable('parse_spend_daily', {
+  day: text('day').primaryKey(),
+  costCents: real('cost_cents').notNull().default(0),
+});
+
+/**
+ * Photo evidence (Phase 3): tracks which report ids have a stored price-tag
+ * photo on disk (under PHOTO_DIR) and when, for retention and access
+ * checks. No FK to price_reports -- the photo is saved at parse time,
+ * before the report (or its final id) necessarily exists as a pushed row.
+ */
+export const reportPhotos = sqliteTable('report_photos', {
+  reportId: text('report_id').primaryKey(),
+  createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+});
+
 // --- Entitlements: free tier and contributor credits (section 6.3) -------
 
 export const freeTierProducts = sqliteTable('free_tier_products', {

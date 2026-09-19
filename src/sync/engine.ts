@@ -4,7 +4,7 @@
  * (API client, storage, location) so it can be tested without a browser.
  */
 import type PriceData from '../PriceData';
-import type { PriceReportPushResult, PriceReportUpsert, SyncedPriceReport } from '../../shared/types';
+import type { LockedSummary, PriceReportPushResult, PriceReportUpsert, SyncedPriceReport } from '../../shared/types';
 import { ApiError, type SyncApi } from './api';
 import type { RegionCache, SyncStorage } from './storage';
 
@@ -163,6 +163,8 @@ export interface SyncSummary {
   /** Set when the pull was skipped because no location could be determined. */
   skippedPull: 'no-location' | null;
   community: PriceData[];
+  /** Section 6.3: products outside the free set for a 'public'-level caller, deduped by product across pull pages. Always empty while ENTITLEMENTS_ENFORCED is off. */
+  locked: LockedSummary[];
 }
 
 /** The community reports for the region last synced, as PriceData, from cache. */
@@ -171,6 +173,13 @@ export function cachedCommunity(storage: SyncStorage): PriceData[] {
   if (!key) return [];
   const region = storage.getRegions()[key];
   return region ? region.reports.map(communityToPriceData) : [];
+}
+
+/** The locked summaries for the region last synced, from cache (see RegionCache.locked). */
+export function cachedLocked(storage: SyncStorage): LockedSummary[] {
+  const key = storage.getCurrentRegionKey();
+  if (!key) return [];
+  return storage.getRegions()[key]?.locked ?? [];
 }
 
 async function ensureDeviceToken(deps: SyncDeps): Promise<string> {
@@ -224,24 +233,33 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   const token = auth?.sessionToken ?? deviceToken;
   const location = await deps.getLocation();
   if (!location) {
-    return { signedIn: Boolean(auth), pushed, rejected, pulled: 0, location: null, skippedPull: 'no-location', community: cachedCommunity(deps.storage) };
+    return { signedIn: Boolean(auth), pushed, rejected, pulled: 0, location: null, skippedPull: 'no-location', community: cachedCommunity(deps.storage), locked: cachedLocked(deps.storage) };
   }
 
   const key = regionKey(location, deps.radiusMi);
   const regions = deps.storage.getRegions();
   const region: RegionCache = regions[key] ?? { since: 0, reports: [], lastUsedAt: now().toISOString() };
   let pulled = 0;
+  // Seeded from cache and merged (not replaced) across pages/syncs: a pull
+  // only resends a locked summary for products in this call's delta since
+  // the cursor, so a resync with nothing new must not wipe out what's
+  // already known to be locked (see RegionCache.locked).
+  const lockedById = new Map<string, LockedSummary>((region.locked ?? []).map((l) => [l.productId, l]));
 
   for (let page = 0; page < MAX_PULL_PAGES; page++) {
     const res = await deps.api.pull(token, { since: region.since, lat: location.lat, lon: location.lon, radiusMi: deps.radiusMi, limit: PULL_PAGE });
     region.reports = mergePull(region.reports, res.reports, auth?.userId ?? null);
     pulled += res.reports.length;
+    for (const summary of res.locked) lockedById.set(summary.productId, summary);
+    // A product that now arrives as a full report is no longer locked (it entered the free set, or the caller's level changed).
+    for (const report of res.reports) lockedById.delete(report.productId);
     const advanced = res.nextSince > region.since;
     region.since = Math.max(region.since, res.nextSince);
     if (!advanced || res.reports.length < PULL_PAGE) break;
   }
 
   region.lastUsedAt = now().toISOString();
+  region.locked = [...lockedById.values()];
   deps.storage.setRegions(evictRegions({ ...regions, [key]: region }));
   deps.storage.setCurrentRegionKey(key);
   deps.storage.setLastSyncedAt(now().toISOString());
@@ -254,5 +272,6 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     location,
     skippedPull: null,
     community: region.reports.map(communityToPriceData),
+    locked: region.locked,
   };
 }
