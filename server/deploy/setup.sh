@@ -13,6 +13,14 @@ if ! docker compose version &>/dev/null; then
   exit 1
 fi
 
+# get.docker.com only makes root a docker user; without this, every later
+# `docker`/`docker compose` command needs sudo too because the daemon
+# socket is root:docker. $SUDO_USER is the account that ran `sudo ./setup.sh`.
+if [ -n "${SUDO_USER:-}" ]; then
+  usermod -aG docker "$SUDO_USER"
+  echo "Added $SUDO_USER to the docker group -- log out and back in (or run 'newgrp docker') before using docker compose without sudo."
+fi
+
 echo "Configuring the firewall (22, 80, 443 only)..."
 apt-get update -qq
 apt-get install -y -qq ufw
