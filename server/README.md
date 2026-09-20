@@ -87,11 +87,15 @@ see `docs/server-sync-plan.md` section 13.1 for the tradeoffs. No
 Cloudflare Tunnel needed here: a VPS already has a public, static IP, so
 Caddy handles HTTPS directly instead.
 
-1. **Point a domain at the droplet.** Add an A record for the domain (or
-   subdomain) you'll use for the API, pointing at the droplet's IP.
-   Let's Encrypt (which Caddy uses automatically) cannot issue a
-   certificate for a bare IP address, so this step isn't optional. A free
-   DNS provider like DuckDNS works fine if you don't own a domain.
+The client and API share `grocerez.app`, split by DNS record: the apex
+(or `www`) points at Netlify, `api.grocerez.app` points at the droplet.
+`Caddyfile` already has `api.grocerez.app` filled in.
+
+1. **Add an A record** for `api.grocerez.app` pointing at the droplet's
+   IP (`162.243.163.217`). Let's Encrypt (which Caddy uses automatically)
+   cannot issue a certificate for a bare IP address, so this step isn't
+   optional. The apex/`www` record pointing at Netlify is separate --
+   follow Netlify's own domain instructions for that one.
 2. **SSH into the droplet** and run the one-time OS setup (Docker, the
    Compose plugin, and a firewall allowing only 22/80/443):
    ```bash
@@ -102,7 +106,10 @@ Caddy handles HTTPS directly instead.
 4. **Configure the server:**
    ```bash
    cd server
-   cp .env.example .env   # fill in ADMIN_TOKEN, mail, Stripe/OpenRouter keys, etc.
+   cp .env.example .env
+   # fill in ADMIN_TOKEN, mail, Stripe/OpenRouter keys, and set
+   # CORS_ORIGINS=https://grocerez.app,http://localhost:5173
+   # APP_URL=https://grocerez.app
    ```
 5. **Fetch a regional Overpass extract**, clipped to keep the import
    inside a small droplet's RAM:
@@ -113,17 +120,15 @@ Caddy handles HTTPS directly instead.
    `minlon,minlat,maxlon,maxlat` as an argument, or see the script's
    comments for using an unclipped state extract once you've upgraded to
    a bigger droplet.
-6. **Set your domain in `Caddyfile`**, replacing the `api.example.com`
-   placeholder.
-7. **Bring the stack up:**
+6. **Bring the stack up:**
    ```bash
    docker compose up -d --build
    ```
    First boot takes a few minutes while Overpass imports the extract and
-   Caddy requests its certificate. `docker compose logs -f` shows both.
-8. **Point the client at it**: set `VITE_SYNC_API_URL` to
-   `https://<your-domain>` when building/deploying the client (see the
-   root `README.md`).
+   Caddy requests its certificate for `api.grocerez.app`. `docker compose
+   logs -f` shows both.
+7. **Point the client at it**: set `VITE_SYNC_API_URL=https://api.grocerez.app`
+   when building/deploying the client (see the root `README.md`).
 
 ## Backups
 

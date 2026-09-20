@@ -1,7 +1,6 @@
-# Replace api.example.com with your own domain -- Let's Encrypt needs a
-# domain's A record pointing at this droplet's IP; it will not issue a
-# certificate for a bare IP address. Caddy handles the cert and renewal
-# automatically once DNS resolves here.
-api.example.com {
+# Needs an A record for api.grocerez.app pointing at this droplet's IP --
+# Let's Encrypt won't issue a certificate for a bare IP address. Caddy
+# handles the cert and renewal automatically once DNS resolves here.
+api.grocerez.app {
 	reverse_proxy api:8787
 }
