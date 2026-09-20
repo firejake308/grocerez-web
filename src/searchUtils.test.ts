@@ -185,4 +185,26 @@ describe('filterBySearchQuery', () => {
     const results = filterBySearchQuery(mockData, 'cook');
     expect(results.some(r => r.itemName.includes('Cookies'))).toBe(true);
   });
+
+  it('does not match "apple" against a stray single-letter token like the "A" in "Grade A Eggs"', () => {
+    const withGradeA = [
+      ...mockData,
+      ...withIds([
+        {
+          price: '4.29',
+          store: 'Whole Foods Market @ 4100 Lomo Alto Drive',
+          date: '2026-07-16',
+          itemName: 'Large Brown Grade A Eggs',
+          brand: '365 by Whole Foods Market',
+          tags: ['eggs', 'poultry', 'breakfast'],
+          quantity: 12,
+          quantity_units: 'count',
+          latitude: 32.8204523,
+          longitude: -96.8144192,
+        },
+      ]),
+    ];
+    const results = filterBySearchQuery(withGradeA, 'apple');
+    expect(results).toHaveLength(0);
+  });
 });

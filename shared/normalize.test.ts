@@ -12,6 +12,12 @@ describe('tokensMatch', () => {
     expect(tokensMatch('egg', 'eggs', 4)).toBe(false);
     expect(tokensMatch('foam', 'foaming', 4)).toBe(true);
   });
+
+  it('does not let a stray single-letter token prefix-match every word', () => {
+    expect(tokensMatch('apple', 'a')).toBe(false);
+    expect(tokensMatch('a', 'apple')).toBe(false);
+    expect(tokensMatch('a', 'a')).toBe(true);
+  });
 });
 
 describe('singularize', () => {

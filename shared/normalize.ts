@@ -11,8 +11,11 @@ export const tokenize = (s: string): Set<string> =>
  * The prefix rule the search has always used: two tokens match when equal or
  * when one is a prefix of the other. `minPrefix` lets the matcher demand a
  * longer shared prefix than the search does (the search keeps `egg` ~ `eggs`).
+ * The floor is 2, not 1: a stray single-letter token (e.g. "a" from "Grade A
+ * Eggs") would otherwise prefix-match every query word starting with that
+ * letter, e.g. "apple".
  */
-export const tokensMatch = (a: string, b: string, minPrefix = 1): boolean => {
+export const tokensMatch = (a: string, b: string, minPrefix = 2): boolean => {
   if (a === b) return true;
   const shorter = a.length <= b.length ? a : b;
   const longer = shorter === a ? b : a;
