@@ -783,17 +783,26 @@ Overpass beyond an `OVERPASS_URL` env var. If home uptime becomes a
 problem, the API container and its SQLite file move to a $5 VPS in an
 afternoon, and Overpass stays home behind the same tunnel.
 
+**Actually deployed on: a $6/mo DigitalOcean droplet**, Overpass
+co-located as this section anticipated, but with Caddy instead of a
+Cloudflare Tunnel -- a VPS already has a public, static IP, so there's no
+NAT/dynamic-IP problem for the tunnel to solve, and Caddy gets automatic
+HTTPS from a domain's A record instead. See `server/README.md`'s
+"Deploying to a VPS" section for the walkthrough, and
+`server/deploy/fetch-overpass-extract.sh` for clipping a regional extract
+to fit the droplet's 1 GB RAM.
+
 ### 13.2 Layout
 
 - `server/Dockerfile` (multi-stage, `node:20-alpine`).
 - `server/docker-compose.yml`: `api` (volume `./data:/data`), `overpass`
-  (`wiktorn/overpass-api` image with the regional extract), `cloudflared`
-  (tunnel token from env).
+  (`wiktorn/overpass-api` image with the regional extract), `caddy`
+  (reverse proxy + automatic HTTPS via a domain's A record).
 - Env: `PORT`, `DATABASE_PATH`, `ADMIN_TOKEN`, `CORS_ORIGINS`,
   `MAIL_PROVIDER`, `RESEND_API_KEY`, `MAIL_FROM`, `OVERPASS_URL`,
   `NOMINATIM_URL` (public Nominatim is fine at these volumes; self-host
-  only if it also rate limits), later `OPENROUTER_API_KEY`,
-  `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET`, `PHOTO_DIR`.
+  only if it also rate limits), `OPENROUTER_API_KEY`, `STRIPE_SECRET`,
+  `STRIPE_WEBHOOK_SECRET`, `PHOTO_DIR`.
 - Client: `VITE_SYNC_API_URL`; sync UI is hidden when unset so the current
   Netlify deploy is unaffected until the server is live.
 

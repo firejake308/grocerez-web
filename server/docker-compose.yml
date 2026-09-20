@@ -1,13 +1,13 @@
-# Local/home-box deployment: the sync API next to a self-hosted Overpass
-# instance, both reachable through one Cloudflare Tunnel. See
-# docs/server-sync-plan.md section 13.1 for why this beats a cloud VM here.
+# VPS deployment: sync API + self-hosted Overpass + Caddy for automatic
+# HTTPS, all in one Compose stack on a single droplet. See
+# docs/server-sync-plan.md section 13 and this repo's server/README.md
+# ("Deploying to a VPS") for the full walkthrough.
 #
 # Quick start:
-#   cp .env.example .env            # fill in real values
-#   docker compose up -d api        # the API alone; Overpass/tunnel are optional
-#
-# `overpass` and `cloudflared` are commented out below until you have a
-# regional extract and a tunnel token -- see server/README.md.
+#   cp .env.example .env                    # fill in real values
+#   ./deploy/fetch-overpass-extract.sh       # downloads + clips a regional extract
+#   # edit Caddyfile: replace the placeholder domain with your own
+#   docker compose up -d
 
 services:
   api:
@@ -15,8 +15,6 @@ services:
       context: ..
       dockerfile: server/Dockerfile
     restart: unless-stopped
-    ports:
-      - '8787:8787'
     volumes:
       - ./data:/data
     environment:
@@ -29,35 +27,56 @@ services:
       MAIL_FROM: ${MAIL_FROM}
       OVERPASS_URL: ${OVERPASS_URL:-http://overpass:80/api/interpreter}
       NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
+      ENTITLEMENTS_ENFORCED: ${ENTITLEMENTS_ENFORCED:-false}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_CENTS_PER_1K_TOKENS: ${OPENROUTER_CENTS_PER_1K_TOKENS:-0.2}
+      PARSE_DAILY_BUDGET_CENTS: ${PARSE_DAILY_BUDGET_CENTS:-500}
+      STRIPE_SECRET: ${STRIPE_SECRET}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      APP_URL: ${APP_URL:-http://localhost:5173}
+      PHOTO_DIR: /data/photos
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:8787/healthz']
       interval: 30s
       timeout: 5s
       retries: 3
+    # No host port published -- Caddy is the only thing that talks to the
+    # API from outside the compose network. Add "ports: ['8787:8787']"
+    # back temporarily if you need to curl it directly while debugging.
 
-  # Self-hosted Overpass over a regional extract (section 8.6). Point
-  # OVERPASS_PLANET_URL at a .osm.pbf/.osm.bz2 for your region -- see
-  # https://download.geofabrik.de/ -- and give it time to import on first run.
-  # overpass:
-  #   image: wiktorn/overpass-api
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./overpass-db:/db
-  #   environment:
-  #     OVERPASS_PLANET_URL: file:///db/region.osm.bz2
-  #     OVERPASS_META: 'no'
-  #     OVERPASS_RULES_LOAD: '10'
-  #   ports:
-  #     - '12345:80'
+  # Self-hosted Overpass over a regional extract (plan section 8.6). Run
+  # deploy/fetch-overpass-extract.sh first to populate ./overpass-db --
+  # a $6/mo droplet's 1 GB RAM makes a clipped metro-area extract, not a
+  # full state, the realistic ceiling for the import step. Not reachable
+  # from outside the compose network; only the api service calls it.
+  overpass:
+    image: wiktorn/overpass-api
+    restart: unless-stopped
+    volumes:
+      - ./overpass-db:/db
+    environment:
+      OVERPASS_PLANET_URL: file:///db/region.osm.bz2
+      OVERPASS_META: 'no'
+      OVERPASS_RULES_LOAD: '10'
 
-  # Public HTTPS without port forwarding (section 13.1). Create a tunnel at
-  # https://one.dash.cloudflare.com -> Zero Trust -> Networks -> Tunnels,
-  # route it at the api service's port, and put its token here.
-  # cloudflared:
-  #   image: cloudflare/cloudflared:latest
-  #   restart: unless-stopped
-  #   command: tunnel run
-  #   environment:
-  #     TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-  #   depends_on:
-  #     - api
+  # Reverse proxy + automatic HTTPS via Let's Encrypt. Needs a domain's A
+  # record pointing at this droplet's IP first -- Let's Encrypt will not
+  # issue a publicly-trusted certificate for a bare IP address. Edit
+  # ./Caddyfile with your real domain before the first `docker compose up`.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:

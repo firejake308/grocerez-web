@@ -60,7 +60,7 @@ needs `shared/` too:
 ```bash
 # from the repo root
 docker compose -f server/docker-compose.yml build
-docker compose -f server/docker-compose.yml up -d api
+docker compose -f server/docker-compose.yml up -d
 ```
 
 `docker-compose.yml`'s `context: ..` handles this for you; if you build the
@@ -70,10 +70,8 @@ image directly with `docker build`, point it at the repo root:
 docker build -f server/Dockerfile -t grocerez-server .
 ```
 
-The Overpass and Cloudflare Tunnel services in `docker-compose.yml` are
-commented out until you have a regional extract and a tunnel token --
-see `docs/server-sync-plan.md` sections 8.6 and 13.1 for the reasoning, and
-fill in the environment variables noted inline in the compose file.
+The stack is `api` + self-hosted `overpass` + `caddy` (reverse proxy and
+automatic HTTPS) -- see "Deploying to a VPS" below for the full sequence.
 
 Note: this Dockerfile has been reviewed but not build-verified from this
 session -- the environment's egress proxy blocks Docker Hub's CDN by
@@ -81,6 +79,51 @@ policy. Run the build once yourself before deploying; if it fails, the
 most likely culprit is the `better-sqlite3` native build needing build
 tools inside the `node:20-alpine` image (it has them via `node-gyp`'s
 bundled toolchain, but confirm on your machine's architecture).
+
+## Deploying to a VPS
+
+For a cheap VPS (DigitalOcean, Hetzner, etc.) instead of a home box --
+see `docs/server-sync-plan.md` section 13.1 for the tradeoffs. No
+Cloudflare Tunnel needed here: a VPS already has a public, static IP, so
+Caddy handles HTTPS directly instead.
+
+1. **Point a domain at the droplet.** Add an A record for the domain (or
+   subdomain) you'll use for the API, pointing at the droplet's IP.
+   Let's Encrypt (which Caddy uses automatically) cannot issue a
+   certificate for a bare IP address, so this step isn't optional. A free
+   DNS provider like DuckDNS works fine if you don't own a domain.
+2. **SSH into the droplet** and run the one-time OS setup (Docker, the
+   Compose plugin, and a firewall allowing only 22/80/443):
+   ```bash
+   sudo ./server/deploy/setup.sh
+   ```
+3. **Copy this repo onto the droplet** (`git clone` if the repo is
+   reachable from there, otherwise `scp`/`rsync` the working tree).
+4. **Configure the server:**
+   ```bash
+   cd server
+   cp .env.example .env   # fill in ADMIN_TOKEN, mail, Stripe/OpenRouter keys, etc.
+   ```
+5. **Fetch a regional Overpass extract**, clipped to keep the import
+   inside a small droplet's RAM:
+   ```bash
+   ./deploy/fetch-overpass-extract.sh
+   ```
+   Defaults to a Dallas-Fort Worth bounding box; pass your own
+   `minlon,minlat,maxlon,maxlat` as an argument, or see the script's
+   comments for using an unclipped state extract once you've upgraded to
+   a bigger droplet.
+6. **Set your domain in `Caddyfile`**, replacing the `api.example.com`
+   placeholder.
+7. **Bring the stack up:**
+   ```bash
+   docker compose up -d --build
+   ```
+   First boot takes a few minutes while Overpass imports the extract and
+   Caddy requests its certificate. `docker compose logs -f` shows both.
+8. **Point the client at it**: set `VITE_SYNC_API_URL` to
+   `https://<your-domain>` when building/deploying the client (see the
+   root `README.md`).
 
 ## Backups
 
