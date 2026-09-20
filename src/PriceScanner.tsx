@@ -16,6 +16,31 @@ interface OverpassNode {
   };
 }
 
+// overpass-api.de (the main instance) intermittently rejects or rate-limits
+// browser requests with a 406/CORS-looking failure; fall back to mirrors.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+const fetchOverpass = async (query: string, signal: AbortSignal) => {
+  let lastError: unknown;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const url = `${endpoint}?data=${encodeURIComponent(query)}`;
+      const response = await fetch(url, { signal });
+      if (!response.ok) {
+        throw new Error(`Overpass request to ${endpoint} failed with status ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Failed to fetch location data");
+};
+
 const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceData: PriceData) => void}) => {
   // Track current step in the scanning process
   const [scanStep, setScanStep] = useState<'price' | 'product' | 'processing' | 'error' | 'details'>('price');
@@ -157,16 +182,11 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
             setStoreLng(longitude);
             // Query nodes and ways tagged as shops or supermarkets within 150m
             const query = `[out:json];(node["shop"](around:150,${latitude},${longitude});way["shop"](around:150,${latitude},${longitude});node["amenity"="supermarket"](around:150,${latitude},${longitude});way["amenity"="supermarket"](around:150,${latitude},${longitude}););out center;`;
-            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
             // Use AbortController to avoid hanging requests
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
-            const response = await fetch(url, { signal: controller.signal });
+            const data = await fetchOverpass(query, controller.signal);
             clearTimeout(timeoutId);
-            if (!response.ok) {
-              throw new Error("Failed to fetch location data");
-            }
-            const data = await response.json();
             // Overpass returns elements array; pick the nearest element if any
             if (Array.isArray(data.elements) && data.elements.length > 0) {
               const nearbyNodes = data.elements as OverpassNode[];
@@ -191,7 +211,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
               if (!address) {
                 try {
                   const revRes = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+                    `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`
                   );
                   if (revRes.ok) {
                     const revData = await revRes.json();
@@ -220,7 +240,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
               // No nearby shop nodes found — try reverse geocoding to get house number/road
               try {
                 const revRes = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                  `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${latitude}&lon=${longitude}`
                 );
                 if (revRes.ok) {
                   const revData = await revRes.json();
