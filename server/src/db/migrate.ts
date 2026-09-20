@@ -1,4 +1,5 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { fileURLToPath } from 'node:url';
 import { openDb } from './client.js';
 import { env } from '../env.js';
 
@@ -9,7 +10,10 @@ import { env } from '../env.js';
  */
 export function runMigrations(databasePath: string) {
   const { db, sqlite } = openDb(databasePath);
-  migrate(db, { migrationsFolder: new URL('../../drizzle', import.meta.url).pathname });
+  // `new URL(...).pathname` leaves a leading slash before the drive letter on
+  // Windows (e.g. "/C:/Users/..."), which isn't a valid path; fileURLToPath
+  // handles that conversion correctly on every platform.
+  migrate(db, { migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)) });
   return { db, sqlite };
 }
 
