@@ -56,6 +56,11 @@ services:
     volumes:
       - ./overpass-db:/db
     environment:
+      # OVERPASS_MODE defaults to "clone" (pull a full planet-scale binary
+      # database from dev.overpass-api.de) if unset -- it silently ignores
+      # OVERPASS_PLANET_URL in that mode. "init" is what actually builds
+      # the database from the local extract below.
+      OVERPASS_MODE: init
       OVERPASS_PLANET_URL: file:///db/region.osm.bz2
       OVERPASS_META: 'no'
       OVERPASS_RULES_LOAD: '10'
