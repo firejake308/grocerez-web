@@ -9,6 +9,8 @@ export const env = {
   PORT: Number(optional('PORT', '8787')),
   DATABASE_PATH: optional('DATABASE_PATH', './data/grocerez.db'),
   CORS_ORIGINS: optional('CORS_ORIGINS', 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean),
+  /** Netlify site slug for allowing that site's deploy-preview/branch-deploy URLs too (see lib/cors.ts). Empty disables it. */
+  NETLIFY_SITE_SLUG: optional('NETLIFY_SITE_SLUG', ''),
   ADMIN_TOKEN: optional('ADMIN_TOKEN', ''),
   MAIL_PROVIDER: optional('MAIL_PROVIDER', 'console'),
   RESEND_API_KEY: optional('RESEND_API_KEY', ''),

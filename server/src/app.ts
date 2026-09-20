@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { sql } from 'drizzle-orm';
 import type { AppDb } from './db/client.js';
 import { authenticate, type AppEnv } from './lib/authenticate.js';
+import { buildCorsOriginMatcher } from './lib/cors.js';
 import { ConsoleMailer, type Mailer } from './lib/mail.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
@@ -21,6 +22,8 @@ import type { GeoDeps } from './services/geo.js';
 export interface AppContext {
   db: AppDb;
   corsOrigins: string[];
+  /** Netlify site slug (e.g. "imaginative-sorbet-554b69") to also allow that site's deploy-preview and branch-deploy URLs. Empty disables this. */
+  netlifySiteSlug?: string;
   /** Defaults to logging codes to the console; tests inject a fake to capture them. */
   mailer?: Mailer;
   /** Overpass/Nominatim settings; tests inject a fake fetch. Defaults to no Overpass and public Nominatim. */
@@ -45,6 +48,7 @@ export interface AppContext {
 export function createApp({
   db,
   corsOrigins,
+  netlifySiteSlug = '',
   mailer = new ConsoleMailer(),
   geo = { overpassUrl: '', nominatimUrl: 'https://nominatim.openstreetmap.org' },
   adminToken = '',
@@ -55,7 +59,8 @@ export function createApp({
 }: AppContext) {
   const app = new Hono<AppEnv>();
 
-  app.use('*', cors({ origin: corsOrigins }));
+  const matchCorsOrigin = buildCorsOriginMatcher(corsOrigins, netlifySiteSlug);
+  app.use('*', cors({ origin: (origin) => matchCorsOrigin(origin) }));
 
   app.get('/healthz', (c) => c.json({ status: 'ok' }));
 

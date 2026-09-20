@@ -21,6 +21,7 @@ services:
       DATABASE_PATH: /data/grocerez.db
       PORT: '8787'
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      NETLIFY_SITE_SLUG: ${NETLIFY_SITE_SLUG}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       MAIL_PROVIDER: ${MAIL_PROVIDER:-console}
       RESEND_API_KEY: ${RESEND_API_KEY}

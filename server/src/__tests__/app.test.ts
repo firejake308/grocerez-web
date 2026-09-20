@@ -37,4 +37,30 @@ describe('createApp', () => {
     });
     expect(res.headers.get('access-control-allow-origin')).toBe('https://grocerez.example');
   });
+
+  it('rejects an unlisted origin', async () => {
+    const app = createApp({ db, corsOrigins: ['https://grocerez.example'] });
+    const res = await app.request('/healthz', {
+      headers: { Origin: 'https://not-allowed.example' },
+    });
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('also allows a Netlify deploy-preview URL when netlifySiteSlug is configured', async () => {
+    const app = createApp({
+      db,
+      corsOrigins: ['https://grocerez.app'],
+      netlifySiteSlug: 'imaginative-sorbet-554b69',
+    });
+    const previewOrigin = 'https://deploy-preview-42--imaginative-sorbet-554b69.netlify.app';
+    const res = await app.request('/healthz', { headers: { Origin: previewOrigin } });
+    expect(res.headers.get('access-control-allow-origin')).toBe(previewOrigin);
+  });
+
+  it('does not allow Netlify preview URLs when netlifySiteSlug is unset', async () => {
+    const app = createApp({ db, corsOrigins: ['https://grocerez.app'] });
+    const previewOrigin = 'https://deploy-preview-42--imaginative-sorbet-554b69.netlify.app';
+    const res = await app.request('/healthz', { headers: { Origin: previewOrigin } });
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
+  });
 });

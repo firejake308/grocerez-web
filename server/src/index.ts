@@ -13,6 +13,7 @@ const mailer = createMailer(env.MAIL_PROVIDER, env.RESEND_API_KEY, env.MAIL_FROM
 const app = createApp({
   db,
   corsOrigins: env.CORS_ORIGINS,
+  netlifySiteSlug: env.NETLIFY_SITE_SLUG,
   mailer,
   geo: { overpassUrl: env.OVERPASS_URL, nominatimUrl: env.NOMINATIM_URL, userAgent: 'GrocerEZ-sync/0.1' },
   adminToken: env.ADMIN_TOKEN,
