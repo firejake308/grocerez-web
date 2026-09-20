@@ -1087,7 +1087,7 @@ except Stripe itself (see below).
   `GET /api/reports/:id/photo` is visible to the report's own author
   (session) or an admin (the same shared `ADMIN_TOKEN` as `/api/admin`,
   not a session -- reviewing a flag is an admin action); `admin-cli.ts`
-  gained a `photo <reportId> <outFile>` command. Retention (90 days, or
+  gained a `photo <reportId> <outFile>` command. Retention (30 days, or
   indefinitely while a report is hidden with an open flag) runs in the
   same periodic maintenance timer as trust recomputation.
 - **Entitlement enforcement.** — **done**, still off by default

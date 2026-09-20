@@ -103,22 +103,22 @@ describe('photos', () => {
     expect(checkPhotoAccess(db, photoDir, reportId, null, true).allowed).toBe(true);
   });
 
-  it('cleanupPhotos deletes photos older than 90 days', async () => {
+  it('cleanupPhotos deletes photos older than 30 days', async () => {
     const author = seedUser(db);
     const reportId = newId();
     seedReport(db, reportId, author);
     const savedAt = () => new Date('2026-01-01T00:00:00.000Z');
     await savePhoto(db, photoDir, reportId, `data:image/jpeg;base64,${PIXEL_BASE64}`, savedAt);
 
-    const stillWithinWindow = () => new Date('2026-03-01T00:00:00.000Z'); // 59 days later
+    const stillWithinWindow = () => new Date('2026-01-20T00:00:00.000Z'); // 19 days later
     expect(await cleanupPhotos(db, photoDir, stillWithinWindow)).toBe(0);
 
-    const pastWindow = () => new Date('2026-04-15T00:00:00.000Z'); // 104 days later
+    const pastWindow = () => new Date('2026-02-15T00:00:00.000Z'); // 45 days later
     expect(await cleanupPhotos(db, photoDir, pastWindow)).toBe(1);
     await expect(fs.readFile(path.join(photoDir, `${reportId}.jpg`))).rejects.toThrow();
   });
 
-  it('keeps a photo past 90 days when its report is hidden with an open flag', async () => {
+  it('keeps a photo past 30 days when its report is hidden with an open flag', async () => {
     const author = seedUser(db);
     const reportId = newId();
     seedReport(db, reportId, author, { status: 'hidden', reviewReason: 'flagged' });

@@ -13,7 +13,7 @@ import { priceReports, reportPhotos } from '../db/schema.js';
  * schema. Visible only to the report's author and to admins.
  */
 
-const RETENTION_DAYS = 90;
+const RETENTION_DAYS = 30;
 
 function photoPath(photoDir: string, reportId: string): string {
   // reportId is a client-generated UUID (shared/ids.ts); no path traversal risk, but guard anyway.
@@ -48,7 +48,7 @@ export function checkPhotoAccess(db: AppDb, photoDir: string, reportId: string, 
 }
 
 /**
- * Deletes photos older than 90 days, unless their report is currently
+ * Deletes photos older than 30 days, unless their report is currently
  * hidden with an open flag (reviewReason 'flagged') -- those are kept
  * indefinitely until an admin resolves the flag. Run from the periodic
  * maintenance timer alongside trust recomputation.

@@ -34,7 +34,7 @@ const app = createApp({
 // Periodic maintenance: things with no single event to hook, so they run
 // on a timer instead. Trust (section 9.2) needs the 14-day "unflagged
 // counts as confirmed" rule recomputed for everyone; photo evidence
-// (Phase 3) needs its 90-day retention swept; the free tier (6.3.1) is a
+// (Phase 3) needs its 30-day retention swept; the free tier (6.3.1) is a
 // nightly-recomputed table, and contribution credits (6.3.2) need their
 // own 14-day "unflagged counts as verified" rule evaluated periodically,
 // the same shape as the trust rule above.
