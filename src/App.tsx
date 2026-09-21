@@ -1,45 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import HomeScreen from './HomeScreen';
 import PriceScanner from './PriceScanner';
 import AllPriceScans from './AllPriceScans';
 import EditPriceScan from './EditPriceScan';
 import PriceData, { GroceryItem } from './PriceData';
 import AddItemScreen from './AddItemScreen';
+import { normalizePriceData } from './normalizePriceData';
+import SyncSettingsScreen from './SyncSettingsScreen';
+import ProductPricesScreen from './ProductPricesScreen';
+import { useSync } from './sync/useSync';
+import { syncEnabled } from './sync/config';
 
-type PartialPriceData = Partial<Omit<PriceData, 'price' | 'tags' | 'quantity'>> & {
-  price?: string | number;
-  tags?: string[] | string;
-  quantity?: number | string;
-};
-
-const normalizePriceData = (item: PartialPriceData): PriceData => {
-  const normalizedTags = Array.isArray(item.tags)
-    ? item.tags.filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean)
-    : typeof item.tags === 'string'
-      ? item.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean)
-      : [];
-
-  const normalizedQuantity = typeof item.quantity === 'number'
-    ? item.quantity
-    : Number(item.quantity);
-
-  return {
-    price: typeof item.price === 'string' ? item.price : String(item.price ?? ''),
-    store: typeof item.store === 'string' ? item.store : '',
-    date: typeof item.date === 'string' ? item.date : '',
-    priceImage: typeof item.priceImage === 'string' ? item.priceImage : null,
-    productImage: typeof item.productImage === 'string' ? item.productImage : null,
-    itemName: typeof item.itemName === 'string' ? item.itemName : '',
-    brand: typeof item.brand === 'string' ? item.brand : '',
-    tags: normalizedTags,
-    quantity: Number.isFinite(normalizedQuantity) ? normalizedQuantity : 1,
-    quantity_units: typeof item.quantity_units === 'string' ? item.quantity_units : '',
-    latitude: typeof item.latitude === 'number' ? item.latitude : null,
-    longitude: typeof item.longitude === 'number' ? item.longitude : null,
-  };
-};
-
-type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit';
+type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit' | 'sync' | 'productPrices';
 
 const push = (screen: Screen, state?: Record<string, unknown>) => {
   window.history.pushState({ screen, ...state }, '');
@@ -65,7 +37,12 @@ const App = () => {
       return [];
     }
   });
-  const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingProductId, setViewingProductId] = useState<string | null>(null);
+  const sync = useSync(priceData, setPriceData);
+  // Tombstones (deleted-but-not-yet-pushed) stay in priceData until the delete syncs; never show them.
+  const mine = useMemo(() => priceData.filter((item) => !item.deletedAt), [priceData]);
+  const searchable = useMemo(() => [...mine, ...sync.community], [mine, sync.community]);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(() => {
     const saved = localStorage.getItem('groceryItems');
     return saved ? JSON.parse(saved) : [];
@@ -79,7 +56,10 @@ const App = () => {
       const screen: Screen = e.state?.screen ?? 'home';
       setCurrentScreen(screen);
       if (screen === 'edit') {
-        setEditingIndex(e.state?.editingIndex ?? -1);
+        setEditingId(typeof e.state?.editingId === 'string' ? e.state.editingId : null);
+      }
+      if (screen === 'productPrices') {
+        setViewingProductId(typeof e.state?.productId === 'string' ? e.state.productId : null);
       }
     };
 
@@ -109,22 +89,28 @@ const App = () => {
     window.history.back();
   };
 
-  const handleEditPriceData = (index: number) => {
-    setEditingIndex(index);
-    navigateTo('edit', { editingIndex: index });
+  const handleEditPriceData = (id: string) => {
+    setEditingId(id);
+    navigateTo('edit', { editingId: id });
   };
 
   const handleSaveEdit = (updatedItem: PriceData) => {
-    const newPriceData = [...priceData];
-    newPriceData[editingIndex] = updatedItem;
-    setPriceData(newPriceData);
+    const saved = normalizePriceData({ ...updatedItem, updatedAt: new Date().toISOString() });
+    setPriceData((current) => current.map((item) => (item.id === saved.id ? saved : item)));
     // Go back to allPrices without adding a new entry
     window.history.back();
   };
 
-  const handleDeletePriceData = (index: number) => {
-    const newPriceData = priceData.filter((_, i) => i !== index);
-    setPriceData(newPriceData);
+  const handleDeletePriceData = (id: string) => {
+    const now = new Date().toISOString();
+    setPriceData((current) =>
+      current.flatMap((item) => {
+        if (item.id !== id) return [item];
+        // A report the server already has becomes a tombstone until the delete is pushed.
+        if (syncEnabled() && item.syncedAt) return [{ ...item, deletedAt: now, updatedAt: now }];
+        return [];
+      }),
+    );
   };
 
   const handleAddGroceryItem = (item: GroceryItem) => {
@@ -143,7 +129,7 @@ const App = () => {
   const handleExportData = () => {
     const exportPayload = {
       exportedAt: new Date().toISOString(),
-      priceData: stripImagesFromPriceData(priceData),
+      priceData: stripImagesFromPriceData(mine),
       groceryItems,
     };
     const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
@@ -160,8 +146,11 @@ const App = () => {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result as string);
-        const importedPriceData = Array.isArray(parsed.priceData)
-          ? parsed.priceData.map(normalizePriceData)
+        // Backups made before sync have no ids and always append; backups
+        // with ids skip reports this device already has.
+        const knownIds = new Set(priceData.map((item) => item.id));
+        const importedPriceData: PriceData[] = Array.isArray(parsed.priceData)
+          ? parsed.priceData.map(normalizePriceData).filter((item: PriceData) => !knownIds.has(item.id))
           : [];
 
         const existingIds = new Set(groceryItems.map((item) => item.id));
@@ -190,12 +179,14 @@ const App = () => {
     reader.readAsText(file);
   };
 
+  const editingItem = editingId ? priceData.find((item) => item.id === editingId) : undefined;
+
   return (
     <div className="h-screen">
       {currentScreen === 'home' && (
         <HomeScreen
           onScan={() => navigateTo('scanner')}
-          priceData={priceData}
+          priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
           onAddItem={() => navigateTo('addItem')}
@@ -203,6 +194,9 @@ const App = () => {
           onDeleteItem={handleDeleteGroceryItem}
           onExportData={handleExportData}
           onImportData={handleImportData}
+          syncEnabled={sync.enabled}
+          syncSignedIn={Boolean(sync.auth)}
+          onOpenSync={() => navigateTo('sync')}
         />
       )}
 
@@ -210,7 +204,9 @@ const App = () => {
         <AddItemScreen
           onBack={() => window.history.back()}
           onSave={handleAddGroceryItem}
-          priceData={priceData}
+          priceData={searchable}
+          sync={sync.enabled ? sync : undefined}
+          onViewPriceHistory={sync.enabled ? (productId) => { setViewingProductId(productId); navigateTo('productPrices', { productId }); } : undefined}
         />
       )}
 
@@ -223,16 +219,24 @@ const App = () => {
 
       {currentScreen === 'allPrices' && (
         <AllPriceScans
-          priceData={priceData}
+          priceData={mine}
           onBack={() => window.history.back()}
           onEdit={handleEditPriceData}
           onDelete={handleDeletePriceData}
         />
       )}
 
-      {currentScreen === 'edit' && editingIndex !== -1 && (
+      {currentScreen === 'sync' && (
+        <SyncSettingsScreen sync={sync} onBack={() => window.history.back()} />
+      )}
+
+      {currentScreen === 'productPrices' && viewingProductId && (
+        <ProductPricesScreen productId={viewingProductId} sync={sync} onBack={() => window.history.back()} />
+      )}
+
+      {currentScreen === 'edit' && editingItem && (
         <EditPriceScan
-          item={priceData[editingIndex]}
+          item={editingItem}
           onBack={() => window.history.back()}
           onSave={handleSaveEdit}
         />

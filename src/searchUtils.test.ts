@@ -2,6 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { filterBySearchQuery, tokenize } from './searchUtils';
 import PriceData from './PriceData';
 
+type Fixture = Omit<PriceData, 'id' | 'updatedAt' | 'priceImage' | 'productImage'>;
+const withIds = (rows: Fixture[]): PriceData[] =>
+  rows.map((row, i) => ({
+    id: `test-${i}`,
+    updatedAt: `${row.date}T00:00:00.000Z`,
+    priceImage: null,
+    productImage: null,
+    ...row,
+  }));
+
 describe('tokenize', () => {
   it('converts to lowercase and splits by whitespace', () => {
     const tokens = tokenize('Cold Brew Coffee');
@@ -19,13 +29,11 @@ describe('tokenize', () => {
 });
 
 describe('filterBySearchQuery', () => {
-  const mockData: PriceData[] = [
+  const mockData: PriceData[] = withIds([
     {
       price: '3.49',
       store: 'Kroger @ 9150 North Tarrant Parkway',
       date: '2026-07-15',
-      priceImage: null,
-      productImage: null,
       itemName: 'Oreo BTS Brown Sugar Pancake Flavor Cream Sandwich Cookies',
       brand: 'Oreo',
       tags: ['cookies', 'snacks', 'dessert'],
@@ -38,8 +46,6 @@ describe('filterBySearchQuery', () => {
       price: '3.49',
       store: 'Kroger @ 9150 North Tarrant Parkway',
       date: '2026-07-15',
-      priceImage: null,
-      productImage: null,
       itemName: 'Oreo Double Stuf Chocolate Sandwich Cookies',
       brand: 'Oreo',
       tags: ['cookies', 'chocolate', 'sandwich cookies', 'dessert'],
@@ -52,8 +58,6 @@ describe('filterBySearchQuery', () => {
       price: '1.47',
       store: 'Walmart Supercenter @ 9410 Webb Chapel Road',
       date: '2026-08-01',
-      priceImage: null,
-      productImage: null,
       itemName: 'Large White Eggs',
       brand: 'Great Value',
       tags: ['eggs', 'dairy', 'breakfast'],
@@ -66,8 +70,6 @@ describe('filterBySearchQuery', () => {
       price: '3.87',
       store: 'Walmart',
       date: '2026-08-23',
-      priceImage: null,
-      productImage: null,
       itemName: 'Large Eggs',
       brand: 'Eggland\'s Best',
       tags: ['eggs', 'breakfast', 'protein', 'baking'],
@@ -80,8 +82,6 @@ describe('filterBySearchQuery', () => {
       price: '6.79',
       store: 'Kroger',
       date: '2026-08-23',
-      priceImage: null,
-      productImage: null,
       itemName: 'Cold Brew Coffee',
       brand: 'Stok',
       tags: ['coffee', 'cold brew', 'beverage'],
@@ -94,8 +94,6 @@ describe('filterBySearchQuery', () => {
       price: '5.97',
       store: 'Walmart Supercenter @ 9410 Webb Chapel Road',
       date: '2026-08-01',
-      priceImage: null,
-      productImage: null,
       itemName: 'Cold Brew Coffee',
       brand: 'Stok',
       tags: ['coffee', 'cold brew', 'beverage'],
@@ -108,8 +106,6 @@ describe('filterBySearchQuery', () => {
       price: '1.29',
       store: 'Kroger',
       date: '2026-07-16',
-      priceImage: null,
-      productImage: null,
       itemName: 'Soon Veggie Cup Noodles',
       brand: 'Nongshim',
       tags: ['instant noodles', 'ramen', 'cup noodles', 'vegetarian'],
@@ -118,7 +114,7 @@ describe('filterBySearchQuery', () => {
       latitude: null,
       longitude: null,
     },
-  ];
+  ]);
 
   it('finds items by exact word match', () => {
     const results = filterBySearchQuery(mockData, 'eggs');
@@ -188,5 +184,27 @@ describe('filterBySearchQuery', () => {
   it('finds partial word matches using prefixes', () => {
     const results = filterBySearchQuery(mockData, 'cook');
     expect(results.some(r => r.itemName.includes('Cookies'))).toBe(true);
+  });
+
+  it('does not match "apple" against a stray single-letter token like the "A" in "Grade A Eggs"', () => {
+    const withGradeA = [
+      ...mockData,
+      ...withIds([
+        {
+          price: '4.29',
+          store: 'Whole Foods Market @ 4100 Lomo Alto Drive',
+          date: '2026-07-16',
+          itemName: 'Large Brown Grade A Eggs',
+          brand: '365 by Whole Foods Market',
+          tags: ['eggs', 'poultry', 'breakfast'],
+          quantity: 12,
+          quantity_units: 'count',
+          latitude: 32.8204523,
+          longitude: -96.8144192,
+        },
+      ]),
+    ];
+    const results = filterBySearchQuery(withGradeA, 'apple');
+    expect(results).toHaveLength(0);
   });
 });

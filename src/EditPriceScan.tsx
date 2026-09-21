@@ -16,6 +16,8 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
   const [brand, setBrand] = useState(item.brand);
   const [quantity, setQuantity] = useState(item.quantity);
   const [quantity_units, setQuantityUnits] = useState(item.quantity_units);
+  const [isSale, setIsSale] = useState(item.isSale ?? false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(item.expiresAt ?? null);
 
   const handleSave = () => {
     const updatedItem: PriceData = {
@@ -26,7 +28,9 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
       store,
       quantity,
-      quantity_units
+      quantity_units,
+      isSale,
+      expiresAt: isSale ? expiresAt : null,
     };
     onSave(updatedItem);
   };
@@ -137,6 +141,32 @@ const EditPriceScan: React.FC<EditPriceScanProps> = ({ item, onBack, onSave }) =
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 />
               </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isSale}
+                  onChange={(e) => setIsSale(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Sale or promotional price
+              </label>
+              {isSale && (
+                <div className="mt-2">
+                  <label htmlFor="expiresAt" className="block text-sm font-medium text-gray-700 mb-1">
+                    Sale ends (optional)
+                  </label>
+                  <input
+                    type="date"
+                    id="expiresAt"
+                    value={expiresAt ?? ''}
+                    onChange={(e) => setExpiresAt(e.target.value || null)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                  />
+                </div>
+              )}
             </div>
 
           </div>

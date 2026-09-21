@@ -1,0 +1,16 @@
+# Applies to the server image's build context, which is the repo root
+# (docker-compose.yml sets `context: ..` so shared/ is reachable). Nothing
+# here affects the Netlify client build.
+node_modules
+**/node_modules
+dist
+**/dist
+server/data
+**/*.db
+**/*.db-wal
+**/*.db-shm
+.env
+**/.env
+.git
+benchmark/data
+benchmark/results

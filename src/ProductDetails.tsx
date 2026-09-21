@@ -1,4 +1,5 @@
 import { ArrowLeft, Camera, MapPin, ShoppingBag } from "lucide-react";
+import type { ProductMatchCandidate } from '../shared/types';
 
 interface ProductDetailsProps {
   scannedPrice: string | null;
@@ -20,6 +21,15 @@ interface ProductDetailsProps {
   setQuantityUnits: (units: string) => void;
   brand: string;
   setBrand: (brand: string) => void;
+  isSale: boolean;
+  setIsSale: (isSale: boolean) => void;
+  expiresAt: string | null;
+  setExpiresAt: (expiresAt: string | null) => void;
+  /** Save-time match prompt (plan section 8.4): the top existing product this scan might be. */
+  matchCandidate: ProductMatchCandidate | null;
+  confirmedProductId: string | null;
+  onConfirmMatch: VoidFunction;
+  onRejectMatch: VoidFunction;
 }
 
 const ProductDetails: React.FC<ProductDetailsProps> = ({ 
@@ -41,7 +51,15 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   quantity_units,
   setQuantityUnits,
   brand,
-  setBrand
+  setBrand,
+  isSale,
+  setIsSale,
+  expiresAt,
+  setExpiresAt,
+  matchCandidate,
+  confirmedProductId,
+  onConfirmMatch,
+  onRejectMatch,
 }) => {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -55,6 +73,24 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Content */}
       <div className="flex-1 p-4 overflow-auto">
+        {matchCandidate && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-blue-900">
+              Is this the same as <span className="font-semibold">{matchCandidate.canonicalName}</span>
+              {matchCandidate.sizeLabel ? ` (${matchCandidate.sizeLabel})` : ''}? Seen at {matchCandidate.storeCount} store{matchCandidate.storeCount === 1 ? '' : 's'}
+              {matchCandidate.medianPriceCents ? `, usually $${(matchCandidate.medianPriceCents / 100).toFixed(2)}` : ''}.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button onClick={onConfirmMatch} className="flex-1 bg-blue-600 text-white text-sm py-1.5 rounded-md">Yes, same item</button>
+              <button onClick={onRejectMatch} className="flex-1 border border-blue-300 text-blue-700 text-sm py-1.5 rounded-md">No, different</button>
+            </div>
+          </div>
+        )}
+        {confirmedProductId && !matchCandidate && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-900">
+            Linked to an existing item. Your price will be added to its history.
+          </div>
+        )}
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <h2 className="font-semibold text-lg mb-3">Price Information</h2>
           <div className="flex justify-between items-center mb-4">
@@ -145,6 +181,32 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 />
               </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isSale}
+                  onChange={(e) => setIsSale(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Sale or promotional price
+              </label>
+              {isSale && (
+                <div className="mt-2">
+                  <label htmlFor="expiresAt" className="block text-sm font-medium text-gray-700 mb-1">
+                    Sale ends (optional)
+                  </label>
+                  <input
+                    type="date"
+                    id="expiresAt"
+                    value={expiresAt ?? ''}
+                    onChange={(e) => setExpiresAt(e.target.value || null)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

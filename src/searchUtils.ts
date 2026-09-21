@@ -1,7 +1,7 @@
 import PriceData from './PriceData';
+import { tokenize, tokensMatch } from '../shared/normalize';
 
-export const tokenize = (s: string) =>
-  new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
+export { tokenize };
 
 export const filterBySearchQuery = (priceData: PriceData[], query: string): PriceData[] => {
   const q = query.trim().toLowerCase();
@@ -15,9 +15,7 @@ export const filterBySearchQuery = (priceData: PriceData[], query: string): Pric
     if (!it.itemName) return false;
     const itemTokens = Array.from(tokenize(searchable(it)));
     return Array.from(queryTokens).every(queryToken =>
-      itemTokens.some(itemToken =>
-        queryToken === itemToken || queryToken.startsWith(itemToken) || itemToken.startsWith(queryToken)
-      )
+      itemTokens.some(itemToken => tokensMatch(queryToken, itemToken))
     );
   });
 };

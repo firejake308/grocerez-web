@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Plus, Camera, Trash2, Download, Upload } from 'lucide-react';
+import { Plus, Camera, Trash2, Download, Upload, Cloud, CloudOff } from 'lucide-react';
 import PriceData, { GroceryItem } from './PriceData';
 
 const HomeScreen = ({
@@ -11,7 +11,10 @@ const HomeScreen = ({
   onToggleItem,
   onDeleteItem,
   onExportData,
-  onImportData
+  onImportData,
+  syncEnabled,
+  syncSignedIn,
+  onOpenSync
 }: {
   onScan: VoidFunction;
   priceData: PriceData[];
@@ -22,6 +25,9 @@ const HomeScreen = ({
   onDeleteItem: (id: string) => void;
   onExportData: VoidFunction;
   onImportData: (file: File) => void;
+  syncEnabled: boolean;
+  syncSignedIn: boolean;
+  onOpenSync: VoidFunction;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +73,18 @@ const HomeScreen = ({
           />
         </div>
         <h1 className="text-2xl font-bold text-white text-center flex-1">GrocerEZ</h1>
-        <div className="flex-1" />
+        <div className="flex-1 flex justify-end">
+          {syncEnabled && (
+            <button
+              onClick={onOpenSync}
+              title="Community prices"
+              aria-label="Community prices"
+              className="text-white p-1.5 rounded hover:bg-green-700"
+            >
+              {syncSignedIn ? <Cloud size={20} /> : <CloudOff size={20} />}
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Main Content Area */}
@@ -107,8 +124,8 @@ const HomeScreen = ({
             <p className="text-gray-500 text-center py-2">No price scans yet</p>
           ) : (
             <div className="space-y-2">
-              {priceData.slice(-3).map((item, index) => (
-              <div key={index} className="p-2 border-b border-gray-100 flex flex-col">
+              {priceData.slice(-3).map((item) => (
+              <div key={item.id} className="p-2 border-b border-gray-100 flex flex-col">
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-700">{item.itemName}</span>
                   <span className="font-bold text-gray-900">{item.price.charAt(0) === '$' ? item.price : '$' + item.price}</span>

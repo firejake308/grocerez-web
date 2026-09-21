@@ -1,0 +1,2306 @@
+{
+  "exportedAt": "2026-09-11T04:45:18.337Z",
+  "priceData": [
+    {
+      "price": "11.38",
+      "store": "undefined La Cima",
+      "date": "2025-04-15",
+      "itemName": "MAC & CHEESE",
+      "brand": "",
+      "tags": [],
+      "quantity": 40,
+      "quantity_units": "OZ",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$10.48",
+      "store": "undefined La Cima",
+      "date": "2025-04-15",
+      "itemName": "BROCCOLI CHEDDAR SNGL SRV",
+      "brand": "Panera Bread",
+      "tags": [],
+      "quantity": 4,
+      "quantity_units": "X 10 OZ",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.42",
+      "store": "5055 Northwest Loop 410",
+      "date": "2025-04-28",
+      "itemName": "COSMIC CRISP APPLE",
+      "brand": "",
+      "tags": [],
+      "quantity": 4,
+      "quantity_units": "LBS",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$1.32",
+      "store": "5025 Northwest Loop 410",
+      "date": "2025-04-28",
+      "itemName": "CARROT BP 1# HM",
+      "brand": "",
+      "tags": [
+        "baby carrots"
+      ],
+      "quantity": 16,
+      "quantity_units": "Oz",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$1.68",
+      "store": "5601 Bandera Road",
+      "date": "2025-05-01",
+      "itemName": "White Mushrooms",
+      "brand": "Kitchen Pride",
+      "tags": [],
+      "quantity": 8,
+      "quantity_units": "OZ",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.43",
+      "store": "5055 Northwest Loop 410",
+      "date": "2025-05-10",
+      "itemName": "STRAWBERRIES",
+      "brand": "Driscoll's",
+      "tags": [],
+      "quantity": 2,
+      "quantity_units": "lbs",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.99",
+      "store": "5611 UTSA Boulevard",
+      "date": "2025-05-14",
+      "itemName": "MANDARINS",
+      "brand": "peelz",
+      "tags": [],
+      "quantity": 1,
+      "quantity_units": "LBS",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "11.18",
+      "store": "5565 De Zavala Road",
+      "date": "2025-05-14",
+      "itemName": "DRUMSTICK VARIETY PK",
+      "brand": "Nestle",
+      "tags": [],
+      "quantity": 16,
+      "quantity_units": "CT",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$6.85",
+      "store": "5565 De Zavala Road",
+      "date": "2025-05-14",
+      "itemName": "Clementines/Mandarins",
+      "brand": "",
+      "tags": [],
+      "quantity": 5,
+      "quantity_units": "LBS",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$14.77",
+      "store": "5565 De Zavala Road",
+      "date": "2025-05-14",
+      "itemName": "ICE BREAKERS WINTERGREEN MINTS",
+      "brand": "York",
+      "tags": [],
+      "quantity": 8,
+      "quantity_units": "PACK",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "0.54",
+      "store": "Walmart Supercenter @ 1635 Market Place Boulevard",
+      "date": "2025-07-27",
+      "itemName": "Bananas",
+      "brand": "Dole",
+      "tags": [
+        "fruit",
+        "tropical",
+        "healthy",
+        "yellow",
+        "produce"
+      ],
+      "quantity": 1,
+      "quantity_units": "lb",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.98",
+      "store": "WinCo Foods @ undefined Presidio Vista Drive",
+      "date": "2025-07-31",
+      "itemName": "Blueberries",
+      "brand": "California Giant Berry Farms",
+      "tags": [
+        "fruit",
+        "fresh",
+        "berries"
+      ],
+      "quantity": 18,
+      "quantity_units": "oz",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$10",
+      "store": "3505 West Northwest Highway",
+      "date": "2026-05-16",
+      "itemName": "Ultra Clean Toilet Paper",
+      "brand": "Cottonelle",
+      "tags": [],
+      "quantity": 9,
+      "quantity_units": "284-sheet rolls",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$3.75",
+      "store": "3505 West Northwest Highway",
+      "date": "2026-05-16",
+      "itemName": "Medium Designer Hooks",
+      "brand": "Command",
+      "tags": [],
+      "quantity": 2,
+      "quantity_units": "ct",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.85",
+      "store": "Costco @ 5611 UTSA Boulevard",
+      "date": "2026-05-24",
+      "itemName": "2% REDUCED FAT MILK",
+      "brand": "Kirkland Signature",
+      "tags": [],
+      "quantity": 2,
+      "quantity_units": "GALLONS",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$7.38",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-05-29",
+      "itemName": "Mandarin Peelz",
+      "brand": "Peelz",
+      "tags": [],
+      "quantity": 5,
+      "quantity_units": "lb",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$1.32",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-05-29",
+      "itemName": "Baby Carrots",
+      "brand": "Farm",
+      "tags": [],
+      "quantity": 16,
+      "quantity_units": "OZ",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$2.76",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-05-29",
+      "itemName": "2% Milk",
+      "brand": "Great Value",
+      "tags": [],
+      "quantity": 1,
+      "quantity_units": "gallon",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$3.48",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-02",
+      "itemName": "CLASSIC HUMMUS",
+      "brand": "Fresh Cravings",
+      "tags": [],
+      "quantity": 14,
+      "quantity_units": "oz",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$7.48",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-02",
+      "itemName": "Carbonara Buldak Spicy Ramen",
+      "brand": "Samyang",
+      "tags": [],
+      "quantity": 5.58,
+      "quantity_units": "OZ",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.99",
+      "store": "4901 Maple Avenue",
+      "date": "2026-06-11",
+      "itemName": "Overnight Oats",
+      "brand": "Mush",
+      "tags": [],
+      "quantity": 5,
+      "quantity_units": "oz",
+      "latitude": 32.8141585,
+      "longitude": -96.829495
+    },
+    {
+      "price": "$19.7",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-14",
+      "itemName": "Spinach",
+      "brand": "Marketside",
+      "tags": [],
+      "quantity": 18,
+      "quantity_units": "oz",
+      "latitude": 32.8622437,
+      "longitude": -96.8572041
+    },
+    {
+      "price": "$3.98",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-14",
+      "itemName": "Mango with Tajin Chile Lime",
+      "brand": "Outshine",
+      "tags": [],
+      "quantity": 6,
+      "quantity_units": "fruit ice bars",
+      "latitude": 32.8625297,
+      "longitude": -96.8572366
+    },
+    {
+      "price": "3.38",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-14",
+      "itemName": "WHOLE GRAIN WHITE BREAD",
+      "brand": "BAIRD'S",
+      "tags": [],
+      "quantity": 1,
+      "quantity_units": "LB 4 0Z",
+      "latitude": 32.8624734,
+      "longitude": -96.8568839
+    },
+    {
+      "price": "$1.48",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-14",
+      "itemName": "Sandwich White",
+      "brand": "Great Value",
+      "tags": [],
+      "quantity": 20,
+      "quantity_units": "oz",
+      "latitude": 32.8624274,
+      "longitude": -96.8568534
+    },
+    {
+      "price": "$2.96",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-14",
+      "itemName": "2% Milk",
+      "brand": "Great Value",
+      "tags": [],
+      "quantity": 1,
+      "quantity_units": "gallon",
+      "latitude": 32.8626013,
+      "longitude": -96.8571436
+    },
+    {
+      "price": "$3.08",
+      "store": "9410 Webb Chapel Road",
+      "date": "2026-06-14",
+      "itemName": "Reduced Fat Lactose Free Milk",
+      "brand": "Great Value",
+      "tags": [],
+      "quantity": 1,
+      "quantity_units": "gallon",
+      "latitude": 32.8626085,
+      "longitude": -96.8570051
+    },
+    {
+      "price": "7.99",
+      "store": "Kroger",
+      "date": "2026-06-14",
+      "itemName": "Buldak Spicy Ramen (Rose)",
+      "brand": "Samyang",
+      "tags": [],
+      "quantity": 24.65,
+      "quantity_units": "OZ.",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3.49",
+      "store": "4901 Maple Avenue",
+      "date": "2026-06-14",
+      "itemName": "lactose free 2% reduced fat milk",
+      "brand": "Kroger",
+      "tags": [],
+      "quantity": 1,
+      "quantity_units": "gal",
+      "latitude": 32.8138719,
+      "longitude": -96.8296841
+    },
+    {
+      "price": "$10.99",
+      "store": "Patel Brothers @ 8150 Market Place Boulevard",
+      "date": "2026-07-04",
+      "itemName": "Gold Black Tea",
+      "brand": "Tata Tea",
+      "tags": [],
+      "quantity": 900,
+      "quantity_units": "gram",
+      "latitude": 32.9197597,
+      "longitude": -96.9643502
+    },
+    {
+      "price": "5.48",
+      "store": "Walmart Supercenter @ 9410 Webb Chapel Road",
+      "date": "2026-07-07",
+      "itemName": "Frozen Greek Yogurt Bars",
+      "brand": "Yasso",
+      "tags": [],
+      "quantity": 4,
+      "quantity_units": "count",
+      "latitude": 32.8622349,
+      "longitude": -96.8569436
+    },
+    {
+      "price": "548",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-13",
+      "itemName": "Sea Salt Caramel Chocolate Crunch Bars",
+      "brand": "Yasso",
+      "tags": [],
+      "quantity": 14,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "1.99",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Honey Barbecue Potato Chips",
+      "brand": "Lay's",
+      "tags": [
+        "chips",
+        "snacks",
+        "potato chips",
+        "barbecue"
+      ],
+      "quantity": 7.75,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "8.99",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Quest Protein Chips Nacho Cheese Flavor",
+      "brand": "Quest Nutrition",
+      "tags": [
+        "chips",
+        "snacks",
+        "protein snacks",
+        "tortilla chips"
+      ],
+      "quantity": 4,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "2.69",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Poppi Classic Cola",
+      "brand": "Poppi",
+      "tags": [
+        "soda",
+        "prebiotic",
+        "carbonated beverage"
+      ],
+      "quantity": 12,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "2.49",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Olipop Root Beer",
+      "brand": "Olipop",
+      "tags": [
+        "soda",
+        "root beer",
+        "beverage",
+        "drink"
+      ],
+      "quantity": 12,
+      "quantity_units": "fluid ounce",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "1.48",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Ginger Ale",
+      "brand": "Kroger Big K",
+      "tags": [
+        "soda",
+        "sparkling beverage",
+        "soft drink"
+      ],
+      "quantity": 2,
+      "quantity_units": "liter",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "7.49",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Diet Dr Pepper 10 pack",
+      "brand": "Dr Pepper",
+      "tags": [
+        "soda",
+        "soft drink",
+        "beverage"
+      ],
+      "quantity": 10,
+      "quantity_units": "can",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "2.89",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Mountain Dew Zero Sugar American Dew",
+      "brand": "Mountain Dew",
+      "tags": [
+        "soda",
+        "soft drink",
+        "beverage"
+      ],
+      "quantity": 14.5,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.79",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Rockin Protein Strawberry 50 Gram",
+      "brand": "Shamrock Farms",
+      "tags": [
+        "protein shake",
+        "drink",
+        "strawberry"
+      ],
+      "quantity": 1,
+      "quantity_units": "bottle",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "3.49",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Protein Shake",
+      "brand": "Oikos",
+      "tags": [
+        "protein shake",
+        "drink",
+        "beverage",
+        "dairy"
+      ],
+      "quantity": 12,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.79",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Facial Tissues with Lotion, Aloe & Vitamin E",
+      "brand": "Kroger",
+      "tags": [
+        "tissues",
+        "facial tissues",
+        "paper products"
+      ],
+      "quantity": 60,
+      "quantity_units": "count",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "1.99",
+      "store": "Kroger ",
+      "date": "2026-07-15",
+      "itemName": "Kroger Home Style Facial Tissues, Flat",
+      "brand": "Kroger",
+      "tags": [
+        "tissues",
+        "facial tissue",
+        "paper products"
+      ],
+      "quantity": 160,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.99",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Puffs Mega 4X Ultra Soft Tissues",
+      "brand": "Puffs",
+      "tags": [
+        "tissues",
+        "facial tissues",
+        "household essentials"
+      ],
+      "quantity": 4,
+      "quantity_units": "count",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "6.49",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Kleenex Trusted Care Facial Tissues",
+      "brand": "Kleenex",
+      "tags": [
+        "tissues",
+        "facial tissues",
+        "paper products"
+      ],
+      "quantity": 640,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3.99",
+      "store": "Kroger ",
+      "date": "2026-07-15",
+      "itemName": "Chobani Vanilla Ice Cream Drink",
+      "brand": "Chobani",
+      "tags": [
+        "protein drink",
+        "yogurt drink",
+        "dairy"
+      ],
+      "quantity": 14,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.99",
+      "store": "Kroger",
+      "date": "2026-07-15",
+      "itemName": "Moo Bars",
+      "brand": "Blue Bell",
+      "tags": [
+        "ice cream",
+        "frozen treats",
+        "dessert"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "GNC @ 9160 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Stacy's Baked Pita Chips Tomato & Basil",
+      "brand": "Stacy's",
+      "tags": [
+        "chips",
+        "pita chips",
+        "snacks",
+        "baked chips"
+      ],
+      "quantity": 29,
+      "quantity_units": "ounce",
+      "latitude": 32.9022718,
+      "longitude": -97.1879827
+    },
+    {
+      "price": "3.99",
+      "store": "Kroger ",
+      "date": "2026-07-15",
+      "itemName": "Organic Blueberries",
+      "brand": "Driscoll's",
+      "tags": [
+        "berries",
+        "fruit",
+        "organic produce",
+        "fresh fruit"
+      ],
+      "quantity": 1,
+      "quantity_units": "pint",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.99",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Organic Blueberries",
+      "brand": "Simple Truth Organic",
+      "tags": [
+        "berries",
+        "fruit",
+        "fresh produce"
+      ],
+      "quantity": 18,
+      "quantity_units": "ounce",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "3.99",
+      "store": "Kroger ",
+      "date": "2026-07-15",
+      "itemName": "Blueberries",
+      "brand": "Field & Vine",
+      "tags": [
+        "fruit",
+        "berries",
+        "produce"
+      ],
+      "quantity": 1,
+      "quantity_units": "pint",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.49",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Blueberries",
+      "brand": "Berry Fresh",
+      "tags": [
+        "berries",
+        "fruit",
+        "produce",
+        "fresh fruit"
+      ],
+      "quantity": 18,
+      "quantity_units": "ounce",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "5.00",
+      "store": "Kroger ",
+      "date": "2026-07-15",
+      "itemName": "Variety Muffins",
+      "brand": "Kroger",
+      "tags": [
+        "muffins",
+        "baked goods",
+        "pastries"
+      ],
+      "quantity": 4,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.29",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Oreo BTS Brown Sugar Pancake Flavor Cream Sandwich Cookies",
+      "brand": "Oreo",
+      "tags": [
+        "cookies",
+        "snacks",
+        "dessert",
+        "limited edition"
+      ],
+      "quantity": 11.18,
+      "quantity_units": "ounce",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "3.49",
+      "store": "Kroger @ 9150 North Tarrant Parkway",
+      "date": "2026-07-15",
+      "itemName": "Oreo Double Stuf Chocolate Sandwich Cookies",
+      "brand": "Oreo",
+      "tags": [
+        "cookies",
+        "chocolate",
+        "sandwich cookies",
+        "dessert"
+      ],
+      "quantity": 2.71,
+      "quantity_units": "ounce",
+      "latitude": 32.9019798,
+      "longitude": -97.1889734
+    },
+    {
+      "price": "8.58",
+      "store": "HEB",
+      "date": "2026-07-16",
+      "itemName": "Premier Protein Shakes Cookies & Cream",
+      "brand": "Premier Protein",
+      "tags": [
+        "protein shakes",
+        "drinks",
+        "snacks",
+        "meal replacement"
+      ],
+      "quantity": 4,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.98",
+      "store": "HEB",
+      "date": "2026-07-16",
+      "itemName": "Jalapeno Saltine Crackers",
+      "brand": "HEB",
+      "tags": [
+        "crackers",
+        "snacks",
+        "baked goods"
+      ],
+      "quantity": 8,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "2.27",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-16",
+      "itemName": "Original Pringles",
+      "brand": "Pringles",
+      "tags": [
+        "chips",
+        "snacks",
+        "potato chips"
+      ],
+      "quantity": 5.2,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "2.78",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-16",
+      "itemName": "Mountain Dew Soda",
+      "brand": "Mountain Dew",
+      "tags": [
+        "soda",
+        "soft drink",
+        "beverage"
+      ],
+      "quantity": 2,
+      "quantity_units": "Liter",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "$6.58",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-16",
+      "itemName": "Lotion Facial Tissues",
+      "brand": "Kleenex",
+      "tags": [
+        "tissues",
+        "facial tissues",
+        "paper products",
+        "hygiene"
+      ],
+      "quantity": 4,
+      "quantity_units": "package",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "1.64",
+      "store": "HEB",
+      "date": "2026-07-16",
+      "itemName": "Facial Tissues",
+      "brand": "Hill Country Fare",
+      "tags": [
+        "tissues",
+        "facial care",
+        "paper products"
+      ],
+      "quantity": 160,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$2.28",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-16",
+      "itemName": "Cherry Vanilla",
+      "brand": "Olipop",
+      "tags": [
+        "soda",
+        "beverage",
+        "drink",
+        "cola"
+      ],
+      "quantity": 12,
+      "quantity_units": "fluid ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "7.99",
+      "store": "Kroger @ 4901 Maple Avenue",
+      "date": "2026-07-16",
+      "itemName": "Buldak Spicy Ramen, Artificial Spicy Chicken Flavor",
+      "brand": "Samyang",
+      "tags": [
+        "ramen",
+        "noodles",
+        "instant noodles",
+        "spicy"
+      ],
+      "quantity": 24.65,
+      "quantity_units": "ounce",
+      "latitude": 32.8139469,
+      "longitude": -96.8292939
+    },
+    {
+      "price": "1.29",
+      "store": "Kroger ",
+      "date": "2026-07-16",
+      "itemName": "Soon Veggie Cup Noodles",
+      "brand": "Nongshim",
+      "tags": [
+        "instant noodles",
+        "ramen",
+        "cup noodles",
+        "vegetarian"
+      ],
+      "quantity": 2.64,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.29",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Large Brown Grade A Eggs",
+      "brand": "365 by Whole Foods Market",
+      "tags": [
+        "eggs",
+        "poultry",
+        "breakfast"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "2.49",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Classic Macaroni and Cheese",
+      "brand": "Annie's Homegrown",
+      "tags": [
+        "mac and cheese",
+        "pasta",
+        "dinner",
+        "comfort food"
+      ],
+      "quantity": 6,
+      "quantity_units": "ounce",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "3/10.00",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Avocado Oil Sea Salt & Cracked Pepper Kettle Style Potato Chips",
+      "brand": "Boulder Canyon",
+      "tags": [
+        "chips",
+        "potato chips",
+        "snacks"
+      ],
+      "quantity": 5.25,
+      "quantity_units": "ounce",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "5.99",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Wild Cherry Sparkling Water 12 pack",
+      "brand": "Rambler",
+      "tags": [
+        "sparkling water",
+        "seltzer",
+        "flavored water",
+        "beverage"
+      ],
+      "quantity": 12,
+      "quantity_units": "pack",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "4.29",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Organic Unsweetened Original Almond Non-Dairy Beverage",
+      "brand": "365 by Whole Foods Market",
+      "tags": [
+        "almond milk",
+        "non-dairy",
+        "alternative milk",
+        "organic"
+      ],
+      "quantity": 64,
+      "quantity_units": "fluid ounce",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "4.49",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Unsweetened Original Almondmilk",
+      "brand": "Blue Diamond Dairy",
+      "tags": [
+        "milk substitute",
+        "almond drink",
+        "dairy alternative"
+      ],
+      "quantity": 64,
+      "quantity_units": "fluid ounce",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "5.79",
+      "store": "Whole Foods Market @ 4100 Lomo Alto Drive",
+      "date": "2026-07-16",
+      "itemName": "Blueberries",
+      "brand": "Twin River",
+      "tags": [
+        "fruit",
+        "berry",
+        "fresh produce"
+      ],
+      "quantity": 18,
+      "quantity_units": "ounce",
+      "latitude": 32.8204523,
+      "longitude": -96.8144192
+    },
+    {
+      "price": "6.99",
+      "store": "Kroger",
+      "date": "2026-07-18",
+      "itemName": "Hair Skin and Nails Gummies",
+      "brand": "Kroger Health",
+      "tags": [
+        "gummies",
+        "vitamins",
+        "supplements",
+        "beauty"
+      ],
+      "quantity": 60,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "32.99",
+      "store": "Kroger",
+      "date": "2026-07-18",
+      "itemName": "Nature's Bounty Hair Growth Gummies",
+      "brand": "Nature's Bounty",
+      "tags": [
+        "gummies",
+        "hair supplement",
+        "vitamins"
+      ],
+      "quantity": 60,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "12.29",
+      "store": "Kroger",
+      "date": "2026-07-18",
+      "itemName": "Acne Foaming Wash",
+      "brand": "PanOxyl",
+      "tags": [
+        "acne treatment",
+        "face wash",
+        "body wash",
+        "skin care"
+      ],
+      "quantity": 5.5,
+      "quantity_units": "ounce",
+      "latitude": 32.9116986,
+      "longitude": -97.3103996
+    },
+    {
+      "price": "8.99",
+      "store": "Kroger Marketplace @ 3300 Texas Sage Trail",
+      "date": "2026-07-18",
+      "itemName": "Ferrero Collection Fine Assorted Confections",
+      "brand": "Ferrero",
+      "tags": [
+        "chocolate",
+        "assorted chocolates",
+        "gift",
+        "confections"
+      ],
+      "quantity": 4.6,
+      "quantity_units": "ounce",
+      "latitude": 32.9115308,
+      "longitude": -97.3093325
+    },
+    {
+      "price": "7.92",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Hair Skin And Nails Gummies",
+      "brand": "Natures Truth",
+      "tags": [
+        "gummies",
+        "vitamins",
+        "supplements",
+        "hair care"
+      ],
+      "quantity": 80,
+      "quantity_units": "count",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "$7.85",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Hair, Skin and Nails Gummies",
+      "brand": "HEB Vitamins",
+      "tags": [
+        "supplements",
+        "vitamins",
+        "gummies"
+      ],
+      "quantity": 80,
+      "quantity_units": "count",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "10.67",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "PanOxyl 10% Foam Acne Foaming Wash",
+      "brand": "PanOxyl",
+      "tags": [
+        "acne treatment",
+        "face wash",
+        "body wash",
+        "benzoyl peroxide"
+      ],
+      "quantity": 5.5,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "$1.48",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Natural Classic Macaroni and Cheese",
+      "brand": "Annie's",
+      "tags": [
+        "macaroni",
+        "pasta",
+        "cheese",
+        "gluten free"
+      ],
+      "quantity": 6,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "1.48",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Nissin Bowl Noodles Hot & Spicy with Shrimp",
+      "brand": "Nissin",
+      "tags": [
+        "instant noodles",
+        "ramen",
+        "seafood",
+        "cup noodles"
+      ],
+      "quantity": 3.27,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "0.98",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Three Cheese Shells and Cheese",
+      "brand": "HEB",
+      "tags": [
+        "pasta",
+        "mac and cheese",
+        "boxed mac and cheese",
+        "dinner kit"
+      ],
+      "quantity": 7.25,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "$1 off",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Ice Breakers Ice Cubes Gum Bottle",
+      "brand": "Ice Breakers",
+      "tags": [
+        "gum",
+        "sugar free",
+        "candy"
+      ],
+      "quantity": 40,
+      "quantity_units": "count",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "$7.42",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Ferrero Collection With Raffaello",
+      "brand": "Ferrero",
+      "tags": [
+        "chocolate",
+        "candy",
+        "gift",
+        "sweets"
+      ],
+      "quantity": 4.6,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "9.94",
+      "store": "H-E-B @ 3451 Heritage Trace Parkway",
+      "date": "2026-07-18",
+      "itemName": "Dawn Platinum Plus Power Suds Fresh Rain",
+      "brand": "Dawn",
+      "tags": [
+        "dish soap",
+        "detergent",
+        "cleaning supply"
+      ],
+      "quantity": 38,
+      "quantity_units": "ounce",
+      "latitude": 32.9159533,
+      "longitude": -97.3080462
+    },
+    {
+      "price": "10.99",
+      "store": "13420 Floyd Circle",
+      "date": "2026-07-18",
+      "itemName": "Medjool Fancy Dates",
+      "brand": "World Food California",
+      "tags": [
+        "dates",
+        "fruit",
+        "dried fruit"
+      ],
+      "quantity": 2,
+      "quantity_units": "pound",
+      "latitude": 32.930437,
+      "longitude": -96.7460647
+    },
+    {
+      "price": "1.47",
+      "store": "Walmart ",
+      "date": "2026-07-20",
+      "itemName": "Large White Eggs",
+      "brand": "Great Value",
+      "tags": [
+        "eggs",
+        "protein",
+        "dairy"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$3.92",
+      "store": "Walmart Supercenter @ 9410 Webb Chapel Road",
+      "date": "2026-07-22",
+      "itemName": "Hand Sanitizer Naturals",
+      "brand": "Purell",
+      "tags": [
+        "hand sanitizer",
+        "hygiene",
+        "personal care"
+      ],
+      "quantity": 8,
+      "quantity_units": "fluid ounce",
+      "latitude": 32.8622349,
+      "longitude": -96.8569436
+    },
+    {
+      "price": "34.99",
+      "store": "Kroger ",
+      "date": "2026-07-24",
+      "itemName": "FreeSip Bottle",
+      "brand": "Owala",
+      "tags": [
+        "water bottle",
+        "travel mug",
+        "insulated bottle"
+      ],
+      "quantity": 1,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "Kroger @ 7747 Kirby Drive",
+      "date": "2026-07-24",
+      "itemName": "Sandwich Bags",
+      "brand": "Ziploc",
+      "tags": [
+        "food storage",
+        "plastic bags",
+        "food wrap"
+      ],
+      "quantity": 105,
+      "quantity_units": "count",
+      "latitude": 29.6959434,
+      "longitude": -95.4155382
+    },
+    {
+      "price": "4.79",
+      "store": "Kroger ",
+      "date": "2026-07-24",
+      "itemName": "Kroger Reclosable Sandwich Bags Double Zipper",
+      "brand": "Kroger",
+      "tags": [
+        "sandwich bags",
+        "food storage",
+        "ziploc bags"
+      ],
+      "quantity": 180,
+      "quantity_units": "bags",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "Kroger ",
+      "date": "2026-07-31",
+      "itemName": "Clif ZBar Cookies N' Creme Energy Snack Bars",
+      "brand": "Clif Bar",
+      "tags": [
+        "snack bars",
+        "energy bars",
+        "kids snacks"
+      ],
+      "quantity": 6,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "7.49",
+      "store": "Kroger @ 4901 Maple Avenue",
+      "date": "2026-07-31",
+      "itemName": "Biscuits with Almond Butter",
+      "brand": "Nature Valley",
+      "tags": [
+        "granola bars",
+        "snack bars",
+        "cookies"
+      ],
+      "quantity": 10,
+      "quantity_units": "count",
+      "latitude": 32.8139469,
+      "longitude": -96.8292939
+    },
+    {
+      "price": "4.49",
+      "store": "Kroger @ 4901 Maple Avenue",
+      "date": "2026-07-31",
+      "itemName": "Peanut Butter Filled Pretzels",
+      "brand": "Kroger",
+      "tags": [
+        "pretzels",
+        "snacks",
+        "peanut butter"
+      ],
+      "quantity": 24,
+      "quantity_units": "ounce",
+      "latitude": 32.8139469,
+      "longitude": -96.8292939
+    },
+    {
+      "price": "6.79",
+      "store": "Kroger",
+      "date": "2026-07-31",
+      "itemName": "Cold Brew Coffee",
+      "brand": "Stok",
+      "tags": [
+        "coffee",
+        "cold brew",
+        "beverage"
+      ],
+      "quantity": 48,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.47",
+      "store": "Walmart Supercenter @ 9410 Webb Chapel Road",
+      "date": "2026-08-01",
+      "itemName": "Large White Eggs",
+      "brand": "Great Value",
+      "tags": [
+        "eggs",
+        "dairy",
+        "breakfast"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": 32.8622349,
+      "longitude": -96.8569436
+    },
+    {
+      "price": "5.97",
+      "store": "Walmart Supercenter @ 9410 Webb Chapel Road",
+      "date": "2026-08-01",
+      "itemName": "Cold Brew Coffee",
+      "brand": "Stok",
+      "tags": [
+        "coffee",
+        "cold brew",
+        "beverage"
+      ],
+      "quantity": 48,
+      "quantity_units": "fluid ounce",
+      "latitude": 32.8622349,
+      "longitude": -96.8569436
+    },
+    {
+      "price": "3.47",
+      "store": "Walmart ",
+      "date": "2026-08-01",
+      "itemName": "Unsweetened Vanilla Almond Milk",
+      "brand": "Silk",
+      "tags": [
+        "almond milk",
+        "dairy-free",
+        "beverage"
+      ],
+      "quantity": 64,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "18.68",
+      "store": "Sam's Club @ 9461 Webb Chapel Road",
+      "date": "2026-08-03",
+      "itemName": "Z Bar Crafted Specially for Active Kids",
+      "brand": "Clif Kid",
+      "tags": [
+        "snack bars",
+        "kids snacks",
+        "granola bars",
+        "energy bars"
+      ],
+      "quantity": 36,
+      "quantity_units": "count",
+      "latitude": 32.8624808,
+      "longitude": -96.8611583
+    },
+    {
+      "price": "14.72",
+      "store": "Sam's Club",
+      "date": "2026-08-03",
+      "itemName": "Oreo BTS Cookie Sandwich Cookies",
+      "brand": "Oreo",
+      "tags": [
+        "cookies",
+        "biscuits",
+        "snacks",
+        "dessert"
+      ],
+      "quantity": 25.02,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "19.98",
+      "store": "Sam's Club @ 9461 Webb Chapel Road",
+      "date": "2026-08-03",
+      "itemName": "Basmati Rice",
+      "brand": "Royal",
+      "tags": [
+        "rice",
+        "grain",
+        "staple"
+      ],
+      "quantity": 20,
+      "quantity_units": "pound",
+      "latitude": 32.8624808,
+      "longitude": -96.8611583
+    },
+    {
+      "price": "12.98",
+      "store": "Sam's Club @ 9461 Webb Chapel Road",
+      "date": "2026-08-03",
+      "itemName": "Chocolate Sandwich Cookies",
+      "brand": "BelVita",
+      "tags": [
+        "cookies",
+        "biscuits",
+        "breakfast",
+        "snacks"
+      ],
+      "quantity": 25,
+      "quantity_units": "count",
+      "latitude": 32.8624808,
+      "longitude": -96.8611583
+    },
+    {
+      "price": "18.68",
+      "store": "Sam's Club ",
+      "date": "2026-08-09",
+      "itemName": "Z Bar Whole Grain Bars",
+      "brand": "Clif",
+      "tags": [
+        "granola bars",
+        "snack bars",
+        "kids snacks",
+        "energy bars"
+      ],
+      "quantity": 36,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "9.99",
+      "store": "Kroger",
+      "date": "2026-08-11",
+      "itemName": "CLIF ZBAR Cookies 'N Creme Soft-Baked Snack Bars",
+      "brand": "CLIF",
+      "tags": [
+        "snack bars",
+        "cookies",
+        "chocolate",
+        "kids snacks"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "9.59",
+      "store": "Pullman Market",
+      "date": "2026-08-16",
+      "itemName": "Greek Yogurt Strawberry on the Bottom",
+      "brand": "Chobani",
+      "tags": [
+        "yogurt",
+        "strawberry",
+        "dessert",
+        "dairy"
+      ],
+      "quantity": 4,
+      "quantity_units": "pack",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3.99",
+      "store": "Kroger",
+      "date": "2026-08-20",
+      "itemName": "Colby Jack Cheese Slices",
+      "brand": "Tillamook",
+      "tags": [
+        "cheese",
+        "dairy",
+        "sliced cheese"
+      ],
+      "quantity": 9,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Tillamook Shredded Mexican Blend Cheese",
+      "brand": "Tillamook",
+      "tags": [
+        "shredded cheese",
+        "mexican cheese",
+        "dairy"
+      ],
+      "quantity": 8,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3/10.00",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Shredded Whole Milk Mozzarella Cheese",
+      "brand": "Sargento",
+      "tags": [
+        "cheese",
+        "dairy",
+        "shredded cheese",
+        "mozzarella"
+      ],
+      "quantity": 8,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "28.49",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Premier Protein Shakes",
+      "brand": "Premier Protein",
+      "tags": [
+        "protein",
+        "shakes",
+        "drinks",
+        "beverages"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.69",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Large Grade A Eggs",
+      "brand": "Eggland's Best",
+      "tags": [
+        "eggs",
+        "breakfast",
+        "protein"
+      ],
+      "quantity": 24,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "15.99",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Liquid Laundry Detergent",
+      "brand": "Tide",
+      "tags": [
+        "laundry detergent",
+        "detergent",
+        "cleaning supplies",
+        "household"
+      ],
+      "quantity": 100,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "10.00",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Antibacterial Ripe Melon Liquid Hand Soap",
+      "brand": "Kroger",
+      "tags": [
+        "hand soap",
+        "liquid soap",
+        "soap"
+      ],
+      "quantity": 7.5,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Mrs. Meyer's Clean Day Lemon Verbena Hand Soap",
+      "brand": "Mrs. Meyer's Clean Day",
+      "tags": [
+        "hand soap",
+        "liquid soap",
+        "cleaning supplies"
+      ],
+      "quantity": 12.5,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "$3.29",
+      "store": "Kroger",
+      "date": "2026-08-22",
+      "itemName": "Original Clear Liquid Hand Soap",
+      "brand": "Kroger",
+      "tags": [
+        "hand soap",
+        "liquid soap",
+        "bath and body"
+      ],
+      "quantity": 50,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "2.49",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Cosmic Crisp Apples",
+      "brand": "",
+      "tags": [
+        "fruit",
+        "produce",
+        "apples"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.99",
+      "store": "Kroger ",
+      "date": "2026-08-23",
+      "itemName": "Cripps Pink Apples",
+      "brand": "",
+      "tags": [
+        "fruit",
+        "produce",
+        "apples"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "7.49",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Cosmic Crisp Apples",
+      "brand": "Kroger",
+      "tags": [
+        "fruit",
+        "produce",
+        "apples"
+      ],
+      "quantity": 3,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "9.99",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "CLIF ZBAR Cinnamon Roll Soft-Baked Energy Snack Bars",
+      "brand": "CLIF",
+      "tags": [
+        "energy bar",
+        "snack bar",
+        "kid snacks",
+        "cinnamon"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.79",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Cold Brew Coffee",
+      "brand": "Stok",
+      "tags": [
+        "coffee",
+        "cold brew",
+        "beverage"
+      ],
+      "quantity": 48,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.49",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Chobani Key Lime Greek Yogurt",
+      "brand": "Chobani",
+      "tags": [
+        "yogurt",
+        "greek yogurt",
+        "dairy",
+        "dessert"
+      ],
+      "quantity": 4,
+      "quantity_units": "package",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3.99",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Banza Chickpea Penne Pasta",
+      "brand": "Banza",
+      "tags": [
+        "pasta",
+        "chickpea pasta",
+        "gluten-free"
+      ],
+      "quantity": 8,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.29",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Medium Shells",
+      "brand": "Skinner",
+      "tags": [
+        "pasta",
+        "macaroni",
+        "shells"
+      ],
+      "quantity": 12,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "7.99",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Roasted Salted Almonds",
+      "brand": "Simple Truth",
+      "tags": [
+        "nuts",
+        "almonds",
+        "snacks",
+        "roasted nuts"
+      ],
+      "quantity": 14,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "8.99",
+      "store": "Kroger",
+      "date": "2026-08-23",
+      "itemName": "Roasted Unsalted Almonds",
+      "brand": "KIND",
+      "tags": [
+        "nuts",
+        "almonds",
+        "snacks",
+        "roasted nuts"
+      ],
+      "quantity": 10,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "2.56",
+      "store": "Walmart",
+      "date": "2026-08-23",
+      "itemName": "Apple",
+      "brand": "",
+      "tags": [
+        "fruit",
+        "produce",
+        "apples"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.5",
+      "store": "Walmart ",
+      "date": "2026-08-23",
+      "itemName": "Shin Green Ramen Mushroom & Fried Tofu",
+      "brand": "Nongshim",
+      "tags": [
+        "ramen",
+        "instant noodles",
+        "soup",
+        "asian food"
+      ],
+      "quantity": 4,
+      "quantity_units": "package",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.67",
+      "store": "Walmart ",
+      "date": "2026-08-23",
+      "itemName": "Vanilla Greek Yogurt Mixed Berry",
+      "brand": "Chobani",
+      "tags": [
+        "yogurt",
+        "greek yogurt",
+        "berries",
+        "dairy"
+      ],
+      "quantity": 4,
+      "quantity_units": "pack",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.96",
+      "store": "Walmart",
+      "date": "2026-08-23",
+      "itemName": "Organic 2% Reduced Fat Milk",
+      "brand": "Horizon Organic",
+      "tags": [
+        "milk",
+        "dairy",
+        "organic milk",
+        "reduced fat milk"
+      ],
+      "quantity": 0.5,
+      "quantity_units": "gallon",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.48",
+      "store": "Walmart",
+      "date": "2026-08-23",
+      "itemName": "Unsweetened Cold Brew Coffee",
+      "brand": "Stok",
+      "tags": [
+        "coffee",
+        "cold brew",
+        "beverage",
+        "drink"
+      ],
+      "quantity": 48,
+      "quantity_units": "fluid ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3.87",
+      "store": "Walmart",
+      "date": "2026-08-23",
+      "itemName": "Large Eggs",
+      "brand": "Eggland's Best",
+      "tags": [
+        "eggs",
+        "breakfast",
+        "protein",
+        "baking"
+      ],
+      "quantity": 12,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.99",
+      "store": "Kroger",
+      "date": "2026-08-28",
+      "itemName": "Ultra Plush Toilet Tissue",
+      "brand": "Quilted Northern",
+      "tags": [
+        "toilet paper",
+        "bathroom tissue",
+        "paper products"
+      ],
+      "quantity": 6,
+      "quantity_units": "rolls",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "7.99",
+      "store": "Kroger",
+      "date": "2026-08-28",
+      "itemName": "Ultra Soft Mega Toilet Paper",
+      "brand": "Cottonelle",
+      "tags": [
+        "toilet paper",
+        "paper products",
+        "bath tissue"
+      ],
+      "quantity": 6,
+      "quantity_units": "rolls",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "12.99",
+      "store": "Kroger",
+      "date": "2026-08-28",
+      "itemName": "Ultra Strong 12 Mega Rolls",
+      "brand": "Kroger",
+      "tags": [
+        "toilet paper",
+        "paper goods",
+        "bath tissue"
+      ],
+      "quantity": 12,
+      "quantity_units": "rolls",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "Kroger",
+      "date": "2026-08-28",
+      "itemName": "Scott 1000 Bath Tissue",
+      "brand": "Scott",
+      "tags": [
+        "toilet paper",
+        "paper products",
+        "bathroom tissue"
+      ],
+      "quantity": 4,
+      "quantity_units": "rolls",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "6.49",
+      "store": "Kroger ",
+      "date": "2026-08-28",
+      "itemName": "Total 2% Plain Yogurt",
+      "brand": "FAGE",
+      "tags": [
+        "yogurt",
+        "dairy",
+        "breakfast"
+      ],
+      "quantity": 32,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.99",
+      "store": "Kroger ",
+      "date": "2026-08-28",
+      "itemName": "Large Enriched Bread",
+      "brand": "Mrs. Baird's",
+      "tags": [
+        "bread",
+        "bakery",
+        "sandwich bread",
+        "sliced bread"
+      ],
+      "quantity": 20,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.78",
+      "store": "Walmart ",
+      "date": "2026-08-29",
+      "itemName": "Cilantro",
+      "brand": "Goodness Gardens",
+      "tags": [
+        "herbs",
+        "fresh herbs",
+        "produce"
+      ],
+      "quantity": 0.5,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "3.58",
+      "store": "Walmart",
+      "date": "2026-08-29",
+      "itemName": "Caesar Salad Kit",
+      "brand": "Marketside",
+      "tags": [
+        "salad",
+        "produce",
+        "vegetables"
+      ],
+      "quantity": 24.6,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.38",
+      "store": "Walmart ",
+      "date": "2026-08-29",
+      "itemName": "Iced Coffee Dark Roast Unsweetened Black",
+      "brand": "Starbucks",
+      "tags": [
+        "coffee",
+        "iced coffee",
+        "drink"
+      ],
+      "quantity": 1.5,
+      "quantity_units": "quart",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "5.48",
+      "store": "Walmart ",
+      "date": "2026-08-29",
+      "itemName": "Yellow Onions",
+      "brand": "Marketside",
+      "tags": [
+        "onions",
+        "vegetable",
+        "produce"
+      ],
+      "quantity": 48,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.06",
+      "store": "Walmart",
+      "date": "2026-08-29",
+      "itemName": "Onion Yellow Bulk",
+      "brand": "",
+      "tags": [
+        "produce",
+        "vegetable",
+        "allium"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "4.99",
+      "store": "Halal Imports",
+      "date": "2026-09-05",
+      "itemName": "Pitted Dates",
+      "brand": "Grain Market",
+      "tags": [
+        "dates",
+        "dried fruit",
+        "fruit"
+      ],
+      "quantity": 28,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "0.49",
+      "store": "Halal Imports ",
+      "date": "2026-09-05",
+      "itemName": "Apple Envy",
+      "brand": "",
+      "tags": [
+        "fruit",
+        "produce",
+        "apples"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "0.39",
+      "store": "Halal Import Foods",
+      "date": "2026-09-05",
+      "itemName": "Yellow Onion",
+      "brand": "Import Foods",
+      "tags": [
+        "produce",
+        "vegetable",
+        "alliums"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "0.69",
+      "store": "Halal Import Foods ",
+      "date": "2026-09-05",
+      "itemName": "Spinach Bag",
+      "brand": "Marketside",
+      "tags": [
+        "greens",
+        "leafy greens",
+        "fresh produce",
+        "spinach"
+      ],
+      "quantity": 10,
+      "quantity_units": "ounce",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "8.99",
+      "store": "Halal Import Foods ",
+      "date": "2026-09-05",
+      "itemName": "Chatpata Samosa",
+      "brand": "Al Safa Halal",
+      "tags": [
+        "frozen appetizers",
+        "samosas",
+        "indian food",
+        "snacks"
+      ],
+      "quantity": 20,
+      "quantity_units": "count",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "0.59",
+      "store": "Halal Import Foods ",
+      "date": "2026-09-05",
+      "itemName": "Avocado",
+      "brand": "Import Foods",
+      "tags": [
+        "fruit",
+        "produce",
+        "healthy fat"
+      ],
+      "quantity": 1,
+      "quantity_units": "each",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "0.97",
+      "store": "HEB",
+      "date": "2026-09-06",
+      "itemName": "Honeycrisp Apples",
+      "brand": "",
+      "tags": [
+        "fruit",
+        "apples",
+        "produce",
+        "fresh fruit"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    },
+    {
+      "price": "1.97",
+      "store": "HEB",
+      "date": "2026-09-06",
+      "itemName": "Envy Apple",
+      "brand": "",
+      "tags": [
+        "fruit",
+        "apple",
+        "produce"
+      ],
+      "quantity": 1,
+      "quantity_units": "pound",
+      "latitude": null,
+      "longitude": null
+    }
+  ],
+  "groceryItems": []
+}

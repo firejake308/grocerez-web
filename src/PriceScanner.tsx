@@ -3,43 +3,12 @@ import { Camera, ArrowLeft } from 'lucide-react';
 import PriceData from './PriceData';
 import ProductDetails from './ProductDetails';
 import { parsePriceImage } from './parsePriceImage';
-
-interface OverpassNode {
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: {
-    name?: string;
-    shop?: string;
-    'addr:housenumber'?: string;
-    'addr:street'?: string;
-  };
-}
-
-// overpass-api.de (the main instance) intermittently rejects or rate-limits
-// browser requests with a 406/CORS-looking failure; fall back to mirrors.
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.openstreetmap.ru/api/interpreter',
-];
-
-const fetchOverpass = async (query: string, signal: AbortSignal) => {
-  let lastError: unknown;
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-      const response = await fetch(url, { signal });
-      if (!response.ok) {
-        throw new Error(`Overpass request to ${endpoint} failed with status ${response.status}`);
-      }
-      return await response.json();
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("Failed to fetch location data");
-};
+import { newReportId } from '../shared/ids';
+import { locateStore } from './sync/storeLocator';
+import { createSyncApi } from './sync/api';
+import { SYNC_API_URL, syncEnabled } from './sync/config';
+import { localSyncStorage } from './sync/storage';
+import type { ProductMatchCandidate } from '../shared/types';
 
 const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceData: PriceData) => void}) => {
   // Track current step in the scanning process
@@ -61,14 +30,24 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
   const [quantity_units, setQuantityUnits] = useState('each');
   const [isPriceProcessingComplete, setIsPriceProcessingComplete] = useState(false);
   const [brand, setBrand] = useState('');
+  const [isSale, setIsSale] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
-  
+  // Save-time product match prompt (plan section 8.4): "is this the same item we already know?"
+  const [matchCandidate, setMatchCandidate] = useState<ProductMatchCandidate | null>(null);
+  const [confirmedProductId, setConfirmedProductId] = useState<string | null>(null);
+
   // Camera refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const hasRequestedLocationRef = useRef(false);
+  const hasRequestedMatchRef = useRef(false);
   const locationRequestIdRef = useRef(0);
+  // Generated once per scan, up front, so the parse call (which happens
+  // before the user finishes editing) can file the photo under the same id
+  // the report is eventually saved with (plan's Phase 3 photo evidence note).
+  const reportIdRef = useRef(newReportId());
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   // Try to get location when reaching details step
@@ -84,6 +63,41 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       locationRequestIdRef.current += 1;
     }
   }, [scanStep]);
+
+  // Look for an existing product this might be, once, on arriving at details.
+  useEffect(() => {
+    if (scanStep === 'details' && !hasRequestedMatchRef.current && syncEnabled()) {
+      hasRequestedMatchRef.current = true;
+      const token = localSyncStorage.getAuth()?.sessionToken ?? localSyncStorage.getDeviceToken();
+      if (!token) return; // no device token yet (e.g. first launch); the matcher still runs server-side on push
+      createSyncApi(SYNC_API_URL)
+        .matchProduct(token, {
+          itemName,
+          brand: brand || undefined,
+          tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+          quantity: quantity > 0 ? quantity : undefined,
+          quantityUnits: quantity_units || undefined,
+          price: scannedPrice ?? undefined,
+        })
+        .then(({ candidates }) => {
+          if (candidates.length > 0) setMatchCandidate(candidates[0]);
+        })
+        .catch((err) => console.warn('Product match lookup failed:', err));
+    }
+    if (scanStep !== 'details') {
+      hasRequestedMatchRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanStep]);
+
+  const confirmMatch = () => {
+    if (matchCandidate) setConfirmedProductId(matchCandidate.productId);
+    setMatchCandidate(null);
+  };
+
+  const rejectMatch = () => {
+    setMatchCandidate(null);
+  };
 
   const stopCamera = useCallback(() => {
     cameraStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -126,13 +140,17 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
+
+      // Resized client-side to <=1280px on the long edge (plan's Phase 3 AI
+      // parse proxy note) -- keeps both the upload and the stored photo small.
+      const MAX_DIMENSION = 1280;
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+
       const context = canvas.getContext('2d');
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
+
       const imageDataUrl = canvas.toDataURL('image/jpeg');
       
       if (scanStep === 'price') {
@@ -152,13 +170,15 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     if (!priceImage || !productImage) return;
     
     try {
-      const data = await parsePriceImage(priceImage, productImage);
+      const data = await parsePriceImage(priceImage, productImage, reportIdRef.current);
       setScannedPrice(data.price);
       setItemName(data.itemName);
       setBrand(data.brand);
       setTags(data.tags.join(', '));
       setQuantity(data.quantity);
       setQuantityUnits(data.quantity_units);
+      setIsSale(data.isSale);
+      setExpiresAt(data.expiresAt);
       setIsPriceProcessingComplete(true);
       setScanStep('details');
     } catch (error) {
@@ -172,144 +192,43 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     const requestId = locationRequestIdRef.current + 1;
     locationRequestIdRef.current = requestId;
     setIsLocating(true);
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const { latitude, longitude } = position.coords;
-            setStoreLat(latitude);
-            setStoreLng(longitude);
-            // Query nodes and ways tagged as shops or supermarkets within 150m
-            const query = `[out:json];(node["shop"](around:150,${latitude},${longitude});way["shop"](around:150,${latitude},${longitude});node["amenity"="supermarket"](around:150,${latitude},${longitude});way["amenity"="supermarket"](around:150,${latitude},${longitude}););out center;`;
-            // Use AbortController to avoid hanging requests
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            const data = await fetchOverpass(query, controller.signal);
-            clearTimeout(timeoutId);
-            // Overpass returns elements array; pick the nearest element if any
-            if (Array.isArray(data.elements) && data.elements.length > 0) {
-              const nearbyNodes = data.elements as OverpassNode[];
-              // nodes have top-level lat/lon; ways (polygons like large stores) expose coords under center
-              const elemLat = (el: OverpassNode) => el.lat ?? el.center?.lat ?? latitude;
-              const elemLon = (el: OverpassNode) => el.lon ?? el.center?.lon ?? longitude;
-              const nearest = nearbyNodes.reduce((prev, curr) => {
-                const pd = Math.hypot(elemLat(prev) - latitude, elemLon(prev) - longitude);
-                const cd = Math.hypot(elemLat(curr) - latitude, elemLon(curr) - longitude);
-                return cd < pd ? curr : prev;
-              }, nearbyNodes[0]);
 
-              const name = nearest.tags?.name || nearest.tags?.shop || '';
-              const lat = elemLat(nearest);
-              const lon = elemLon(nearest);
-
-              // Try to get street address — use OSM tags first, fall back to Nominatim
-              const osmHouseNumber = nearest.tags?.['addr:housenumber'];
-              const osmStreet = nearest.tags?.['addr:street'];
-              let address = osmHouseNumber && osmStreet ? `${osmHouseNumber} ${osmStreet}` : '';
-
-              if (!address) {
-                try {
-                  const revRes = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`
-                  );
-                  if (revRes.ok) {
-                    const revData = await revRes.json();
-                    const addr = revData.address || {};
-                    if (addr.house_number && addr.road) {
-                      address = `${addr.house_number} ${addr.road}`;
-                    } else if (addr.road) {
-                      address = addr.road;
-                    }
-                  }
-                } catch {
-                  // address stays empty; we'll show just the name
-                }
-              }
-
-              if (locationRequestIdRef.current !== requestId) {
-                return;
-              }
-
-              setStoreLocation(name && address ? `${name} @ ${address}` : name || address);
-              if (lat !== latitude || lon !== longitude) {
-                setStoreLat(lat);
-                setStoreLng(lon);
-              }
-            } else {
-              // No nearby shop nodes found — try reverse geocoding to get house number/road
-              try {
-                const revRes = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${latitude}&lon=${longitude}`
-                );
-                if (revRes.ok) {
-                  const revData = await revRes.json();
-                  const addr = revData.address || {};
-                  if (locationRequestIdRef.current !== requestId) {
-                    return;
-                  }
-
-                  if (addr.house_number && addr.road) {
-                    setStoreLocation(`${addr.house_number} ${addr.road}`);
-                  } else if (addr.road) {
-                    setStoreLocation(addr.road);
-                  } else if (addr.suburb) {
-                    setStoreLocation(addr.suburb);
-                  } else {
-                    setStoreLocation("");
-                  }
-                } else {
-                  if (locationRequestIdRef.current !== requestId) {
-                    return;
-                  }
-
-                  setStoreLocation("");
-                }
-              } catch (err) {
-                console.error("Reverse geocoding fallback error:", err);
-                if (locationRequestIdRef.current !== requestId) {
-                  return;
-                }
-
-                setStoreLocation("");
-              }
-            }
-          } catch (error) {
-            console.error("Reverse geocoding error:", error);
-            if (locationRequestIdRef.current !== requestId) {
-              return;
-            }
-
-            setStoreLocation(""); // Empty to prompt manual entry
-            setStoreLat(null);
-            setStoreLng(null);
-          } finally {
-            if (locationRequestIdRef.current === requestId) {
-              setIsLocating(false);
-            }
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          if (locationRequestIdRef.current !== requestId) {
-            return;
-          }
-
-          setStoreLocation(""); // Empty to prompt manual entry
-          setStoreLat(null);
-          setStoreLng(null);
-          setIsLocating(false);
-        },
-        { timeout: 10000 }
-      );
-    } else {
-      if (locationRequestIdRef.current !== requestId) {
-        return;
-      }
-
+    if (!navigator.geolocation) {
       setStoreLocation(""); // Empty to prompt manual entry
       setIsLocating(false);
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setStoreLat(latitude);
+        setStoreLng(longitude);
+        try {
+          // Sync server's geo proxy when configured, public Overpass/Nominatim otherwise.
+          const located = await locateStore(latitude, longitude);
+          if (locationRequestIdRef.current !== requestId) return;
+          setStoreLocation(located.label);
+          setStoreLat(located.lat);
+          setStoreLng(located.lon);
+        } catch (error) {
+          console.error("Store lookup error:", error);
+          if (locationRequestIdRef.current !== requestId) return;
+          setStoreLocation(""); // Empty to prompt manual entry
+        } finally {
+          if (locationRequestIdRef.current === requestId) setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        if (locationRequestIdRef.current !== requestId) return;
+        setStoreLocation(""); // Empty to prompt manual entry
+        setStoreLat(null);
+        setStoreLng(null);
+        setIsLocating(false);
+      },
+      { timeout: 10000 }
+    );
   };
 
   const retakePhoto = () => {
@@ -331,6 +250,11 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
     
     if (scannedPrice && productImage && storeLocation) {
       const completeData: PriceData = {
+        id: reportIdRef.current,
+        updatedAt: new Date().toISOString(),
+        origin: 'mine',
+        isSale,
+        expiresAt: isSale ? expiresAt : null,
         price: scannedPrice,
         store: storeLocation,
         date: new Date().toISOString().split('T')[0],
@@ -342,7 +266,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
         quantity: quantity,
         quantity_units: quantity_units,
         latitude: storeLat,
-        longitude: storeLng
+        longitude: storeLng,
+        ...(confirmedProductId ? { productId: confirmedProductId } : {}),
       };
       
       if (onSave) {
@@ -526,6 +451,14 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       setQuantityUnits={setQuantityUnits}
       brand={brand}
       setBrand={setBrand}
+      isSale={isSale}
+      setIsSale={setIsSale}
+      expiresAt={expiresAt}
+      setExpiresAt={setExpiresAt}
+      matchCandidate={matchCandidate}
+      confirmedProductId={confirmedProductId}
+      onConfirmMatch={confirmMatch}
+      onRejectMatch={rejectMatch}
     />;
   }
 
