@@ -173,7 +173,8 @@ export async function reverseGeocode(deps: GeoDeps, lat: number, lon: number): P
 
   const fetchImpl = deps.fetchImpl ?? fetch;
   await throttleNominatim(deps.nominatimMinGapMs ?? 1100);
-  const res = await fetchImpl(`${deps.nominatimUrl}/reverse?format=json&lat=${lat}&lon=${lon}`, {
+  // addressdetails=1 is required -- Nominatim omits the `address` breakdown without it.
+  const res = await fetchImpl(`${deps.nominatimUrl}/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`, {
     headers: { 'User-Agent': deps.userAgent ?? 'GrocerEZ', Accept: 'application/json' },
   });
   if (!res.ok) throw new Error(`Nominatim responded ${res.status}`);

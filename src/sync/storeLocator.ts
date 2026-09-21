@@ -28,6 +28,29 @@ interface OverpassNode {
   };
 }
 
+// overpass-api.de (the main public instance) intermittently rejects or
+// rate-limits requests with a 406/CORS-looking failure; fall back to mirrors
+// so a single flaky instance doesn't break store lookup for anonymous users.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+async function fetchOverpass(query: string, signal: AbortSignal): Promise<{ elements?: OverpassNode[] }> {
+  let lastError: unknown;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, { signal });
+      if (!res.ok) throw new Error(`Overpass request to ${endpoint} failed with status ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Failed to fetch location data');
+}
+
 const withTimeout = (ms: number): { signal: AbortSignal; done: () => void } => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
@@ -37,7 +60,8 @@ const withTimeout = (ms: number): { signal: AbortSignal; done: () => void } => {
 async function publicReverse(lat: number, lon: number): Promise<string> {
   const t = withTimeout(10_000);
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { signal: t.signal });
+    // addressdetails=1 is required -- Nominatim omits the `address` breakdown without it.
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lon}`, { signal: t.signal });
     if (!res.ok) return '';
     const data = await res.json();
     const addr = data.address || {};
@@ -55,11 +79,8 @@ export async function locateViaPublicServices(latitude: number, longitude: numbe
   const t = withTimeout(10_000);
   let elements: OverpassNode[] = [];
   try {
-    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal: t.signal });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.elements)) elements = data.elements as OverpassNode[];
-    }
+    const data = await fetchOverpass(query, t.signal);
+    if (Array.isArray(data.elements)) elements = data.elements;
   } catch (err) {
     console.error('Overpass lookup failed:', err);
   } finally {

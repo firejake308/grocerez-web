@@ -146,6 +146,8 @@ describe('geo routes', () => {
     const first = await json(await get(app, `/api/geo/reverse?lat=${KROGER.lat}&lon=${KROGER.lon}`, token));
     expect(first).toEqual({ houseNumber: '9150', road: 'North Tarrant Parkway', suburb: 'North Richland Hills', label: '9150 North Tarrant Parkway' });
     expect((fake.calls[0].init?.headers as Record<string, string>)['User-Agent']).toBeTruthy();
+    // Nominatim omits the `address` breakdown entirely without this -- easy to silently regress.
+    expect(fake.calls[0].url).toContain('addressdetails=1');
 
     await get(app, `/api/geo/reverse?lat=${KROGER.lat + 0.00001}&lon=${KROGER.lon}`, token); // same ~11m cell
     expect(fake.calls).toHaveLength(1);
