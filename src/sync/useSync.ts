@@ -4,6 +4,7 @@ import type { LockedSummary } from '../../shared/types';
 import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Profile, type VoteState } from './api';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
 import { cachedCommunity, patchSyncedReport, pendingReports, runSync } from './engine';
+import { fetchDiscoverSamples } from './discover';
 import { getSyncLocation } from './location';
 import { localSyncStorage, type HomeArea, type SyncAuth } from './storage';
 
@@ -22,6 +23,8 @@ export interface SyncController {
   auth: SyncAuth | null;
   profile: Profile | null;
   community: PriceData[];
+  /** Random-metro sample for the home screen when there's no real location yet (see sync/discover.ts). Empty once `community` has anything. */
+  discover: PriceData[];
   /** Section 6.3: products outside the free set, for a 'public'-level caller only. Always empty until ENTITLEMENTS_ENFORCED is on. */
   locked: LockedSummary[];
   status: SyncStatus;
@@ -72,6 +75,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const [profile, setProfile] = useState<Profile | null>(null);
   const [homeArea, setHomeAreaState] = useState<HomeArea | null>(() => (enabled ? storage.getHomeArea() : null));
   const [community, setCommunity] = useState<PriceData[]>(() => (enabled ? cachedCommunity(storage) : []));
+  const [discover, setDiscover] = useState<PriceData[]>([]);
   const [locked, setLocked] = useState<LockedSummary[]>([]);
   const [status, setStatus] = useState<SyncStatus>(() => ({
     running: false,
@@ -142,6 +146,31 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
+
+  // Home screen "discover" sample: only useful before we have a real, located
+  // community pull to show instead (see SyncController.discover).
+  useEffect(() => {
+    if (!enabled || community.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        let token = storage.getAuth()?.sessionToken ?? storage.getDeviceToken();
+        if (!token) {
+          const { deviceToken } = await api.registerDevice();
+          storage.setDeviceToken(deviceToken);
+          token = deviceToken;
+        }
+        const samples = await fetchDiscoverSamples(api, token);
+        if (!cancelled) setDiscover(samples);
+      } catch {
+        // Best-effort nudge; a failure here just means the home screen stays quieter.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, community.length]);
 
   // Trigger: a local change that left something pending (debounced).
   useEffect(() => {
@@ -268,6 +297,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     auth,
     profile,
     community,
+    discover,
     locked,
     status,
     homeArea,

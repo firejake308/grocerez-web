@@ -1,10 +1,11 @@
 import { useRef } from 'react';
-import { Plus, Camera, Trash2, Download, Upload, Cloud, CloudOff } from 'lucide-react';
+import { Search, Camera, Trash2, Download, Upload, Cloud, CloudOff, Sparkles } from 'lucide-react';
 import PriceData, { GroceryItem } from './PriceData';
 
 const HomeScreen = ({
   onScan,
   priceData,
+  discoverItems,
   onShowAllPrices,
   groceryItems,
   onAddItem,
@@ -18,6 +19,7 @@ const HomeScreen = ({
 }: {
   onScan: VoidFunction;
   priceData: PriceData[];
+  discoverItems: PriceData[];
   onShowAllPrices: VoidFunction;
   groceryItems: GroceryItem[];
   onAddItem: VoidFunction;
@@ -115,45 +117,50 @@ const HomeScreen = ({
           )}
         </div>
 
-        {/* Price Data Preview (optional) */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-          <h2 className="text-xl font-semibold mb-2 text-gray-800">Recent Price Scans</h2>
-          {!priceData ? (
-            <p className="text-gray-500 text-center py-2">Loading price data...</p>
-          ) : priceData.length === 0 ? (
-            <p className="text-gray-500 text-center py-2">No price scans yet</p>
-          ) : (
+        {/* Discover: a taste of what's out there to search for, even before a location is set */}
+        {discoverItems.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+            <h2 className="text-lg font-semibold mb-1 text-gray-800 flex items-center gap-1.5">
+              <Sparkles size={18} className="text-green-600" />
+              Prices People Are Sharing
+            </h2>
+            <p className="text-sm text-gray-500 mb-2">
+              Set your home area in Community Prices to see what's near you instead of these random samples.
+            </p>
             <div className="space-y-2">
-              {priceData.slice(-3).map((item) => (
-              <div key={item.id} className="p-2 border-b border-gray-100 flex flex-col">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">{item.itemName}</span>
-                  <span className="font-bold text-gray-900">{item.price.charAt(0) === '$' ? item.price : '$' + item.price}</span>
-                </div>
-                <div className="text-gray-600">
+              {discoverItems.slice(0, 6).map((item) => (
+                <div key={item.id} className="p-2 border-b border-gray-100 flex flex-col">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-700">{item.itemName}</span>
+                    <span className="font-bold text-gray-900">{item.price.charAt(0) === '$' ? item.price : '$' + item.price}</span>
+                  </div>
                   <span className="text-sm text-gray-500">{item.store}</span>
                 </div>
-              </div>
               ))}
-              <button
-                onClick={onShowAllPrices}
-                className="w-full mt-4 py-2 px-4 text-sm text-green-600 hover:text-green-700 font-medium flex items-center justify-center border border-green-600 rounded-lg hover:bg-green-50 transition-colors"
-              >
-                Show All Price Scans
-              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Recent Price Scans: de-emphasized, just a quiet link to the full history */}
+        <button
+          onClick={onShowAllPrices}
+          className="w-full bg-white rounded-lg shadow-md p-3 mb-4 flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          <span>Recent Price Scans</span>
+          <span className="text-gray-400">
+            {priceData && priceData.length > 0 ? `${priceData.length} saved →` : 'None yet →'}
+          </span>
+        </button>
       </main>
 
       {/* Action Buttons */}
       <div className="p-4 space-y-3">
-        <button 
+        <button
           onClick={onAddItem}
           className="flex items-center justify-center w-full bg-blue-500 text-white p-4 rounded-lg shadow-md hover:bg-blue-600 transition-colors"
         >
-          <Plus size={24} className="mr-2" />
-          <span className="text-lg font-medium">Add New Item</span>
+          <Search size={24} className="mr-2" />
+          <span className="text-lg font-medium">Search</span>
         </button>
         
         <button 
