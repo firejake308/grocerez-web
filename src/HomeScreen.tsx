@@ -1,11 +1,16 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Search, Camera, Trash2, Download, Upload, Cloud, CloudOff, Sparkles } from 'lucide-react';
 import PriceData, { GroceryItem } from './PriceData';
+import type { GeocodeResult } from './sync/api';
+import type { HomeArea } from './sync/storage';
 
 const HomeScreen = ({
   onScan,
   priceData,
   discoverItems,
+  homeArea,
+  onSearchHomeArea,
+  onChooseHomeArea,
   onShowAllPrices,
   groceryItems,
   onAddItem,
@@ -20,6 +25,9 @@ const HomeScreen = ({
   onScan: VoidFunction;
   priceData: PriceData[];
   discoverItems: PriceData[];
+  homeArea: HomeArea | null;
+  onSearchHomeArea?: (q: string) => Promise<GeocodeResult[]>;
+  onChooseHomeArea?: (area: HomeArea | null) => Promise<void>;
   onShowAllPrices: VoidFunction;
   groceryItems: GroceryItem[];
   onAddItem: VoidFunction;
@@ -32,6 +40,10 @@ const HomeScreen = ({
   onOpenSync: VoidFunction;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [areaQuery, setAreaQuery] = useState('');
+  const [areaResults, setAreaResults] = useState<GeocodeResult[] | null>(null);
+  const [areaBusy, setAreaBusy] = useState(false);
+  const [areaError, setAreaError] = useState<string | null>(null);
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -43,6 +55,35 @@ const HomeScreen = ({
       onImportData(file);
     }
     e.target.value = '';
+  };
+
+  const handleAreaSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onSearchHomeArea || areaQuery.trim().length < 2) return;
+    setAreaBusy(true);
+    setAreaError(null);
+    try {
+      setAreaResults(await onSearchHomeArea(areaQuery));
+    } catch (err) {
+      setAreaError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setAreaBusy(false);
+    }
+  };
+
+  const handleChooseArea = async (area: HomeArea) => {
+    if (!onChooseHomeArea) return;
+    setAreaResults(null);
+    setAreaQuery('');
+    setAreaBusy(true);
+    setAreaError(null);
+    try {
+      await onChooseHomeArea(area);
+    } catch (err) {
+      setAreaError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setAreaBusy(false);
+    }
   };
 
   return (
@@ -124,9 +165,54 @@ const HomeScreen = ({
               <Sparkles size={18} className="text-green-600" />
               Prices People Are Sharing
             </h2>
-            <p className="text-sm text-gray-500 mb-2">
-              Set your home area in Community Prices to see what's near you instead of these random samples.
-            </p>
+            {homeArea ? (
+              <p className="text-sm text-gray-500 mb-2">
+                Showing prices near <span className="font-medium text-gray-700">{homeArea.label}</span>.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500 mb-2">
+                  These are random samples from around the country. Enter a ZIP code to see prices near you instead.
+                </p>
+                {onSearchHomeArea && onChooseHomeArea && (
+                  <div className="mb-3">
+                    <form className="flex gap-2" onSubmit={(e) => void handleAreaSearch(e)}>
+                      <input
+                        value={areaQuery}
+                        onChange={(e) => setAreaQuery(e.target.value)}
+                        placeholder="City or ZIP code"
+                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        disabled={areaBusy || areaQuery.trim().length < 2}
+                        className="px-4 rounded-lg bg-blue-500 text-white text-sm font-medium disabled:opacity-50"
+                      >
+                        Find
+                      </button>
+                    </form>
+                    {areaError && <p className="mt-1 text-sm text-red-600">{areaError}</p>}
+                    {areaResults && (
+                      <ul className="mt-2 divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+                        {areaResults.length === 0 && <li className="py-2 px-2 text-sm text-gray-500">No matches.</li>}
+                        {areaResults.map((r) => (
+                          <li key={`${r.lat},${r.lon}`}>
+                            <button
+                              type="button"
+                              disabled={areaBusy}
+                              className="w-full text-left py-2 px-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              onClick={() => void handleChooseArea({ label: r.label, lat: r.lat, lon: r.lon })}
+                            >
+                              {r.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
             <div className="space-y-2">
               {discoverItems.slice(0, 6).map((item) => (
                 <div key={item.id} className="p-2 border-b border-gray-100 flex flex-col">
