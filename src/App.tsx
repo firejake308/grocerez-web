@@ -189,6 +189,10 @@ const App = () => {
           priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
+          discoverItems={sync.community.length > 0 ? sync.community : sync.discover}
+          homeArea={sync.homeArea}
+          onSearchHomeArea={sync.enabled ? sync.searchHomeArea : undefined}
+          onChooseHomeArea={sync.enabled ? sync.chooseHomeArea : undefined}
           onAddItem={() => navigateTo('addItem')}
           onToggleItem={handleToggleGroceryItem}
           onDeleteItem={handleDeleteGroceryItem}
