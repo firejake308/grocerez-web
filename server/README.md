@@ -122,6 +122,8 @@ The client and API share `grocerez.app`, split by DNS record: the apex
    a bigger droplet.
 6. **Bring the stack up:**
    ```bash
+   mkdir -p data
+   chown 1000:1000 data       # api container runs as the non-root "node" user
    docker compose up -d --build
    ```
    First boot takes a few minutes while Overpass imports the extract and

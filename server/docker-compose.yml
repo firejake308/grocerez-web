@@ -16,6 +16,9 @@ services:
       dockerfile: server/Dockerfile
     restart: unless-stopped
     volumes:
+      # The api container runs as the non-root "node" user (uid 1000); make
+      # sure ./data is writable by that uid before first `docker compose up`
+      # -- see server/README.md ("Deploying to a VPS").
       - ./data:/data
     environment:
       DATABASE_PATH: /data/grocerez.db

@@ -26,10 +26,12 @@ COPY server/tsconfig.json ./
 COPY server/drizzle ./drizzle
 COPY server/src ./src
 COPY shared /app/shared
+RUN chown -R node:node /app/server /app/shared
 
 EXPOSE 8787
 VOLUME ["/data"]
 ENV DATABASE_PATH=/data/grocerez.db
 
+USER node
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node_modules/.bin/tsx", "src/index.ts"]
