@@ -42,7 +42,10 @@ const App = () => {
   const sync = useSync(priceData, setPriceData);
   // Tombstones (deleted-but-not-yet-pushed) stay in priceData until the delete syncs; never show them.
   const mine = useMemo(() => priceData.filter((item) => !item.deletedAt), [priceData]);
-  const searchable = useMemo(() => [...mine, ...sync.community], [mine, sync.community]);
+  const searchable = useMemo(() => {
+    const communityPrices = sync.community.length > 0 ? sync.community : sync.discover;
+    return [...mine, ...communityPrices];
+  }, [mine, sync.community, sync.discover]);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(() => {
     const saved = localStorage.getItem('groceryItems');
     return saved ? JSON.parse(saved) : [];
