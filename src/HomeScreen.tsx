@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Search, Camera, Trash2, Download, Upload, Cloud, CloudOff, Sparkles } from 'lucide-react';
+import { Search, Camera, Trash2, Download, Upload, Cloud, CloudOff, Globe } from 'lucide-react';
 import PriceData, { GroceryItem } from './PriceData';
 import type { GeocodeResult } from './sync/api';
 import type { HomeArea } from './sync/storage';
@@ -162,7 +162,7 @@ const HomeScreen = ({
         {discoverItems.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-4 mb-4">
             <h2 className="text-lg font-semibold mb-1 text-gray-800 flex items-center gap-1.5">
-              <Sparkles size={18} className="text-green-600" />
+              <Globe size={18} className="text-green-600" />
               Prices People Are Sharing
             </h2>
             {homeArea ? (
@@ -171,9 +171,6 @@ const HomeScreen = ({
               </p>
             ) : (
               <>
-                <p className="text-sm text-gray-500 mb-2">
-                  These are random samples from around the country. Enter a ZIP code to see prices near you instead.
-                </p>
                 {onSearchHomeArea && onChooseHomeArea && (
                   <div className="mb-3">
                     <form className="flex gap-2" onSubmit={(e) => void handleAreaSearch(e)}>
