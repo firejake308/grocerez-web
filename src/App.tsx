@@ -42,10 +42,13 @@ const App = () => {
   const sync = useSync(priceData, setPriceData);
   // Tombstones (deleted-but-not-yet-pushed) stay in priceData until the delete syncs; never show them.
   const mine = useMemo(() => priceData.filter((item) => !item.deletedAt), [priceData]);
-  const searchable = useMemo(() => {
-    const communityPrices = sync.community.length > 0 ? sync.community : sync.discover;
-    return [...mine, ...communityPrices];
-  }, [mine, sync.community, sync.discover]);
+  // Our own uploads come back from the server as community reports with the same id; show the local copy only.
+  const communityPrices = useMemo(() => {
+    const mineIds = new Set(priceData.map((item) => item.id));
+    const pulled = sync.community.length > 0 ? sync.community : sync.discover;
+    return pulled.filter((item) => !mineIds.has(item.id));
+  }, [priceData, sync.community, sync.discover]);
+  const searchable = useMemo(() => [...mine, ...communityPrices], [mine, communityPrices]);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(() => {
     const saved = localStorage.getItem('groceryItems');
     return saved ? JSON.parse(saved) : [];
@@ -192,7 +195,7 @@ const App = () => {
           priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
-          discoverItems={sync.community.length > 0 ? sync.community : sync.discover}
+          discoverItems={communityPrices}
           homeArea={sync.homeArea}
           onSearchHomeArea={sync.enabled ? sync.searchHomeArea : undefined}
           onChooseHomeArea={sync.enabled ? sync.chooseHomeArea : undefined}
