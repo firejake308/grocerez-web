@@ -423,5 +423,19 @@
     "quantity": 12,
     "quantityUnits": "ounce",
     "_source": "user added: Skinner Medium Shells enriched macaroni product, 12 OZ bag, shelf tag 'SKNR MEDIUM SHELLS 12 OZ' Everyday Low Price $1.29. 'pasta' required as the broader category tag since itemName would already contain 'shells'."
+  },
+  "item_114": {
+    "required_terms": ["banana"],
+    "price": 0.33,
+    "quantity": 1,
+    "quantityUnits": "pound",
+    "_source": "user added: Chiquita bananas, sale sign '3 LBS 99¢' -> 0.99/3 = $0.33 per pound. Sold loose by the pound, so quantity is 1 pound."
+  },
+  "item_116": {
+    "required_terms": ["onion", "yellow"],
+    "price_allowed": [0.49, 0.495, 0.5],
+    "quantity": 1,
+    "quantityUnits": "pound",
+    "_source": "user added: yellow onions (Mexico), sale sign '2 LBS 99¢' -> 0.99/2 = $0.495/lb; user accepts 0.49, 0.495 or 0.50. Sold loose by the pound, so quantity is 1 pound."
   }
 }
