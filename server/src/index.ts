@@ -25,7 +25,7 @@ const app = createApp({
     photoDir: env.PHOTO_DIR,
   },
   billing: {
-    secretKey: env.STRIPE_SECRET,
+    apiKey: env.STRIPE_API_KEY,
     webhookSecret: env.STRIPE_WEBHOOK_SECRET,
     priceId: env.STRIPE_PRICE_ID,
     appUrl: env.APP_URL,

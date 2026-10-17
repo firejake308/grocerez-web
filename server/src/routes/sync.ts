@@ -303,7 +303,7 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
     const level = auth.kind === 'session'
       ? (() => {
           const caller = db.select().from(users).where(eq(users.id, auth.userId)).all()[0];
-          return caller ? entitlementLevel(db, caller, now) : 'public';
+          return caller ? entitlementLevel(caller, now) : 'public';
         })()
       : 'public';
     const accessLevel = entitlementsEnforced ? level : 'unrestricted';

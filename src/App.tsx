@@ -8,6 +8,7 @@ import AddItemScreen from './AddItemScreen';
 import { normalizePriceData } from './normalizePriceData';
 import SyncSettingsScreen from './SyncSettingsScreen';
 import ProductPricesScreen from './ProductPricesScreen';
+import CheckoutBanner from './CheckoutBanner';
 import { useSync } from './sync/useSync';
 import { syncEnabled } from './sync/config';
 
@@ -186,6 +187,7 @@ const App = () => {
 
   return (
     <div className="h-screen">
+      <CheckoutBanner notice={sync.checkoutNotice} onDismiss={sync.dismissCheckoutNotice} />
       {currentScreen === 'home' && (
         <HomeScreen
           onScan={() => navigateTo('scanner')}

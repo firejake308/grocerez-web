@@ -8,6 +8,7 @@ import type { LockedSummary } from '../shared/types';
 import PriceBadges from './PriceBadges';
 import type { SyncController } from './sync/useSync';
 import { SignInRequiredError } from './sync/useSync';
+import { formatMonthlyPrice } from './sync/membership';
 import type { FlagReason } from './sync/api';
 
 const units = [
@@ -117,7 +118,7 @@ const LockedResultCard = ({ item, sync }: { item: LockedSummary; sync?: SyncCont
         {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
       </div>
       <button onClick={subscribe} disabled={busy} className="text-xs bg-blue-600 text-white px-2 py-1.5 rounded-md disabled:opacity-50 whitespace-nowrap">
-        Subscribe to see
+        Subscribe · {formatMonthlyPrice(sync?.profile?.entitlement.priceCents)}
       </button>
     </div>
   );

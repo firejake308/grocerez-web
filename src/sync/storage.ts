@@ -1,4 +1,4 @@
-import type { LockedSummary, SyncedPriceReport } from '../../shared/types';
+import type { LockedSummary, PullResponseBody, SyncedPriceReport } from '../../shared/types';
 
 export interface SyncAuth {
   sessionToken: string;
@@ -26,6 +26,15 @@ export interface RegionCache {
    * region caches persisted before Phase 3 still parse.
    */
   locked?: LockedSummary[];
+  /**
+   * The access level the server answered this region's pulls at. A locked
+   * product's report is skipped (not queued) while the caller is 'public', so
+   * the cursor moves past it; when the level changes -- they subscribed,
+   * redeemed credits, or a subscription lapsed -- the cache is rebuilt from
+   * since=0 instead of continuing from a cursor that would never re-send
+   * what was withheld. Optional so caches saved before this still parse.
+   */
+  accessLevel?: PullResponseBody['accessLevel'];
   lastUsedAt: string;
 }
 

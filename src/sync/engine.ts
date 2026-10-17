@@ -246,8 +246,30 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   // already known to be locked (see RegionCache.locked).
   const lockedById = new Map<string, LockedSummary>((region.locked ?? []).map((l) => [l.productId, l]));
 
+  let rebuilt = false;
   for (let page = 0; page < MAX_PULL_PAGES; page++) {
     const res = await deps.api.pull(token, { since: region.since, lat: location.lat, lon: location.lon, radiusMi: deps.radiusMi, limit: PULL_PAGE });
+
+    // The caller's access level changed since this cache was built (they
+    // subscribed or redeemed credits, a subscription lapsed, or enforcement
+    // was switched on). A delta from the old cursor can't be trusted: the
+    // server withheld locked reports at the old level and won't resend
+    // them, so a new subscriber would still see locked cards. Throw this
+    // response away and rebuild the region from the start. A cache with no
+    // recorded level (saved before this was tracked) just adopts the
+    // current one.
+    if (!rebuilt && region.since > 0 && region.accessLevel && region.accessLevel !== res.accessLevel) {
+      rebuilt = true;
+      region.since = 0;
+      region.reports = [];
+      region.locked = [];
+      lockedById.clear();
+      region.accessLevel = res.accessLevel;
+      page--; // the discarded response does not count against the page limit
+      continue;
+    }
+    region.accessLevel = res.accessLevel;
+
     region.reports = mergePull(region.reports, res.reports, auth?.userId ?? null);
     pulled += res.reports.length;
     for (const summary of res.locked) lockedById.set(summary.productId, summary);

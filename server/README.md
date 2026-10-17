@@ -132,6 +132,79 @@ The client and API share `grocerez.app`, split by DNS record: the apex
 7. **Point the client at it**: set `VITE_SYNC_API_URL=https://api.grocerez.app`
    when building/deploying the client (see the root `README.md`).
 
+## Turning on subscriptions
+
+Shared prices are free for the most popular items in your area and need either a
+subscription ($1.99/month) or earned credits for everything else (plan section
+6.3). Everything below is off until you do it: with `ENTITLEMENTS_ENFORCED=false`
+(the default) every user sees every price, and checkout answers 503 until the
+Stripe settings exist. Do it in Stripe's **test mode** first -- the test keys,
+a test price, and a test webhook all work the same way -- and repeat the
+steps with live ones once a test purchase works end to end.
+
+1. **Create the price once.** Stripe Dashboard > Product catalog > Add product:
+   "GrocerEZ shared prices", $1.99 USD, recurring, monthly. Copy its `price_...`
+   id into `STRIPE_PRICE_ID`. (This id is not a secret, but the server also
+   refuses to start a checkout if the id is not an active $1.99 USD monthly
+   price, so a wrong id can never charge the wrong amount.)
+2. **Create an API key and put it in `STRIPE_API_KEY`.** Dashboard > Developers >
+   API keys > *Create restricted key*, with these permissions and nothing else:
+   Customers **write**, Checkout Sessions **write**, Customer portal **write**,
+   Prices **read**. A restricted key can't touch your payouts or other products
+   if it ever leaks. Keep the key only in `server/.env` on the VPS (it is
+   gitignored); never commit it, and never put it in the client.
+3. **Add the webhook.** Developers > Webhooks > Add endpoint:
+   `https://api.grocerez.app/api/billing/webhook`, listening for
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated` and `customer.subscription.deleted`. Copy
+   its signing secret (`whsec_...`) into `STRIPE_WEBHOOK_SECRET`. A test-mode
+   key only receives test-mode events and a live key only live ones, so make
+   the webhook in the same mode as the key.
+4. **Turn on the customer portal** (Settings > Billing > Customer portal) with
+   "Customers can cancel subscriptions" enabled. The app's "Manage
+   subscription" button opens it.
+5. **Set the rest and restart:**
+   ```bash
+   # in server/.env
+   STRIPE_API_KEY=rk_live_...
+   STRIPE_PRICE_ID=price_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   APP_URL=https://grocerez.app
+   ENTITLEMENTS_ENFORCED=true
+   docker compose up -d
+   ```
+6. **Try it** with a test-mode purchase (card `4242 4242 4242 4242`) before going
+   live: subscribe in the app, confirm "You're subscribed" appears after the
+   redirect, open "Manage subscription", and cancel.
+
+How access is decided:
+
+| Level | How a user gets it | What lasts |
+|---|---|---|
+| subscriber | An active (or trialing, or past-due) Stripe subscription | Until the period end Stripe reports, plus a 3-day grace for a late renewal webhook. A subscription with no recorded period end grants nothing. |
+| contributor | Redeeming **200 credits** for one free month | 30 days; redemptions stack |
+| public | Everyone else | The free-tier products only; the rest show as locked teasers |
+
+Credits: each verified, non-redundant price report earns 10 credits (at most 10
+such reports a day). Credits expire 90 days after they are earned. Redeeming is
+manual (`POST /api/billing/redeem-credits`, the "Redeem" button) and is
+refused while subscribed, so paying users don't burn credits on a month they
+already have. An upheld flag revokes the credit its report earned, but never
+claws back a month that was already redeemed.
+
+Operating notes:
+
+- Webhooks are idempotent and order-safe: Stripe's event id is recorded once, an
+  event older than the newest one already applied is skipped, and a canceled
+  subscription can never be reactivated by a late event. If applying an event
+  fails the server answers 500 and Stripe retries it.
+- Test events sent to a live key (and vice versa) are logged and ignored.
+- Stripe's dashboard > Webhooks > the endpoint shows every delivery and lets you
+  resend one; replays are harmless.
+- To stop charging for a user by hand, cancel the subscription in Stripe; the
+  `customer.subscription.deleted` event ends their access. Editing `users.plan`
+  in SQLite is not a substitute -- the next webhook overwrites it.
+
 ## Backups
 
 Once deployed, back up the SQLite file, not just the Docker volume:

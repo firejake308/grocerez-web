@@ -205,6 +205,8 @@ describe('runSync', () => {
       productPrices: record('productPrices', async () => { throw new Error('unused'); }),
       parseImages: record('parseImages', async () => { throw new Error('unused'); }),
       checkoutSubscription: record('checkoutSubscription', async () => { throw new Error('unused'); }),
+      openBillingPortal: record('openBillingPortal', async () => { throw new Error('unused'); }),
+      redeemCredits: record('redeemCredits', async () => { throw new Error('unused'); }),
       ...overrides,
     };
     return { api, calls };
@@ -297,6 +299,72 @@ describe('runSync', () => {
     const second = await runSync(d2);
     expect(second.locked).toEqual([]);
     expect(second.community.map((r) => r.id)).toEqual(['r1']);
+  });
+
+  describe('when the caller\'s access level changes', () => {
+    const locked1 = { productId: 'p1', canonicalName: 'Olipop', storeCount: 1, reportCount: 1, newestDate: '2026-06-01' };
+
+    /** A pull that answers by `since`: honours a cursor like the real server, and returns full data only when `level` isn't public. */
+    const serverAt = (level: 'public' | 'subscriber') => async (_t: string, q: { since: number }) => {
+      if (level === 'public') return { accessLevel: 'public' as const, reports: [], locked: q.since === 0 ? [locked1] : [], nextSince: 1 };
+      return { accessLevel: 'subscriber' as const, reports: q.since === 0 ? [synced({ id: 'r1', seq: 1, productId: 'p1' })] : [], locked: [], nextSince: 1 };
+    };
+
+    it('rebuilds from the start after subscribing, so reports withheld while locked finally arrive', async () => {
+      const { api, calls } = fakeApi({ pull: serverAt('public') });
+      const d = deps(api, [], false);
+      const first = await runSync(d.deps);
+      expect(first.locked).toEqual([locked1]);
+      expect(first.community).toEqual([]);
+
+      // They subscribe. A plain delta from since=1 would return nothing -- the old report was never queued for them.
+      const subscribed = { ...api, pull: serverAt('subscriber') };
+      calls.length = 0;
+      const second = await runSync({ ...d.deps, api: subscribed });
+      expect(second.community.map((r) => r.id)).toEqual(['r1']);
+      expect(second.locked).toEqual([]);
+      expect(d.storage.getRegions()['32.9,-97.2,50'].since).toBe(1);
+      expect(d.storage.getRegions()['32.9,-97.2,50'].accessLevel).toBe('subscriber');
+    });
+
+    it('rebuilds after a subscription lapses, dropping prices that are locked again', async () => {
+      const { api } = fakeApi({ pull: serverAt('subscriber') });
+      const d = deps(api, [], false);
+      expect((await runSync(d.deps)).community.map((r) => r.id)).toEqual(['r1']);
+
+      const lapsed = await runSync({ ...d.deps, api: { ...api, pull: serverAt('public') } });
+      expect(lapsed.community).toEqual([]);
+      expect(lapsed.locked).toEqual([locked1]);
+    });
+
+    it('does not rebuild when the level is unchanged -- the cursor is honoured', async () => {
+      const seen: number[] = [];
+      const { api } = fakeApi({ pull: async (t, q) => { seen.push(q.since); return serverAt('subscriber')(t, q); } });
+      const d = deps(api, [], false);
+      await runSync(d.deps);
+      await runSync(d.deps);
+      expect(seen).toEqual([0, 1]);
+    });
+
+    it('adopts the level without a rebuild for a cache saved before levels were recorded', async () => {
+      const seen: number[] = [];
+      const { api } = fakeApi({ pull: async (t, q) => { seen.push(q.since); return serverAt('subscriber')(t, q); } });
+      const d = deps(api, [], false);
+      d.storage.setRegions({ '32.9,-97.2,50': { since: 41, reports: [synced({ id: 'old', seq: 40 })], lastUsedAt: '2026-09-01T00:00:00.000Z' } });
+      const summary = await runSync(d.deps);
+      expect(seen).toEqual([41]);
+      expect(summary.community.map((r) => r.id)).toEqual(['old']);
+      expect(d.storage.getRegions()['32.9,-97.2,50'].accessLevel).toBe('subscriber');
+    });
+
+    it('rebuilds at most once per sync even if the level keeps flip-flopping', async () => {
+      let n = 0;
+      const { api } = fakeApi({ pull: async (_t, q) => ({ accessLevel: (n++ % 2 === 0 ? 'public' : 'subscriber') as 'public' | 'subscriber', reports: [], locked: [], nextSince: q.since + 1 }) });
+      const d = deps(api, [], false);
+      d.storage.setRegions({ '32.9,-97.2,50': { since: 5, reports: [], accessLevel: 'unrestricted', lastUsedAt: '2026-09-01T00:00:00.000Z' } });
+      await runSync(d.deps);
+      expect(n).toBeLessThanOrEqual(3);
+    });
   });
 
   it('signs out locally and continues as a device when the session is rejected', async () => {

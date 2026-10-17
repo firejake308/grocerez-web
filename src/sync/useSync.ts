@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import type PriceData from '../PriceData';
 import type { LockedSummary } from '../../shared/types';
 import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Profile, type VoteState } from './api';
+import { readCheckoutReturn, waitForLevel, withoutCheckoutParam } from './checkoutReturn';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
 import { cachedCommunity, patchSyncedReport, pendingReports, runSync } from './engine';
 import { fetchDiscoverSamples } from './discover';
@@ -42,7 +43,17 @@ export interface SyncController {
   removeVote: (reportId: string) => Promise<void>;
   /** Section 6.3.3: starts a Stripe Checkout session and returns its URL. Throws if not signed in, or if billing isn't configured server-side. */
   checkoutSubscription: () => Promise<string>;
+  /** Stripe's billing portal (update card, cancel, invoices); returns its URL. */
+  openBillingPortal: () => Promise<string>;
+  /** Spends 200 credits on a free month, then re-syncs so the unlocked prices arrive. */
+  redeemCredits: () => Promise<void>;
+  /** What to tell the user after Stripe sends them back to the app; null when there's nothing to say. */
+  checkoutNotice: CheckoutNotice;
+  dismissCheckoutNotice: () => void;
 }
+
+/** 'activating' = payment done, waiting for Stripe's webhook to switch the account on. */
+export type CheckoutNotice = 'activating' | 'active' | 'pending' | 'canceled' | null;
 
 export class SignInRequiredError extends Error {
   constructor() {
@@ -73,6 +84,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
 
   const [auth, setAuthState] = useState<SyncAuth | null>(() => (enabled ? storage.getAuth() : null));
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<CheckoutNotice>(null);
   const [homeArea, setHomeAreaState] = useState<HomeArea | null>(() => (enabled ? storage.getHomeArea() : null));
   const [community, setCommunity] = useState<PriceData[]>(() => (enabled ? cachedCommunity(storage) : []));
   const [discover, setDiscover] = useState<PriceData[]>([]);
@@ -141,8 +153,31 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   useEffect(() => {
     if (!enabled) return;
     void syncNow();
-    if (storage.getAuth()) {
-      api.getMe(storage.getAuth()!.sessionToken).then(setProfile).catch(() => undefined);
+    const session = storage.getAuth();
+    if (session) {
+      api.getMe(session.sessionToken).then(setProfile).catch(() => undefined);
+    }
+
+    // Back from Stripe Checkout. The webhook that switches the account on can
+    // land a moment after the redirect, so wait for it rather than telling a
+    // customer who just paid that nothing happened.
+    const returned = readCheckoutReturn(window.location.search);
+    if (returned) window.history.replaceState(window.history.state, '', withoutCheckoutParam(window.location.href));
+    if (returned === 'cancel') setCheckoutNotice('canceled');
+    if (returned === 'success') {
+      if (!session) {
+        setCheckoutNotice('pending');
+      } else {
+        setCheckoutNotice('activating');
+        void waitForLevel(async () => {
+          const me = await api.getMe(session.sessionToken);
+          setProfile(me);
+          return me.entitlement.level;
+        }, 'subscriber').then((active) => {
+          setCheckoutNotice(active ? 'active' : 'pending');
+          if (active) void syncNow();
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
@@ -292,6 +327,22 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, storage]);
 
+  const openBillingPortal = useCallback(async () => {
+    const { url } = await api.openBillingPortal(requireSession());
+    return url;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, storage]);
+
+  const redeemCredits = useCallback(async () => {
+    const { entitlement } = await api.redeemCredits(requireSession());
+    setProfile((current) => (current ? { ...current, entitlement } : current));
+    // The pull is gated by level server-side; fetch again so what was locked arrives.
+    void syncNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, storage, syncNow]);
+
+  const dismissCheckoutNotice = useCallback(() => setCheckoutNotice(null), []);
+
   return {
     enabled,
     auth,
@@ -312,5 +363,9 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     flagReport,
     removeVote,
     checkoutSubscription,
+    openBillingPortal,
+    redeemCredits,
+    checkoutNotice,
+    dismissCheckoutNotice,
   };
 }

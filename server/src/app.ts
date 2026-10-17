@@ -16,6 +16,7 @@ import { productRoutes } from './routes/products.js';
 import { adminRoutes } from './routes/admin.js';
 import { parseRoutes, type ParseRouteDeps } from './routes/parse.js';
 import { billingRoutes, type BillingDeps } from './routes/billing.js';
+import { checkoutConfigured } from './services/billing.js';
 import { consumeRateLimit, LIMITS } from './services/rateLimit.js';
 import type { GeoDeps } from './services/geo.js';
 
@@ -54,7 +55,7 @@ export function createApp({
   adminToken = '',
   entitlementsEnforced = false,
   parse = { apiKey: '', centsPer1kTokens: 0.2, dailyBudgetCents: 500, photoDir: './data/photos' },
-  billing = { secretKey: '', webhookSecret: '', priceId: '', appUrl: 'http://localhost:5173' },
+  billing = { apiKey: '', webhookSecret: '', priceId: '', appUrl: 'http://localhost:5173' },
   now = () => new Date(),
 }: AppContext) {
   const app = new Hono<AppEnv>();
@@ -72,7 +73,7 @@ export function createApp({
 
   app.route('/api/auth', authRoutes({ db, mailer }));
   app.route('/api/devices', deviceRoutes(db));
-  app.route('/api/me', meRoutes(db, entitlementsEnforced, now));
+  app.route('/api/me', meRoutes(db, entitlementsEnforced, now, checkoutConfigured(billing)));
   app.route('/api/sync', syncRoutes(db, now, entitlementsEnforced));
 
   // The geo proxy is metered per caller so a single device can't use the
@@ -93,7 +94,7 @@ export function createApp({
   app.route('/api/products', productRoutes(db, now));
   app.route('/api/admin', adminRoutes(db, adminToken, now));
   app.route('/api/parse', parseRoutes(db, parse, now));
-  app.route('/api/billing', billingRoutes(db, billing, now));
+  app.route('/api/billing', billingRoutes(db, billing, entitlementsEnforced, now));
 
   return app;
 }
