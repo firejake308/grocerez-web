@@ -132,6 +132,50 @@ The client and API share `grocerez.app`, split by DNS record: the apex
 7. **Point the client at it**: set `VITE_SYNC_API_URL=https://api.grocerez.app`
    when building/deploying the client (see the root `README.md`).
 
+## Dev API on the VPS
+
+For deploy previews and Stripe test mode you want a backend that is not
+production, without running a second server all the time. The `api-dev`
+service in `docker-compose.yml` is that: same image as `api`, but behind a
+Compose profile so it only exists when you start it, with its own database,
+admin token, and Stripe **test** keys. Day-to-day work needs none of this --
+`npm run dev` (see Local development) runs everything on your machine.
+
+One-time setup:
+
+1. **DNS:** add an A record for `dev-api.grocerez.app` pointing at the droplet
+   (the Caddyfile already has the block).
+2. **Fill in the `DEV_*` values** in `server/.env` (see `.env.example`):
+   Stripe *test-mode* key, price id (a $1.99 test price), and webhook secret;
+   `DEV_NETLIFY_SITE_SLUG` (the part of your preview addresses after the `--`,
+   e.g. `deploy-preview-22--<slug>.netlify.app`); and a stable
+   `DEV_APP_URL`, such as a Netlify branch-deploy address, for Stripe to
+   return to. Leave the production `NETLIFY_SITE_SLUG` empty so production
+   never accepts previews.
+3. **Data directory:** `mkdir -p data-dev && chown 1000:1000 data-dev`.
+4. **Stripe (test mode):** add a webhook endpoint at
+   `https://dev-api.grocerez.app/api/billing/webhook` with the four events
+   listed under "Turning on subscriptions"; its secret is
+   `DEV_STRIPE_WEBHOOK_SECRET`.
+5. **Netlify:** scope `VITE_SYNC_API_URL` per context -- Production:
+   `https://api.grocerez.app`; Deploy Previews and Branch deploys:
+   `https://dev-api.grocerez.app`. Redeploy the preview afterwards, since the
+   value is baked in at build time.
+
+Using it:
+
+```bash
+docker compose --profile dev up -d --build api-dev   # start (and rebuild after pulling new code)
+docker compose logs -f api-dev                       # sign-in codes print here (MAIL_PROVIDER=console)
+docker compose stop api-dev                          # stop; costs nothing while stopped
+```
+
+While it is stopped, previews can't sign in or load community prices (the
+site itself still works). Running `docker compose up -d` without the profile
+never starts it, so production deploys are unaffected. To reset dev data,
+stop it and delete `data-dev/`. Don't copy the production database into it:
+that file holds real email addresses.
+
 ## Turning on subscriptions
 
 Shared prices are free for the most popular items in your area and need either a

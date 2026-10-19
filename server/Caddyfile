@@ -4,3 +4,10 @@
 api.grocerez.app {
 	reverse_proxy api:8787
 }
+
+# Dev API (compose profile "dev"). Needs its own A record for
+# dev-api.grocerez.app. While the api-dev container is stopped, Caddy simply
+# answers 502 for this host.
+dev-api.grocerez.app {
+	reverse_proxy api-dev:8787
+}

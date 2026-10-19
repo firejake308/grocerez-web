@@ -6,6 +6,7 @@ node_modules
 dist
 **/dist
 server/data
+server/data-dev
 **/*.db
 **/*.db-wal
 **/*.db-shm

@@ -49,6 +49,41 @@ services:
     # API from outside the compose network. Add "ports: ['8787:8787']"
     # back temporarily if you need to curl it directly while debugging.
 
+  # On-demand development API (profile "dev": it does not exist unless asked
+  # for). Same image as `api`, but its own SQLite file, admin token, Stripe
+  # TEST keys, and emailless sign-in (codes print in its logs). Deploy previews
+  # and branch deploys point here, so they never touch production data or live
+  # Stripe. All settings come from DEV_* variables in .env.
+  #   start:  docker compose --profile dev up -d api-dev
+  #   stop:   docker compose stop api-dev
+  # See server/README.md ("Dev API on the VPS").
+  api-dev:
+    profiles: ['dev']
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data-dev:/data
+    environment:
+      DATABASE_PATH: /data/grocerez.db
+      PORT: '8787'
+      CORS_ORIGINS: ${DEV_CORS_ORIGINS:-http://localhost:5173}
+      NETLIFY_SITE_SLUG: ${DEV_NETLIFY_SITE_SLUG:-}
+      ADMIN_TOKEN: ${DEV_ADMIN_TOKEN:-dev-admin-token}
+      MAIL_PROVIDER: console
+      OVERPASS_URL: ${OVERPASS_URL:-http://overpass:80/api/interpreter}
+      NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
+      ENTITLEMENTS_ENFORCED: ${DEV_ENTITLEMENTS_ENFORCED:-true}
+      OPENROUTER_API_KEY: ${DEV_OPENROUTER_API_KEY:-}
+      PARSE_DAILY_BUDGET_CENTS: ${DEV_PARSE_DAILY_BUDGET_CENTS:-100}
+      STRIPE_API_KEY: ${DEV_STRIPE_API_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${DEV_STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_ID: ${DEV_STRIPE_PRICE_ID:-}
+      APP_URL: ${DEV_APP_URL:-http://localhost:5173}
+      PHOTO_DIR: /data/photos
+    # No host port: Caddy is the only thing that talks to it, as with `api`.
+
   # Self-hosted Overpass over a regional extract (plan section 8.6). Run
   # deploy/fetch-overpass-extract.sh first to populate ./overpass-db --
   # a $6/mo droplet's 1 GB RAM makes a clipped metro-area extract, not a
