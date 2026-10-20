@@ -1,4 +1,4 @@
-import { and, isNotNull } from 'drizzle-orm';
+import { and, isNotNull, ne } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { stores } from '../db/schema.js';
 import { haversineMeters } from '../lib/geohash.js';
@@ -76,13 +76,19 @@ const throttleNominatim = (minGapMs: number): Promise<void> => {
   return next;
 };
 
+/**
+ * Address-only rows (chainKey '') are what a scan with no detected store
+ * leaves behind. They aren't stores, so they must neither count as "a store
+ * is already known here" (which would stop us asking Overpass for good) nor
+ * be returned as one.
+ */
 function knownStoresNear(db: AppDb, lat: number, lon: number): NearbyStore[] {
   const latDelta = NEARBY_RADIUS_M / METERS_PER_DEG_LAT;
   const lonDelta = NEARBY_RADIUS_M / (METERS_PER_DEG_LAT * Math.max(Math.cos((lat * Math.PI) / 180), 0.01));
   const rows = db
     .select()
     .from(stores)
-    .where(and(isNotNull(stores.lat), isNotNull(stores.lon)))
+    .where(and(isNotNull(stores.lat), isNotNull(stores.lon), ne(stores.chainKey, '')))
     .all();
   return rows
     .filter((s) => s.lat !== null && s.lon !== null && Math.abs(s.lat - lat) <= latDelta && Math.abs(s.lon - lon) <= lonDelta)
