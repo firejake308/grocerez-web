@@ -170,6 +170,12 @@ docker compose logs -f api-dev                       # sign-in codes print here 
 docker compose stop api-dev                          # stop; costs nothing while stopped
 ```
 
+If you'd rather just leave it running, that's fine (`restart: unless-stopped`
+brings it back after a reboot; idle it uses about 100 MB). Then deploy both
+together with `docker compose --profile dev up -d --build`: a plain
+`docker compose up -d --build` skips profile services, so `api-dev` would keep
+running the old code.
+
 While it is stopped, previews can't sign in or load community prices (the
 site itself still works). Running `docker compose up -d` without the profile
 never starts it, so production deploys are unaffected. To reset dev data,
