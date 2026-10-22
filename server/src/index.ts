@@ -18,6 +18,7 @@ const app = createApp({
   geo: { overpassUrl: env.OVERPASS_URL, nominatimUrl: env.NOMINATIM_URL, userAgent: 'GrocerEZ-sync/0.1' },
   adminToken: env.ADMIN_TOKEN,
   entitlementsEnforced: env.ENTITLEMENTS_ENFORCED,
+  devLogin: env.DEV_LOGIN_CODE ? { code: env.DEV_LOGIN_CODE } : undefined,
   parse: {
     apiKey: env.OPENROUTER_API_KEY,
     centsPer1kTokens: env.OPENROUTER_CENTS_PER_1K_TOKENS,
@@ -31,6 +32,8 @@ const app = createApp({
     appUrl: env.APP_URL,
   },
 });
+
+if (env.DEV_LOGIN_CODE) console.warn('DEV LOGIN ENABLED: addresses at @example.test sign in with the fixed code. This must only ever be the dev API.');
 
 // Periodic maintenance: things with no single event to hook, so they run
 // on a timer instead. Trust (section 9.2) needs the 14-day "unflagged

@@ -152,6 +152,8 @@ One-time setup:
    `DEV_APP_URL`, such as a Netlify branch-deploy address, for Stripe to
    return to. Leave the production `NETLIFY_SITE_SLUG` empty so production
    never accepts previews.
+   Optionally set `DEV_LOGIN_CODE` to any 6 digits (see "Signing in on previews"
+   below).
 3. **Data directory:** `mkdir -p data-dev && chown 1000:1000 data-dev`.
 4. **Stripe (test mode):** add a webhook endpoint at
    `https://dev-api.grocerez.app/api/billing/webhook` with the four events
@@ -162,11 +164,21 @@ One-time setup:
    `https://dev-api.grocerez.app`. Redeploy the preview afterwards, since the
    value is baked in at build time.
 
+Signing in on previews: with `DEV_LOGIN_CODE` set, any address at
+`@example.test` (for example `me@example.test`) signs in with that fixed code
+and no email, so you can sign in from a phone without opening the logs. It
+only applies to that reserved domain, which can never be a real mailbox; every
+other address gets a real code as usual (printed in the dev logs, since dev
+uses `MAIL_PROVIDER=console`). Compose passes the variable to `api-dev` only,
+and the server refuses to start with it next to a live Stripe key or a real
+mail provider, so it can't be switched on for production by accident. Pick a
+code you don't mind sharing: it unlocks dev accounts only, never production.
+
 Using it:
 
 ```bash
 docker compose --profile dev up -d --build api-dev   # start (and rebuild after pulling new code)
-docker compose logs -f api-dev                       # sign-in codes print here (MAIL_PROVIDER=console)
+docker compose logs -f api-dev                       # sign-in codes for real addresses print here
 docker compose stop api-dev                          # stop; costs nothing while stopped
 ```
 

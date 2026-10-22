@@ -72,6 +72,8 @@ services:
       NETLIFY_SITE_SLUG: ${DEV_NETLIFY_SITE_SLUG:-}
       ADMIN_TOKEN: ${DEV_ADMIN_TOKEN:-dev-admin-token}
       MAIL_PROVIDER: console
+      # Passed to api-dev only, never to `api`: addresses @example.test sign in with this code.
+      DEV_LOGIN_CODE: ${DEV_LOGIN_CODE:-}
       OVERPASS_URL: ${OVERPASS_URL:-http://overpass:80/api/interpreter}
       NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
       ENTITLEMENTS_ENFORCED: ${DEV_ENTITLEMENTS_ENFORCED:-true}

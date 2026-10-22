@@ -31,6 +31,8 @@ export const env = {
   STRIPE_PRICE_ID: optional('STRIPE_PRICE_ID', ''),
   /** Where the subscribe checkout session sends the browser back to. */
   APP_URL: optional('APP_URL', 'http://localhost:5173'),
+  /** Dev API only: example.test addresses sign in with this fixed 6-digit code. Leave empty everywhere else (see lib/devLogin.ts). */
+  DEV_LOGIN_CODE: optional('DEV_LOGIN_CODE', ''),
   /** Photo evidence (Phase 3). Downscaled price-tag photos, keyed by report id. */
   PHOTO_DIR: optional('PHOTO_DIR', './data/photos'),
 } as const;
