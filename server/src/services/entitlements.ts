@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { and, asc, eq, gte, isNull } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../db/schema.js';
@@ -190,6 +191,40 @@ export function computeFreeTier(db: AppDb, lat: number, lon: number, radiusMi: n
     const prior = existingById.get(productId);
     db.insert(freeTierProducts).values({ regionKey: key, productId, rank: i + 1, enteredAt: prior?.enteredAt ?? today, computedAt: today }).run();
   });
+}
+
+/** How long a region's free set may go unrefreshed while people are pulling from it. */
+const FREE_TIER_REFRESH_MS = 60 * 1000;
+const lastFreeTierRefresh = new WeakMap<AppDb, Map<string, number>>();
+
+/**
+ * Brings a region's free set up to date on demand. Without this it only
+ * changed when the periodic job ran, so in a young region (fewer than 25
+ * products, where everything is meant to be free) a brand-new product stayed
+ * locked for hours. Throttled to once a minute per region per process, so a
+ * burst of pulls costs one scan; the scan is O(reports in the last 90 days),
+ * which is fine while the dataset is small -- revisit if it isn't.
+ */
+export function ensureFreeTierFresh(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date = () => new Date()): void {
+  const key = regionKey(lat, lon, radiusMi);
+  const seen = lastFreeTierRefresh.get(db) ?? new Map<string, number>();
+  lastFreeTierRefresh.set(db, seen);
+  const last = seen.get(key);
+  if (last !== undefined && now().getTime() - last < FREE_TIER_REFRESH_MS) return;
+  seen.set(key, now().getTime());
+  // Same center as the periodic job and the pull cursor: the 0.1-degree cell the key is built from.
+  computeFreeTier(db, Number(lat.toFixed(1)), Number(lon.toFixed(1)), radiusMi, now);
+}
+
+/**
+ * A short fingerprint of the region's current free set. Clients compare it
+ * between pulls: when a product enters the set, reports for it that an earlier
+ * pull withheld as locked are behind the client's cursor and would never be
+ * resent, so the client must start that region over.
+ */
+export function freeSetFingerprint(db: AppDb, lat: number, lon: number, radiusMi: number): string {
+  const ids = [...freeTierProductIds(db, lat, lon, radiusMi)].sort();
+  return createHash('sha1').update(ids.join('\n')).digest('hex').slice(0, 12);
 }
 
 export function freeTierProductIds(db: AppDb, lat: number, lon: number, radiusMi: number): Set<string> {

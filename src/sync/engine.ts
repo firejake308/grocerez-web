@@ -258,17 +258,25 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     // response away and rebuild the region from the start. A cache with no
     // recorded level (saved before this was tracked) just adopts the
     // current one.
-    if (!rebuilt && region.since > 0 && region.accessLevel && region.accessLevel !== res.accessLevel) {
+    // The same applies when the caller stays 'public' but a product enters
+    // the free set: its reports, withheld earlier as locked, are behind the
+    // cursor too. `freeSet` is a fingerprint of the set; servers that don't
+    // send one (undefined) never trigger this, nor does a null.
+    const levelChanged = !!region.accessLevel && region.accessLevel !== res.accessLevel;
+    const freeSetChanged = typeof res.freeSet === 'string' && typeof region.freeSet === 'string' && region.freeSet !== res.freeSet;
+    if (!rebuilt && region.since > 0 && (levelChanged || freeSetChanged)) {
       rebuilt = true;
       region.since = 0;
       region.reports = [];
       region.locked = [];
       lockedById.clear();
       region.accessLevel = res.accessLevel;
+      region.freeSet = res.freeSet ?? null;
       page--; // the discarded response does not count against the page limit
       continue;
     }
     region.accessLevel = res.accessLevel;
+    if (res.freeSet !== undefined) region.freeSet = res.freeSet;
 
     region.reports = mergePull(region.reports, res.reports, auth?.userId ?? null);
     pulled += res.reports.length;

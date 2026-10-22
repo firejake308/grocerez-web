@@ -35,6 +35,13 @@ export interface RegionCache {
    * what was withheld. Optional so caches saved before this still parse.
    */
   accessLevel?: PullResponseBody['accessLevel'];
+  /**
+   * The server's fingerprint of this region's free set at the last pull
+   * (public callers only). Same reasoning as `accessLevel`: when a product
+   * enters the free set, its reports that were withheld as locked are already
+   * behind the cursor, so a change here rebuilds the region from the start.
+   */
+  freeSet?: string | null;
   lastUsedAt: string;
 }
 

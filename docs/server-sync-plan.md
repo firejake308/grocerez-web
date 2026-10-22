@@ -254,6 +254,15 @@ client cannot be patched around it.
 - Early on, when a region has fewer than 25 products, the free set is
   simply everything there, which is the right behavior for a dataset that
   needs seeding.
+- The set is refreshed on demand, not only by the periodic job: a public pull
+  recomputes its region's set if it is more than a minute old (one scan per
+  region per minute, fine while the dataset is small). Before this, a new
+  product in a young region stayed locked until the next 6-hour run.
+- `GET /api/sync/pull` returns a `freeSet` fingerprint (public callers only).
+  Reports withheld as locked are behind the client's cursor and are never
+  resent when their product later enters the set, so a client that sees the
+  fingerprint change rebuilds that region from `since=0` (the same rebuild it
+  does when the caller's access level changes).
 - Alternative kept in reserve: a curated staples list by tag (`milk`,
   `eggs`, `bread`, `bananas`). Not chosen because tags are not products;
   it can be layered on as a manual override column later.

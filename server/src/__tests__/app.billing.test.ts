@@ -7,7 +7,11 @@ import type { AppDb } from '../db/client.js';
 import type { Mailer } from '../lib/mail.js';
 import { contributionCredits, creditRedemptions, priceReports, products, stores, stripeEvents, subscriptions, users } from '../db/schema.js';
 import { newId } from '../lib/ids.js';
+import { fillerReports } from './helpers/freeSet.js';
 import { checkoutCompleted, FakeStripe, GOOD_PRICE, signPayload, stripeEvent, subscriptionObject } from './helpers/fakeStripe.js';
+
+/** The Olipop reports in a pull response; other (free) products are expected alongside it. */
+const olipop = (body: Record<string, any>) => (body.reports as { itemName: string }[]).filter((r) => r.itemName === 'Olipop'); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const json = (res: Response): Promise<Record<string, any>> => res.json() as Promise<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -395,6 +399,14 @@ describe('billing routes', () => {
 
     it('locked -> checkout -> webhooks -> unlocked -> cancellation -> locked again', async () => {
       const scanner = await signIn('scanner@example.com');
+      const other = await signIn('other@example.com');
+      for (const [who, user] of [['a', scanner], ['b', other]] as const) {
+        await app.request('/api/sync/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+          body: JSON.stringify({ reports: fillerReports(`filler-${who}`, report) }),
+        });
+      }
       await app.request('/api/sync/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scanner.token}` },
@@ -404,7 +416,7 @@ describe('billing routes', () => {
       const shopper = await signIn('shopper@example.com');
       const before = await pull(shopper.token);
       expect(before.accessLevel).toBe('public');
-      expect(before.reports).toHaveLength(0);
+      expect(olipop(before)).toHaveLength(0);
       expect(before.locked).toHaveLength(1);
       expect((await me(shopper.token)).level).toBe('public');
 
@@ -425,7 +437,7 @@ describe('billing routes', () => {
 
       const unlocked = await pull(shopper.token);
       expect(unlocked.accessLevel).toBe('subscriber');
-      expect(unlocked.reports).toHaveLength(1);
+      expect(olipop(unlocked)).toHaveLength(1);
       expect(unlocked.locked).toHaveLength(0);
 
       // Already subscribed: no second checkout, and the portal is available.
@@ -441,7 +453,7 @@ describe('billing routes', () => {
       await webhook(stripeEvent('customer.subscription.deleted', subscriptionObject({ userId: shopper.userId, status: 'canceled', periodEnd }), { created: created + 120 }));
       const after = await pull(shopper.token);
       expect(after.accessLevel).toBe('public');
-      expect(after.reports).toHaveLength(0);
+      expect(olipop(after)).toHaveLength(0);
       expect(after.locked).toHaveLength(1);
       expect((await me(shopper.token)).level).toBe('public');
     });
@@ -621,6 +633,18 @@ describe('billing routes', () => {
 
     it('a redeemed month unlocks the pull, then lapses after 30 days; a later revoke does not claw it back', async () => {
       const scanner = await signIn('scanner@example.com');
+      const other = await signIn('other@example.com');
+      const fillerBase = (id: string, itemName: string) => ({
+        id, itemName, brand: '', tags: [], quantity: 1, quantityUnits: 'each', price: '4.99',
+        store: 'Kroger @ 9150 North Tarrant Parkway', latitude: KROGER_LAT, longitude: KROGER_LON, observedDate: '2026-06-01', updatedAt: '2026-06-01T00:00:00.000Z',
+      });
+      for (const [who, user] of [['a', scanner], ['b', other]] as const) {
+        await app.request('/api/sync/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+          body: JSON.stringify({ reports: fillerReports(`filler-${who}`, fillerBase) }),
+        });
+      }
       await app.request('/api/sync/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scanner.token}` },
@@ -637,7 +661,7 @@ describe('billing routes', () => {
       await post('/api/billing/redeem-credits', token);
       const unlocked = await pull();
       expect(unlocked.accessLevel).toBe('contributor');
-      expect(unlocked.reports.filter((r: { itemName: string }) => r.itemName === 'Olipop')).toHaveLength(1);
+      expect(olipop(unlocked)).toHaveLength(1);
 
       db.update(contributionCredits).set({ revokedAt: new Date(clock).toISOString() }).where(eq(contributionCredits.id, ids[0])).run();
       expect((await pull()).accessLevel).toBe('contributor');
@@ -647,7 +671,7 @@ describe('billing routes', () => {
       clock += 2 * DAY;
       const lapsed = await pull();
       expect(lapsed.accessLevel).toBe('public');
-      expect(lapsed.reports).toHaveLength(0);
+      expect(olipop(lapsed)).toHaveLength(0);
     });
   });
 

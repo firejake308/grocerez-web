@@ -357,6 +357,51 @@ describe('runSync', () => {
       expect(d.storage.getRegions()['32.9,-97.2,50'].accessLevel).toBe('subscriber');
     });
 
+    it('rebuilds when a product enters the free set, so a report first seen while locked finally arrives', async () => {
+      // Server: p1 is locked at fingerprint "a"; once it enters the free set (fingerprint "b") the old report is behind the cursor.
+      const at = (freeSet: string) => async (_t: string, q: { since: number }) =>
+        freeSet === 'a'
+          ? { accessLevel: 'public' as const, reports: [], locked: q.since === 0 ? [locked1] : [], nextSince: 1, freeSet }
+          : { accessLevel: 'public' as const, reports: q.since === 0 ? [synced({ id: 'r1', seq: 1, productId: 'p1' })] : [], locked: [], nextSince: 1, freeSet };
+      const { api } = fakeApi({ pull: at('a') });
+      const d = deps(api, [], false);
+      const first = await runSync(d.deps);
+      expect(first.locked).toEqual([locked1]);
+
+      const second = await runSync({ ...d.deps, api: { ...api, pull: at('b') } });
+      expect(second.community.map((r) => r.id)).toEqual(['r1']);
+      expect(second.locked).toEqual([]);
+      expect(d.storage.getRegions()['32.9,-97.2,50'].freeSet).toBe('b');
+    });
+
+    it('keeps using the cursor while the free set is unchanged', async () => {
+      const seen: number[] = [];
+      const { api } = fakeApi({ pull: async (_t, q) => { seen.push(q.since); return { accessLevel: 'public' as const, reports: [], locked: [], nextSince: 1, freeSet: 'a' }; } });
+      const d = deps(api, [], false);
+      await runSync(d.deps);
+      await runSync(d.deps);
+      expect(seen).toEqual([0, 1]);
+    });
+
+    it('does not rebuild for a server that sends no fingerprint (older servers) or null', async () => {
+      const seen: number[] = [];
+      const { api } = fakeApi({ pull: async (_t, q) => { seen.push(q.since); return { accessLevel: 'subscriber' as const, reports: [], locked: [], nextSince: 1 }; } });
+      const d = deps(api, [], false);
+      await runSync(d.deps);
+      await runSync(d.deps);
+      expect(seen).toEqual([0, 1]);
+    });
+
+    it.each([['omits it', undefined], ['sends null', null]])('does not rebuild when the cache has a fingerprint but the server %s (e.g. a rolled-back server)', async (_name, freeSet) => {
+      const seen: number[] = [];
+      const { api } = fakeApi({ pull: async (_t, q) => { seen.push(q.since); return { accessLevel: 'public' as const, reports: [], locked: [], nextSince: 5, ...(freeSet === undefined ? {} : { freeSet }) }; } });
+      const d = deps(api, [], false);
+      d.storage.setRegions({ '32.9,-97.2,50': { since: 5, reports: [synced({ id: 'old', seq: 4 })], accessLevel: 'public', freeSet: 'a', lastUsedAt: '2026-09-01T00:00:00.000Z' } });
+      const summary = await runSync(d.deps);
+      expect(seen).toEqual([5]);
+      expect(summary.community.map((r) => r.id)).toEqual(['old']);
+    });
+
     it('rebuilds at most once per sync even if the level keeps flip-flopping', async () => {
       let n = 0;
       const { api } = fakeApi({ pull: async (_t, q) => ({ accessLevel: (n++ % 2 === 0 ? 'public' : 'subscriber') as 'public' | 'subscriber', reports: [], locked: [], nextSince: q.since + 1 }) });
