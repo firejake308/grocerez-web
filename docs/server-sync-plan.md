@@ -227,8 +227,8 @@ Three access levels, checked on every pull:
 | Level | Who | What pull returns |
 |---|---|---|
 | `public` | Device token only, no email | Full reports for products in the free set; for every other product a **locked summary** (product name, size, how many stores and reports nearby, newest date) with no prices |
-| `contributor` | Signed in, earned access this month (6.3.2) | Everything |
-| `subscriber` | Signed in, active Stripe subscription | Everything |
+| `contributor` | Signed in, redeemed 200 credits for a free month (6.3.2) | Everything |
+| `subscriber` | Signed in, active Stripe subscription ($1.99/month) | Everything |
 
 Signed-in users without a subscription or contributor credit get the
 `public` level; signing in by itself unlocks pushing, voting, and earning
@@ -254,14 +254,23 @@ client cannot be patched around it.
 - Early on, when a region has fewer than 25 products, the free set is
   simply everything there, which is the right behavior for a dataset that
   needs seeding.
+- The set is refreshed on demand, not only by the periodic job: a public pull
+  recomputes its region's set if it is more than a minute old (one scan per
+  region per minute, fine while the dataset is small). Before this, a new
+  product in a young region stayed locked until the next 6-hour run.
+- `GET /api/sync/pull` returns a `freeSet` fingerprint (public callers only).
+  Reports withheld as locked are behind the client's cursor and are never
+  resent when their product later enters the set, so a client that sees the
+  fingerprint change rebuilds that region from `since=0` (the same rebuild it
+  does when the caller's access level changes).
 - Alternative kept in reserve: a curated staples list by tag (`milk`,
   `eggs`, `bread`, `bananas`). Not chosen because tags are not products;
   it can be layered on as a manual override column later.
 
 #### 6.3.2 Contributor credit (item 10)
 
-Verified, non-redundant reports earn access without paying. A report earns
-one credit only when **all** of these hold:
+Verified, non-redundant reports earn credits, and credits buy a free month.
+A report earns **10 credits** only when **all** of these hold:
 
 - **Non-redundant**: it is the first report for its (product, store) pair
   in the last 30 days, or its price differs from the pair's current price
@@ -273,22 +282,38 @@ one credit only when **all** of these hold:
   out their reports earned nothing.
 - **From a user in good standing**: trust tier `established` or better,
   and the report is not `hidden` or `price_outlier`.
-- **Under the daily cap**: at most `CREDIT_DAILY_CAP` (default 10) credits
-  per user per day, so bulk uploads of a fabricated list cannot buy a year
-  of access in an afternoon.
+- **Under the daily cap**: at most `CREDIT_DAILY_CAP` (default 10) credited
+  reports (100 credits) per user per day, so bulk uploads of a fabricated
+  list cannot buy a year of access in an afternoon.
 
-`contribution_credits` (`user_id`, `report_id`, `earned_at`, `revoked_at`).
-A user has `contributor` access for any month in which they hold at least
-`CREDITS_PER_MONTH` (default 15) unrevoked credits earned in the trailing
-30 days. An upheld flag revokes the credit and re-evaluates access on the
-next pull. The account screen shows "12 of 15 credits this month" so the
-incentive is visible.
+`contribution_credits` (`user_id`, `report_id`, `earned_at`, `revoked_at`,
+`spent_redemption_id`); one row is worth 10 credits. The **balance** is 10 x
+the rows that are unrevoked, unspent, and earned within the last **90 days**
+(credits expire). **200 credits buy one free month**, redeemed manually
+(`POST /api/billing/redeem-credits`): in one transaction the 20 oldest
+available rows are marked spent against a `credit_redemptions` row and
+`users.credit_access_until` moves to `max(now, current) + 30 days`, so
+redemptions stack and a double tap cannot spend the same credits twice.
+Redeeming is refused while subscribed, so paying users keep accumulating
+credits instead of burning them. An upheld flag revokes the credit its report
+earned, but a month already redeemed is not clawed back. The account screen
+shows "140 of 200 credits" so the incentive is visible.
 
 #### 6.3.3 Subscription
 
-- `users.plan`: `free` | `paid`; `users.plan_expires_at`.
-- `subscriptions`: `user_id`, `provider` (`stripe`), `provider_ref`,
-  `status`, `current_period_end`. Written by a Stripe webhook in Phase 3.
+- Price: **$1.99/month**, one recurring Stripe Price created once in the
+  dashboard and referenced by `STRIPE_PRICE_ID`; the server verifies it is an
+  active $1.99 USD monthly price before every first checkout.
+- `users.plan`: `free` | `paid`; `users.plan_expires_at`;
+  `users.stripe_customer_id`. `plan`/`plan_expires_at` are **derived** from the
+  user's `subscriptions` rows on every webhook (an `active`, `trialing` or
+  `past_due` subscription grants access until its `current_period_end`), never
+  from a single event, and a `paid` plan with no expiry grants nothing. Access
+  also ends on its own 3 days after the period end if Stripe's cancellation
+  webhook is lost.
+- `subscriptions`: `user_id`, `provider` (`stripe`), `provider_ref` (unique),
+  `status`, `current_period_end`, `cancel_at_period_end`, `last_event_at`.
+  `stripe_events` records each processed event id so a replay is a no-op.
 - Gating is behind a single `ENTITLEMENTS_ENFORCED` flag, off in Phase 1
   and 2 so the seed users see everything, on in Phase 3 with Stripe.
 
@@ -615,8 +640,16 @@ POST   /api/parse                          { priceImage, productImage, reportId?
 GET    /api/reports/:id/photo              → the price-tag photo, if any (author
                                              or admin token only)
 POST   /api/billing/checkout               → Stripe Checkout URL (session required;
-                                             503 until STRIPE_SECRET is set)
-POST   /api/billing/webhook                (Stripe → server; 503 until
+                                             503 until STRIPE_API_KEY and
+                                             STRIPE_PRICE_ID are set; 409 if
+                                             already subscribed; 10/hour/user)
+POST   /api/billing/portal                 → Stripe billing-portal URL (session
+                                             required; 404 before first checkout)
+POST   /api/billing/redeem-credits         → spends 200 credits on a free month
+                                             (session required; 409 below 200
+                                             credits or while subscribed)
+POST   /api/billing/webhook                (Stripe → server, verified by
+                                             signature; 503 until
                                              STRIPE_WEBHOOK_SECRET is set)
 
 GET    /api/products/match?itemName=&brand=&quantity=&quantityUnits=
@@ -801,8 +834,8 @@ to fit the droplet's 1 GB RAM.
 - Env: `PORT`, `DATABASE_PATH`, `ADMIN_TOKEN`, `CORS_ORIGINS`,
   `MAIL_PROVIDER`, `RESEND_API_KEY`, `MAIL_FROM`, `OVERPASS_URL`,
   `NOMINATIM_URL` (public Nominatim is fine at these volumes; self-host
-  only if it also rate limits), `OPENROUTER_API_KEY`, `STRIPE_SECRET`,
-  `STRIPE_WEBHOOK_SECRET`, `PHOTO_DIR`.
+  only if it also rate limits), `OPENROUTER_API_KEY`, `STRIPE_API_KEY`,
+  `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `APP_URL`, `PHOTO_DIR`.
 - Client: `VITE_SYNC_API_URL`; sync UI is hidden when unset so the current
   Netlify deploy is unaffected until the server is live.
 
@@ -1115,8 +1148,9 @@ except Stripe itself (see below).
   trust tier only, capped at 10/user/day, revoked via
   `revokeCreditForReport` when admin.ts upholds a flag on the credited
   report); and `entitlementLevel` (subscriber by `users.plan`/
-  `planExpiresAt`, contributor by 15+ unrevoked credits in the trailing 30
-  days, else public). `GET /api/sync/pull` gates on this only when
+  `planExpiresAt` with a required expiry, contributor while
+  `users.credit_access_until` is in the future -- earned by redeeming 200
+  credits, see 6.3.2 -- else public). `GET /api/sync/pull` gates on this only when
   enforced and the caller is public-level: it now returns a real
   `accessLevel` and a `locked` array of `{ canonicalName, storeCount,
   reportCount, newestDate }` summaries (no price) for anything outside the
@@ -1128,22 +1162,41 @@ except Stripe itself (see below).
   button) alongside real results; `SyncSettingsScreen` gained a
   Membership section with credits progress and a Subscribe button once
   `entitlement.enforced` is true.
-- **Stripe.** — code is done, **not live-verified**: `services/billing.ts`
-  talks to Stripe's plain REST API over `fetch` rather than the `stripe`
-  SDK (matching this codebase's existing habit of a small typed call over
-  a dependency, as with Overpass/Nominatim/OpenRouter), and verifies the
-  webhook signature by hand per Stripe's documented HMAC-SHA256 scheme.
-  `POST /api/billing/checkout` (session required) creates a subscription
-  Checkout Session; `POST /api/billing/webhook` (unauthenticated, verified
-  only by signature) applies `checkout.session.completed` and
-  `customer.subscription.updated`/`.deleted` to `subscriptions` and
-  `users.plan`/`planExpiresAt`. Both 503 when their secret is unset, same
-  pattern as `ADMIN_TOKEN`. There is no real Stripe account in this
-  environment to test against, so this is reviewed against Stripe's
-  documented shapes and covered by unit tests with a faked `fetch` and a
-  hand-signed webhook payload, not a live Checkout session or a
-  `stripe listen`-forwarded webhook -- do that once before relying on it
-  in production, the same caveat Phase 1 left for the Dockerfile.
+- **Stripe.** — **done, with tests; not yet exercised against Stripe's real
+  API** (this sandbox cannot reach `api.stripe.com`, so run one test-mode
+  purchase per `server/README.md` "Turning on subscriptions" before going
+  live). `services/billing.ts` talks to Stripe's REST API over an injectable
+  `fetch` rather than the `stripe` SDK and verifies webhook signatures by hand.
+  The first version of this code had several holes, all closed in the pass
+  that set the price at $1.99 and the credit rules above: `checkout.session.
+  completed` granted `plan='paid'` with **no expiry** (so a lost cancellation
+  event meant access forever); there was no event-id dedupe or ordering guard
+  (Stripe retries and reorders, so an old `updated` could overwrite a newer
+  `deleted`); `current_period_end` was read only from the subscription, where
+  Stripe API versions from 2025-03-31 no longer put it; a signed but malformed
+  body gave a 500 that Stripe would retry forever; there was no Stripe
+  customer record, so repeat checkouts made duplicate customers, and no
+  billing portal, so a subscriber could not cancel; and the checkout return
+  URL pointed at a route the app does not have. Now: access always comes from
+  subscription status plus a recorded period end; each event is applied once,
+  atomically with its dedupe record, in order, and a canceled subscription can
+  never be reactivated or moved to another user; the customer is created once
+  under an idempotency key; the configured Price is verified to be $1.99 USD
+  monthly before checkout; `POST /api/billing/portal` and
+  `POST /api/billing/redeem-credits` exist; and Stripe returns the browser to
+  `/?checkout=success|cancel`, which the client turns into a banner after
+  waiting for the webhook. Free-tier size stays at 25 products. Verified with
+  97 new server tests (349 total) and 21 new client tests (signature scheme edge cases, every subscription
+  state and ordering case, route-level checkout/portal/webhook/redeem behavior
+  through a fake Stripe, and an end-to-end subscribe/unlock/cancel flow), a
+  mutation pass that breaks each safety rule in turn and confirms a test
+  fails, and a real-browser run (Playwright, real server, signed webhooks).
+  **A real bug that run's design surfaced:** a caller's pull cursor moves past
+  reports the server withholds while they are locked, so after subscribing or
+  redeeming, a delta pull would never resend them and the user would pay and
+  still see locked cards. The client now remembers each region's access level
+  and rebuilds that region from the start when it changes (which also drops
+  cached prices when a subscription lapses).
 - **Two real bugs, both found by live browser verification, not by
   tests.** First: `reportRoutes` (`/api/reports/:id/confirm` etc.) applied
   `requireUser` as a blanket `router.use('*', ...)`. `GET

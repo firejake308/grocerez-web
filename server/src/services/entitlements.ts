@@ -1,6 +1,7 @@
-import { and, eq, gte } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { and, asc, eq, gte, isNull } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
-import { contributionCredits, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../db/schema.js';
+import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../db/schema.js';
 import { haversineMiles } from '../lib/geohash.js';
 import { newId } from '../lib/ids.js';
 import type { LockedSummary } from '../../../shared/types.js';
@@ -17,7 +18,15 @@ const FREE_TIER_STICKY_DAYS = 7;
 const FREE_TIER_WINDOW_DAYS = 90;
 
 export const CREDIT_DAILY_CAP = 10;
-export const CREDITS_PER_MONTH = 15;
+/** Each verified, non-redundant report is worth this many credits (section 6.3.2). */
+export const CREDITS_PER_VERIFIED_REPORT = 10;
+/** Redeeming this many credits buys one free month of access. */
+export const CREDITS_PER_FREE_MONTH = 200;
+export const FREE_MONTH_DAYS = 30;
+/** Credits older than this stop counting toward the balance. */
+export const CREDIT_EXPIRY_DAYS = 90;
+/** Paid access outlives `planExpiresAt` by this long, so a delayed renewal webhook doesn't lock out a paying user. */
+const SUBSCRIPTION_GRACE_DAYS = 3;
 const CREDIT_VERIFY_DAYS = 14;
 const CREDIT_NONREDUNDANT_DAYS = 30;
 const CREDIT_PRICE_DELTA = 0.05;
@@ -26,24 +35,86 @@ export type EntitlementLevel = 'public' | 'contributor' | 'subscriber';
 
 const daysAgoIso = (now: () => Date, days: number): string => new Date(now().getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Paid access requires a recorded period end. A `plan = 'paid'` row with no
+ * expiry used to mean "forever"; now it means nothing, so a lost
+ * cancellation webhook can no longer leave someone subscribed indefinitely.
+ */
 function isSubscriber(user: typeof users.$inferSelect, now: () => Date): boolean {
-  return user.plan === 'paid' && (!user.planExpiresAt || user.planExpiresAt > now().toISOString());
+  if (user.plan !== 'paid' || !user.planExpiresAt) return false;
+  return Date.parse(user.planExpiresAt) + SUBSCRIPTION_GRACE_DAYS * DAY_MS > now().getTime();
 }
 
-/** Unrevoked credits earned in the trailing 30 days (section 6.3.2). */
-export function creditsThisMonth(db: AppDb, userId: string, now: () => Date = () => new Date()): number {
+function hasCreditAccess(user: typeof users.$inferSelect, now: () => Date): boolean {
+  return !!user.creditAccessUntil && user.creditAccessUntil > now().toISOString();
+}
+
+/** Credit rows that still count: unrevoked, unspent, and earned within the expiry window. */
+function availableCreditRows(db: AppDb, userId: string, now: () => Date) {
   return db
     .select()
     .from(contributionCredits)
-    .where(and(eq(contributionCredits.userId, userId), gte(contributionCredits.earnedAt, daysAgoIso(now, 30))))
+    .where(and(eq(contributionCredits.userId, userId), isNull(contributionCredits.spentRedemptionId), gte(contributionCredits.earnedAt, daysAgoIso(now, CREDIT_EXPIRY_DAYS))))
+    .orderBy(asc(contributionCredits.earnedAt))
     .all()
-    .filter((c) => !c.revokedAt).length;
+    .filter((c) => !c.revokedAt);
 }
 
-export function entitlementLevel(db: AppDb, user: typeof users.$inferSelect, now: () => Date = () => new Date()): EntitlementLevel {
+/** Spendable credits: 10 per available credit row (section 6.3.2). */
+export function creditBalance(db: AppDb, userId: string, now: () => Date = () => new Date()): number {
+  return availableCreditRows(db, userId, now).length * CREDITS_PER_VERIFIED_REPORT;
+}
+
+export function entitlementLevel(user: typeof users.$inferSelect, now: () => Date = () => new Date()): EntitlementLevel {
   if (isSubscriber(user, now)) return 'subscriber';
-  if (creditsThisMonth(db, user.id, now) >= CREDITS_PER_MONTH) return 'contributor';
+  if (hasCreditAccess(user, now)) return 'contributor';
   return 'public';
+}
+
+export class RedeemError extends Error {
+  constructor(public readonly status: 404 | 409, message: string) {
+    super(message);
+    this.name = 'RedeemError';
+  }
+}
+
+/**
+ * Spends 200 credits (the 20 oldest available credit rows) on 30 days of
+ * access. Runs in one transaction -- better-sqlite3 is synchronous, so the
+ * balance check and the spend can't interleave with another request, and a
+ * double tap can't spend the same credits twice. Redemptions stack: a second
+ * one extends from the end of the first. Refused while subscribed, so paying
+ * users keep accumulating credits rather than burning them on a month they
+ * already have.
+ */
+export function redeemFreeMonth(db: AppDb, userId: string, now: () => Date = () => new Date()): { accessUntil: string; balance: number } {
+  return db.transaction((tx) => {
+    const txDb = tx as unknown as AppDb;
+    const user = txDb.select().from(users).where(eq(users.id, userId)).all()[0];
+    if (!user) throw new RedeemError(404, 'Account not found.');
+    if (isSubscriber(user, now)) throw new RedeemError(409, 'You already have an active subscription. Your credits will keep building up.');
+
+    const rows = availableCreditRows(txDb, userId, now);
+    const needed = CREDITS_PER_FREE_MONTH / CREDITS_PER_VERIFIED_REPORT;
+    if (rows.length < needed) {
+      throw new RedeemError(409, `You need ${CREDITS_PER_FREE_MONTH} credits to redeem a free month; you have ${rows.length * CREDITS_PER_VERIFIED_REPORT}.`);
+    }
+
+    const nowIso = now().toISOString();
+    const base = user.creditAccessUntil && user.creditAccessUntil > nowIso ? user.creditAccessUntil : nowIso;
+    const accessUntil = new Date(Date.parse(base) + FREE_MONTH_DAYS * DAY_MS).toISOString();
+    const redemptionId = newId();
+
+    txDb.insert(creditRedemptions).values({ id: redemptionId, userId, credits: CREDITS_PER_FREE_MONTH, accessFrom: base, accessUntil, createdAt: nowIso }).run();
+    for (const row of rows.slice(0, needed)) {
+      txDb.update(contributionCredits).set({ spentRedemptionId: redemptionId }).where(eq(contributionCredits.id, row.id)).run();
+    }
+    txDb.update(users).set({ creditAccessUntil: accessUntil }).where(eq(users.id, userId)).run();
+
+    return { accessUntil, balance: (rows.length - needed) * CREDITS_PER_VERIFIED_REPORT };
+  });
 }
 
 // --- Free tier (section 6.3.1) -------------------------------------------
@@ -120,6 +191,40 @@ export function computeFreeTier(db: AppDb, lat: number, lon: number, radiusMi: n
     const prior = existingById.get(productId);
     db.insert(freeTierProducts).values({ regionKey: key, productId, rank: i + 1, enteredAt: prior?.enteredAt ?? today, computedAt: today }).run();
   });
+}
+
+/** How long a region's free set may go unrefreshed while people are pulling from it. */
+const FREE_TIER_REFRESH_MS = 60 * 1000;
+const lastFreeTierRefresh = new WeakMap<AppDb, Map<string, number>>();
+
+/**
+ * Brings a region's free set up to date on demand. Without this it only
+ * changed when the periodic job ran, so in a young region (fewer than 25
+ * products, where everything is meant to be free) a brand-new product stayed
+ * locked for hours. Throttled to once a minute per region per process, so a
+ * burst of pulls costs one scan; the scan is O(reports in the last 90 days),
+ * which is fine while the dataset is small -- revisit if it isn't.
+ */
+export function ensureFreeTierFresh(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date = () => new Date()): void {
+  const key = regionKey(lat, lon, radiusMi);
+  const seen = lastFreeTierRefresh.get(db) ?? new Map<string, number>();
+  lastFreeTierRefresh.set(db, seen);
+  const last = seen.get(key);
+  if (last !== undefined && now().getTime() - last < FREE_TIER_REFRESH_MS) return;
+  seen.set(key, now().getTime());
+  // Same center as the periodic job and the pull cursor: the 0.1-degree cell the key is built from.
+  computeFreeTier(db, Number(lat.toFixed(1)), Number(lon.toFixed(1)), radiusMi, now);
+}
+
+/**
+ * A short fingerprint of the region's current free set. Clients compare it
+ * between pulls: when a product enters the set, reports for it that an earlier
+ * pull withheld as locked are behind the client's cursor and would never be
+ * resent, so the client must start that region over.
+ */
+export function freeSetFingerprint(db: AppDb, lat: number, lon: number, radiusMi: number): string {
+  const ids = [...freeTierProductIds(db, lat, lon, radiusMi)].sort();
+  return createHash('sha1').update(ids.join('\n')).digest('hex').slice(0, 12);
 }
 
 export function freeTierProductIds(db: AppDb, lat: number, lon: number, radiusMi: number): Set<string> {

@@ -39,8 +39,13 @@ export const users = sqliteTable('users', {
   planExpiresAt: text('plan_expires_at'),
   homeLat: real('home_lat'),
   homeLon: real('home_lon'),
+  /** Stripe customer id, created on the first checkout so repeat checkouts reuse one customer. */
+  stripeCustomerId: text('stripe_customer_id'),
+  /** End of free access earned by redeeming contributor credits (section 6.3.2); null if never redeemed. */
+  creditAccessUntil: text('credit_access_until'),
 }, (t) => ([
   uniqueIndex('users_email_unique').on(t.email),
+  uniqueIndex('users_stripe_customer_unique').on(t.stripeCustomerId),
 ]));
 
 export const authCodes = sqliteTable('auth_codes', {
@@ -85,9 +90,21 @@ export const subscriptions = sqliteTable('subscriptions', {
   providerRef: text('provider_ref').notNull(),
   status: text('status').notNull(),
   currentPeriodEnd: text('current_period_end'),
+  /** True when the user has canceled but the paid period has not ended yet. */
+  cancelAtPeriodEnd: integer('cancel_at_period_end', { mode: 'boolean' }).notNull().default(false),
+  /** Stripe `created` (ISO) of the newest event applied, so a late-arriving older event can't overwrite newer state. */
+  lastEventAt: text('last_event_at'),
 }, (t) => ([
   index('subscriptions_user_idx').on(t.userId),
+  uniqueIndex('subscriptions_provider_ref_unique').on(t.providerRef),
 ]));
+
+/** Stripe event ids already applied; Stripe delivers at least once, so a replay must be a no-op. */
+export const stripeEvents = sqliteTable('stripe_events', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  receivedAt: text('received_at').notNull(),
+});
 
 // --- Stores (section 5, refined in 11a / 8.5) ----------------------------
 
@@ -260,12 +277,26 @@ export const freeTierProducts = sqliteTable('free_tier_products', {
   primaryKey({ columns: [t.regionKey, t.productId] }),
 ]));
 
+/** One row per "redeem credits for a free month" (section 6.3.2). */
+export const creditRedemptions = sqliteTable('credit_redemptions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  credits: integer('credits').notNull(),
+  accessFrom: text('access_from').notNull(),
+  accessUntil: text('access_until').notNull(),
+  createdAt: text('created_at').notNull(),
+}, (t) => ([
+  index('credit_redemptions_user_idx').on(t.userId),
+]));
+
 export const contributionCredits = sqliteTable('contribution_credits', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id),
   reportId: text('report_id').notNull().references(() => priceReports.id),
   earnedAt: text('earned_at').notNull(),
   revokedAt: text('revoked_at'),
+  /** Set when this credit was spent on a free month; spent credits no longer count toward the balance. */
+  spentRedemptionId: text('spent_redemption_id').references(() => creditRedemptions.id),
 }, (t) => ([
   index('contribution_credits_user_idx').on(t.userId),
   uniqueIndex('contribution_credits_report_unique').on(t.reportId),

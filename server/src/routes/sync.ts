@@ -11,7 +11,7 @@ import { followMerge, refreshProductFromReports, resolveProduct } from '../servi
 import { isStaleReport, refreshCurrentPrice, todayOf } from '../services/freshness.js';
 import { consumeRateLimit, LIMITS } from '../services/rateLimit.js';
 import { tierForUser } from '../services/trust.js';
-import { entitlementLevel, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
+import { ensureFreeTierFresh, entitlementLevel, freeSetFingerprint, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
 import { parsePrice } from '../../../shared/price.js';
 import type { LockedSummary, PriceReportUpsert, PriceReportPushResult, SyncedPriceReport } from '../../../shared/types.js';
 import { products } from '../db/schema.js';
@@ -303,14 +303,17 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
     const level = auth.kind === 'session'
       ? (() => {
           const caller = db.select().from(users).where(eq(users.id, auth.userId)).all()[0];
-          return caller ? entitlementLevel(db, caller, now) : 'public';
+          return caller ? entitlementLevel(caller, now) : 'public';
         })()
       : 'public';
     const accessLevel = entitlementsEnforced ? level : 'unrestricted';
 
     let reports: SyncedPriceReport[];
     let locked: LockedSummary[];
+    let freeSet: string | null = null;
     if (entitlementsEnforced && level === 'public') {
+      ensureFreeTierFresh(db, lat, lon, radiusMi, now);
+      freeSet = freeSetFingerprint(db, lat, lon, radiusMi);
       const freeIds = freeTierProductIds(db, lat, lon, radiusMi);
       const isLocked = (row: (typeof page)[number]) => !!row.report.productId && !freeIds.has(row.report.productId);
       reports = page.filter((row) => !isLocked(row)).map(toSyncedReport);
@@ -334,7 +337,7 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
       locked = [];
     }
 
-    return c.json({ accessLevel, reports, locked, nextSince });
+    return c.json({ accessLevel, reports, locked, nextSince, freeSet });
   });
 
   return router;

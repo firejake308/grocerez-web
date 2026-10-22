@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ArrowLeft, Cloud, LogOut, MapPin, RefreshCw } from 'lucide-react';
 import type { SyncController } from './sync/useSync';
-import type { GeocodeResult } from './sync/api';
+import type { GeocodeResult, Profile } from './sync/api';
+import { describeMembership, formatDate, formatMonthlyPrice } from './sync/membership';
 
 const formatWhen = (iso: string | null): string => {
   if (!iso) return 'never';
@@ -25,6 +26,73 @@ const TIER_LABEL: Record<string, string> = {
 const inputClass = 'block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900';
 const primaryButton = 'w-full py-3 rounded-lg font-medium text-white bg-green-500 hover:bg-green-600 disabled:opacity-50';
 const secondaryButton = 'w-full py-2 rounded-lg font-medium text-green-700 border border-green-600 hover:bg-green-50 disabled:opacity-50';
+
+/** Plan section 6.3: subscription state, the free-month credit meter, and the actions that go with them. */
+const MembershipCard = ({
+  sync,
+  entitlement,
+  busy,
+  run,
+}: {
+  sync: SyncController;
+  entitlement: Profile['entitlement'];
+  busy: boolean;
+  run: (fn: () => Promise<void>) => Promise<void>;
+}) => {
+  const m = describeMembership(entitlement);
+  const { credits } = entitlement;
+
+  return (
+    <section className="bg-white rounded-lg shadow p-4 space-y-3">
+      <h2 className="font-semibold text-lg text-gray-800">Membership</h2>
+
+      {m.subscribed ? (
+        <div className="text-sm text-gray-600">
+          <p>You're subscribed ({formatMonthlyPrice(entitlement.priceCents)}) -- every community price is unlocked.</p>
+          {m.renewal && (
+            <p className="mt-1">{m.renewal.ending ? `Your subscription ends on ${formatDate(m.renewal.date)}.` : `Renews on ${formatDate(m.renewal.date)}.`}</p>
+          )}
+        </div>
+      ) : m.freeMonthUntil ? (
+        <p className="text-sm text-gray-600">Free month active until {formatDate(m.freeMonthUntil)} -- every community price is unlocked.</p>
+      ) : (
+        <p className="text-sm text-gray-600">
+          Free accounts see prices for the most popular items. Unlock everything for {formatMonthlyPrice(entitlement.priceCents)}, or earn a free month by sharing prices.
+        </p>
+      )}
+
+      {m.canSubscribe && (
+        <button onClick={() => void run(async () => { window.location.href = await sync.checkoutSubscription(); })} disabled={busy} className={primaryButton}>
+          Subscribe · {formatMonthlyPrice(entitlement.priceCents)}
+        </button>
+      )}
+      {m.canManageBilling && (
+        <button onClick={() => void run(async () => { window.location.href = await sync.openBillingPortal(); })} disabled={busy} className={secondaryButton}>
+          Manage subscription
+        </button>
+      )}
+
+      <div>
+        <div className="flex justify-between text-sm text-gray-700 mb-1">
+          <span>Credits</span>
+          <span>{credits.balance} of {credits.perFreeMonth}</span>
+        </div>
+        <div className="h-2 rounded-full bg-gray-200 overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={credits.perFreeMonth} aria-valuenow={Math.min(credits.balance, credits.perFreeMonth)}>
+          <div className="h-full bg-green-500" style={{ width: `${m.creditPercent}%` }} />
+        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Earn {credits.perReport} credits for each verified price you share that isn't a repeat. Credits expire after {credits.expiryDays} days.
+          {m.subscribed ? ' Yours keep building while you are subscribed.' : m.creditsToGo > 0 ? ` ${m.creditsToGo} to go for a free month.` : ''}
+        </p>
+        {m.canRedeem && (
+          <button onClick={() => void run(() => sync.redeemCredits())} disabled={busy} className={`${secondaryButton} mt-2`}>
+            Redeem {credits.perFreeMonth} credits for a free month
+          </button>
+        )}
+      </div>
+    </section>
+  );
+};
 
 const SyncSettingsScreen = ({ sync, onBack }: { sync: SyncController; onBack: VoidFunction }) => {
   const [email, setEmail] = useState(sync.auth?.email ?? '');
@@ -219,24 +287,7 @@ const SyncSettingsScreen = ({ sync, onBack }: { sync: SyncController; onBack: Vo
               {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
             </section>
 
-            {sync.auth && sync.profile?.entitlement.enforced && (
-              <section className="bg-white rounded-lg shadow p-4">
-                <h2 className="font-semibold text-lg text-gray-800 mb-1">Membership</h2>
-                {sync.profile.entitlement.level === 'subscriber' ? (
-                  <p className="text-sm text-gray-600">You're subscribed -- every price is unlocked.</p>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {sync.profile.entitlement.credits.earned} of {sync.profile.entitlement.credits.needed} credits this month.
-                      Earn a credit for each verified, non-redundant price you share, or subscribe to unlock everything now.
-                    </p>
-                    <button onClick={() => void run(async () => { window.location.href = await sync.checkoutSubscription(); })} disabled={busy} className={primaryButton}>
-                      Subscribe
-                    </button>
-                  </>
-                )}
-              </section>
-            )}
+            {sync.auth && sync.profile?.entitlement.enforced && <MembershipCard sync={sync} entitlement={sync.profile.entitlement} busy={busy} run={run} />}
           </>
         )}
       </main>

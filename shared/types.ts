@@ -158,4 +158,11 @@ export interface PullResponseBody {
   reports: SyncedPriceReport[];
   locked: LockedSummary[];
   nextSince: number;
+  /**
+   * Fingerprint of the region's free set, for 'public' callers only (null for
+   * everyone else, and while enforcement is off; absent from older servers).
+   * When it changes, reports withheld as locked earlier are behind the
+   * client's cursor, so the client rebuilds the region from the start.
+   */
+  freeSet?: string | null;
 }
