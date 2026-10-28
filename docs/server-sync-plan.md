@@ -254,6 +254,15 @@ client cannot be patched around it.
 - Early on, when a region has fewer than 25 products, the free set is
   simply everything there, which is the right behavior for a dataset that
   needs seeding.
+- Region-scoped reads (the refresh and `GET /api/sync/pull`) filter by
+  location in SQLite -- stores in the bounding box via the lat/lon index, an
+  exact circle check on that handful, then a grouped count / chunked read over
+  just those stores' reports (index on `price_reports(store_id, status,
+  created_at)`) -- so cost follows the region's data, not the whole database.
+  Measured on a synthetic database with half its reports in the pulled region:
+  the free-set refresh went from 154 ms / 788 ms / 4.0 s to 13 ms / 47 ms /
+  221 ms at 10k / 50k / 200k reports; a pull now stops reading once a page is
+  full. SQLite is synchronous here, so a slow query stalls every request.
 - The set is refreshed on demand, not only by the periodic job: a public pull
   recomputes its region's set if it is more than a minute old (one scan per
   region per minute, fine while the dataset is small). Before this, a new
@@ -627,6 +636,14 @@ GET    /api/sync/pull?since=&lat=&lon=&radiusMi=&limit=
                                            → { accessLevel, reports, locked, nextSince }
                                              (device token or session; never 402,
                                               locked prices are omitted instead)
+
+GET    /api/discover?limit=                → home-screen sample, no location needed:
+                                             the newest report per product anywhere
+                                             (device token or session). A public
+                                             caller gets full reports only for
+                                             products in the free set of the store's
+                                             own region, plus up to 3 price-less
+                                             teasers for the rest.
 
 GET    /api/geo/nearby-stores?lat=&lon=    → stores table first, Overpass fallback
 GET    /api/geo/reverse?lat=&lon=

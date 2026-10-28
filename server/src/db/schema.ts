@@ -199,6 +199,8 @@ export const priceReports = sqliteTable('price_reports', {
   uniqueIndex('price_reports_id_unique').on(t.id),
   index('price_reports_user_idx').on(t.userId),
   index('price_reports_product_store_idx').on(t.productId, t.storeId),
+  // Region-scoped reads (free-set refresh, pulls) start from a set of stores, so look reports up by store.
+  index('price_reports_store_idx').on(t.storeId, t.status, t.createdAt),
 ]));
 
 export const reportVotes = sqliteTable('report_votes', {

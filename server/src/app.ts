@@ -14,6 +14,7 @@ import { geoRoutes } from './routes/geo.js';
 import { reportRoutes } from './routes/reports.js';
 import { photoRoutes } from './routes/photos.js';
 import { productRoutes } from './routes/products.js';
+import { discoverRoutes } from './routes/discover.js';
 import { adminRoutes } from './routes/admin.js';
 import { parseRoutes, type ParseRouteDeps } from './routes/parse.js';
 import { billingRoutes, type BillingDeps } from './routes/billing.js';
@@ -80,6 +81,7 @@ export function createApp({
   app.route('/api/devices', deviceRoutes(db));
   app.route('/api/me', meRoutes(db, entitlementsEnforced, now, checkoutConfigured(billing)));
   app.route('/api/sync', syncRoutes(db, now, entitlementsEnforced));
+  app.route('/api/discover', discoverRoutes(db, entitlementsEnforced, now));
 
   // The geo proxy is metered per caller so a single device can't use the
   // server as a relay to Nominatim or the Overpass box (section 9.4).

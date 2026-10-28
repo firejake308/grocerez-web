@@ -1,4 +1,5 @@
 import type {
+  DiscoverResponseBody,
   ParsedPriceFields,
   PriceReportUpsert,
   ProductMatchCandidate,
@@ -157,6 +158,9 @@ export function createSyncApi(baseUrl: string, fetchImpl: typeof fetch = (...arg
     /** The AI parse proxy (Phase 3): moves the OpenRouter call server-side so its key never ships in the client bundle. */
     parseImages: (token: string, priceImage: string, productImage: string, reportId?: string) =>
       request<ParsedPriceFields>('/api/parse', { method: 'POST', token, body: { priceImage, productImage, reportId }, timeoutMs: 45_000 }),
+    /** Home-screen sample of what people are sharing, anywhere (no location needed). */
+    discover: (token: string, limit = 6) =>
+      request<DiscoverResponseBody>(`/api/discover?limit=${limit}`, { token, timeoutMs: 12_000 }),
     checkoutSubscription: (token: string) =>
       request<{ url: string }>('/api/billing/checkout', { method: 'POST', token, timeoutMs: 15_000 }),
     openBillingPortal: (token: string) =>

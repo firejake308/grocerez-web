@@ -207,6 +207,7 @@ describe('runSync', () => {
       checkoutSubscription: record('checkoutSubscription', async () => { throw new Error('unused'); }),
       openBillingPortal: record('openBillingPortal', async () => { throw new Error('unused'); }),
       redeemCredits: record('redeemCredits', async () => { throw new Error('unused'); }),
+      discover: record('discover', async () => ({ accessLevel: 'public' as const, reports: [], locked: [] })),
       ...overrides,
     };
     return { api, calls };

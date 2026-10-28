@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, asc, eq, gte, isNull } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../db/schema.js';
 import { haversineMiles } from '../lib/geohash.js';
@@ -130,37 +130,37 @@ interface FreeTierCandidate {
   storesCount: number;
 }
 
-/** Distinct reporters x distinct stores per product, over the trailing 90 days, within a region. */
+/**
+ * Distinct reporters x distinct stores per product, over the trailing 90
+ * days, within a region. Done in SQLite rather than by loading every report
+ * into JavaScript: first the stores inside the bounding box (indexed), then
+ * an exact circle check on that handful, then one grouped count over just
+ * those stores' reports. Cost follows the region's data, not the whole database.
+ */
 function regionCandidates(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date): FreeTierCandidate[] {
   const latDelta = radiusMi / 69;
   const lonDelta = radiusMi / (69 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01));
   const cutoff = daysAgoIso(now, FREE_TIER_WINDOW_DAYS);
 
-  const rows = db
-    .select({ report: priceReports, store: stores })
-    .from(priceReports)
-    .innerJoin(stores, eq(priceReports.storeId, stores.id))
-    .where(and(eq(priceReports.status, 'active'), gte(priceReports.createdAt, cutoff)))
-    .all();
+  const nearby = db
+    .select({ id: stores.id, lat: stores.lat, lon: stores.lon })
+    .from(stores)
+    .where(and(gte(stores.lat, lat - latDelta), lte(stores.lat, lat + latDelta), gte(stores.lon, lon - lonDelta), lte(stores.lon, lon + lonDelta)))
+    .all()
+    .filter((s) => s.lat != null && s.lon != null && haversineMiles(lat, lon, s.lat, s.lon) <= radiusMi)
+    .map((s) => s.id);
+  if (nearby.length === 0) return [];
 
-  const byProduct = new Map<string, { reporters: Set<string>; storeIds: Set<string> }>();
-  for (const { report, store } of rows) {
-    if (!report.productId) continue;
-    if (store.lat == null || store.lon == null) continue;
-    if (Math.abs(store.lat - lat) > latDelta || Math.abs(store.lon - lon) > lonDelta) continue;
-    if (haversineMiles(lat, lon, store.lat, store.lon) > radiusMi) continue;
-
-    const entry = byProduct.get(report.productId) ?? { reporters: new Set(), storeIds: new Set() };
-    entry.reporters.add(report.userId);
-    entry.storeIds.add(store.id);
-    byProduct.set(report.productId, entry);
-  }
-
-  return [...byProduct.entries()].map(([productId, { reporters, storeIds }]) => ({
-    productId,
-    reporters: reporters.size,
-    storesCount: storeIds.size,
-  }));
+  // The store ids travel as one JSON parameter, so there is no cap on how many a dense region has.
+  const rows = db.all<{ productId: string; reporters: number; storesCount: number }>(sql`
+    select product_id as productId, count(distinct user_id) as reporters, count(distinct store_id) as storesCount
+    from price_reports
+    where status = 'active'
+      and created_at >= ${cutoff}
+      and product_id is not null
+      and store_id in (select value from json_each(${JSON.stringify(nearby)}))
+    group by product_id`);
+  return rows.map((r) => ({ productId: r.productId, reporters: r.reporters, storesCount: r.storesCount }));
 }
 
 /**

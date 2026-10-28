@@ -5,7 +5,7 @@ import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Prof
 import { readCheckoutReturn, waitForLevel, withoutCheckoutParam } from './checkoutReturn';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
 import { cachedCommunity, patchSyncedReport, pendingReports, runSync } from './engine';
-import { fetchDiscoverSamples } from './discover';
+import { fetchDiscover } from './discover';
 import { getSyncLocation } from './location';
 import { localSyncStorage, type HomeArea, type SyncAuth } from './storage';
 
@@ -24,8 +24,10 @@ export interface SyncController {
   auth: SyncAuth | null;
   profile: Profile | null;
   community: PriceData[];
-  /** Random-metro sample for the home screen when there's no real location yet (see sync/discover.ts). Empty once `community` has anything. */
+  /** Newest prices anywhere, for the home screen when there's no community pull to show yet (see sync/discover.ts). Empty once `community` has anything. */
   discover: PriceData[];
+  /** Price-less teasers for products a free account can't see, from the same request as `discover`. */
+  discoverLocked: LockedSummary[];
   /** Section 6.3: products outside the free set, for a 'public'-level caller only. Always empty until ENTITLEMENTS_ENFORCED is on. */
   locked: LockedSummary[];
   status: SyncStatus;
@@ -88,6 +90,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const [homeArea, setHomeAreaState] = useState<HomeArea | null>(() => (enabled ? storage.getHomeArea() : null));
   const [community, setCommunity] = useState<PriceData[]>(() => (enabled ? cachedCommunity(storage) : []));
   const [discover, setDiscover] = useState<PriceData[]>([]);
+  const [discoverLocked, setDiscoverLocked] = useState<LockedSummary[]>([]);
   const [locked, setLocked] = useState<LockedSummary[]>([]);
   const [status, setStatus] = useState<SyncStatus>(() => ({
     running: false,
@@ -195,8 +198,11 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
           storage.setDeviceToken(deviceToken);
           token = deviceToken;
         }
-        const samples = await fetchDiscoverSamples(api, token);
-        if (!cancelled) setDiscover(samples);
+        const sample = await fetchDiscover(api, token);
+        if (!cancelled) {
+          setDiscover(sample.items);
+          setDiscoverLocked(sample.locked);
+        }
       } catch {
         // Best-effort nudge; a failure here just means the home screen stays quieter.
       }
@@ -349,6 +355,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     profile,
     community,
     discover,
+    discoverLocked,
     locked,
     status,
     homeArea,

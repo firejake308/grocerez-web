@@ -148,6 +148,13 @@ export interface LockedSummary {
   newestDate: string;
 }
 
+/** GET /api/discover: a location-free sample for the home screen. Locked teasers carry no price. */
+export interface DiscoverResponseBody {
+  accessLevel: PullResponseBody['accessLevel'];
+  reports: SyncedPriceReport[];
+  locked: LockedSummary[];
+}
+
 export interface PullResponseBody {
   /**
    * 'unrestricted' while ENTITLEMENTS_ENFORCED is off (plan section 6.3.3,

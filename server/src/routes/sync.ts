@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { and, asc, eq, gt, inArray, ne } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lte, ne } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { priceReports, reportVotes, stores, users } from '../db/schema.js';
 import { haversineMiles } from '../lib/geohash.js';
@@ -8,9 +8,9 @@ import { clientIp } from '../lib/clientIp.js';
 import { requireAuth, requireUser, type AppEnv } from '../lib/authenticate.js';
 import { resolveStore } from '../services/stores.js';
 import { followMerge, refreshProductFromReports, resolveProduct } from '../services/products.js';
-import { isStaleReport, refreshCurrentPrice, todayOf } from '../services/freshness.js';
+import { refreshCurrentPrice, todayOf } from '../services/freshness.js';
 import { consumeRateLimit, LIMITS } from '../services/rateLimit.js';
-import { tierForUser } from '../services/trust.js';
+import { toSyncedReport } from '../services/syncedReport.js';
 import { ensureFreeTierFresh, entitlementLevel, freeSetFingerprint, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
 import { parsePrice } from '../../../shared/price.js';
 import type { LockedSummary, PriceReportUpsert, PriceReportPushResult, SyncedPriceReport } from '../../../shared/types.js';
@@ -190,6 +190,8 @@ function pushOneReport(db: AppDb, ctx: PushContext, input: PriceReportUpsert): P
   };
 }
 
+type PullRow = { report: typeof priceReports.$inferSelect; store: typeof stores.$inferSelect; author: typeof users.$inferSelect };
+
 export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitlementsEnforced = false) {
   const router = new Hono<AppEnv>();
 
@@ -234,26 +236,42 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
     const latDelta = radiusMi / 69; // ~69 miles per degree of latitude
     const lonDelta = radiusMi / (69 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01));
 
-    const rows = db
-      .select({ report: priceReports, store: stores, author: users })
-      .from(priceReports)
-      .innerJoin(stores, eq(priceReports.storeId, stores.id))
-      .innerJoin(users, eq(priceReports.userId, users.id))
-      .where(gt(priceReports.seq, Number.isFinite(since) ? since : 0))
-      .orderBy(asc(priceReports.seq))
-      .all();
-
-    // Chain-level stores (no location, see plan section 8.5/11a) are
-    // excluded from geo-scoped pulls for now; the "approximate location
-    // from the reporter's other reports" fallback in plan section 7 isn't
-    // implemented yet, so there's nothing to filter them by.
-    const inRange = rows.filter(({ store }) => {
-      if (store.lat == null || store.lon == null) return false;
-      if (Math.abs(store.lat - lat) > latDelta || Math.abs(store.lon - lon) > lonDelta) return false;
-      return haversineMiles(lat, lon, store.lat, store.lon) <= radiusMi;
-    });
-
-    const page = inRange.slice(0, limit);
+    // Read in seq order, a chunk at a time, and stop as soon as a page is
+    // full: a client's first pull of a busy region must not load every report
+    // in it just to keep the first `limit`. The bounding box is in SQL (it
+    // also drops stores with no coordinates -- chain-level stores are excluded
+    // from geo-scoped pulls for now, see plan section 8.5/11a); the exact
+    // circle is checked here, which is why a chunk can yield fewer rows than it holds.
+    const PULL_CHUNK = 1000;
+    const page: PullRow[] = [];
+    let cursor = Number.isFinite(since) ? since : 0;
+    while (page.length < limit) {
+      const chunk = db
+        .select({ report: priceReports, store: stores, author: users })
+        .from(priceReports)
+        .innerJoin(stores, eq(priceReports.storeId, stores.id))
+        .innerJoin(users, eq(priceReports.userId, users.id))
+        .where(
+          and(
+            gt(priceReports.seq, cursor),
+            gte(stores.lat, lat - latDelta),
+            lte(stores.lat, lat + latDelta),
+            gte(stores.lon, lon - lonDelta),
+            lte(stores.lon, lon + lonDelta),
+          ),
+        )
+        .orderBy(asc(priceReports.seq))
+        .limit(PULL_CHUNK)
+        .all();
+      for (const row of chunk) {
+        if (row.store.lat == null || row.store.lon == null) continue;
+        if (haversineMiles(lat, lon, row.store.lat, row.store.lon) > radiusMi) continue;
+        page.push(row);
+        if (page.length === limit) break;
+      }
+      if (chunk.length < PULL_CHUNK) break;
+      cursor = chunk[chunk.length - 1].report.seq;
+    }
     const nextSince = page.length > 0 ? page[page.length - 1].report.seq : since;
 
     const myVotes = new Map<string, 'confirm' | 'flag'>();
@@ -269,30 +287,7 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
     }
 
     const today = todayOf(now());
-    const toSyncedReport = ({ report, store, author }: (typeof page)[number]): SyncedPriceReport => ({
-      id: report.id,
-      seq: report.seq,
-      userId: report.userId,
-      authorTier: tierForUser(author),
-      productId: report.productId ?? '',
-      storeId: report.storeId ?? '',
-      storeName: store.name,
-      itemName: report.itemName,
-      brand: report.brand,
-      tags: JSON.parse(report.tags) as string[],
-      quantity: report.quantity,
-      quantityUnits: report.quantityUnits,
-      priceCents: report.priceCents,
-      observedDate: report.observedDate,
-      expiresAt: report.expiresAt,
-      isSale: report.isSale,
-      status: report.status,
-      reviewReason: report.reviewReason,
-      confirmCount: report.confirmCount,
-      isStale: isStaleReport(report, today),
-      myVote: myVotes.get(report.id) ?? null,
-      updatedAt: report.updatedAt,
-    });
+    const toWire = (row: PullRow) => toSyncedReport(row, today, myVotes.get(row.report.id) ?? null);
 
     // Section 6.3: a public-level caller (no account, or signed in without
     // a subscription or enough contributor credit) sees a locked summary
@@ -316,7 +311,7 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
       freeSet = freeSetFingerprint(db, lat, lon, radiusMi);
       const freeIds = freeTierProductIds(db, lat, lon, radiusMi);
       const isLocked = (row: (typeof page)[number]) => !!row.report.productId && !freeIds.has(row.report.productId);
-      reports = page.filter((row) => !isLocked(row)).map(toSyncedReport);
+      reports = page.filter((row) => !isLocked(row)).map(toWire);
 
       const byProduct = new Map<string, { storeIds: Set<string>; newestDate: string }>();
       for (const row of page.filter(isLocked)) {
@@ -333,7 +328,7 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
         })
         .filter((s): s is LockedSummary => s !== null);
     } else {
-      reports = page.map(toSyncedReport);
+      reports = page.map(toWire);
       locked = [];
     }
 
