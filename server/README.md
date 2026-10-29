@@ -132,6 +132,49 @@ The client and API share `grocerez.app`, split by DNS record: the apex
 7. **Point the client at it**: set `VITE_SYNC_API_URL=https://api.grocerez.app`
    when building/deploying the client (see the root `README.md`).
 
+## Updating the VPS
+
+Run everything from the `server/` folder on the VPS. The Netlify client
+deploys itself when you merge to `main`; these commands are for the API
+containers. There is one checkout on the VPS, so whatever branch it is on is
+the code both APIs build from -- switch back to `main` when you're done
+trying a branch on dev.
+
+**Update only dev** (for example to try a branch, or after a PR changes):
+```bash
+git fetch && git checkout <branch> && git pull
+docker compose --profile dev up -d --build --no-deps api-dev
+```
+
+**Update only production** (after merging to `main`):
+```bash
+git checkout main && git pull
+docker compose up -d --build --no-deps api
+```
+
+**Update both** (production and dev on the same code):
+```bash
+git checkout main && git pull
+docker compose --profile dev up -d --build
+```
+
+Good to know:
+
+- `--build` is required to pick up new code. `up -d` alone, or `restart`, reuses
+  the old image. Changing `.env` needs `up -d` (a recreate); `restart` doesn't
+  re-read it.
+- A plain `docker compose up -d --build` skips the `dev` profile, so `api-dev`
+  keeps running its old code until you include `--profile dev`.
+- Database migrations run automatically when a container starts. Back up the
+  SQLite file first when a release changes the schema (see Backups).
+- Changed the `Caddyfile`? Caddy has to be recreated to see it:
+  `docker compose up -d --force-recreate --no-deps caddy`.
+- Check a deploy: `docker compose logs --tail 30 api` (or `api-dev`) should end
+  with `grocerez-server listening`, and `curl -I https://api.grocerez.app/healthz`
+  (or `dev-api.`) should return 200.
+- Roll back by checking out the previous commit and running the same command;
+  migrations only add things, so older code keeps working on a migrated database.
+
 ## Dev API on the VPS
 
 For deploy previews and Stripe test mode you want a backend that is not
