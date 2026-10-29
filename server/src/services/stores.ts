@@ -44,6 +44,11 @@ export function splitStoreString(raw: string): { chainRaw: string | null; addres
   if (!cleaned) return { chainRaw: null, addressRaw: null };
   if (cleaned.includes('@')) {
     const [chainPart, addressPart] = cleaned.split('@').map((s) => s.trim());
+    // "4901 Maple Avenue @ 4901 Maple Avenue" is what the client builds from a
+    // stored address-only row; there is no chain in it.
+    if (chainPart && addressPart && normalizeKeyPart(chainPart) === normalizeKeyPart(addressPart)) {
+      return { chainRaw: null, addressRaw: addressPart };
+    }
     return { chainRaw: chainPart || null, addressRaw: addressPart || null };
   }
   // A string starting with digits reads as a street address ("9410 Webb

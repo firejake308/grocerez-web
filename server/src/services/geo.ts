@@ -2,7 +2,7 @@ import { and, isNotNull, ne } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { stores } from '../db/schema.js';
 import { haversineMeters } from '../lib/geohash.js';
-import { resolveStore } from './stores.js';
+import { normalizeChainKey, resolveStore } from './stores.js';
 
 /**
  * Geo proxy (plan section 8.6): nearby-store lookup answered from our own
@@ -91,6 +91,8 @@ function knownStoresNear(db: AppDb, lat: number, lon: number): NearbyStore[] {
     .where(and(isNotNull(stores.lat), isNotNull(stores.lon), ne(stores.chainKey, '')))
     .all();
   return rows
+    // Rows saved before the doubled "addr @ addr" label was recognised have a chain key but are still just an address.
+    .filter((s) => !(s.address !== null && normalizeChainKey(s.name) === normalizeChainKey(s.address)))
     .filter((s) => s.lat !== null && s.lon !== null && Math.abs(s.lat - lat) <= latDelta && Math.abs(s.lon - lon) <= lonDelta)
     .map((s) => ({
       storeId: s.id,

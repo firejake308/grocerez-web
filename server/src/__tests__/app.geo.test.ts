@@ -130,6 +130,22 @@ describe('geo routes', () => {
     expect(fake.calls).toHaveLength(1);
   });
 
+  it('does not turn a doubled "addr @ addr" label into a chain, and ignores such rows already saved', async () => {
+    const doubled = '4901 Maple Avenue @ 4901 Maple Avenue';
+    const viaPush = resolveStore(db, { rawStore: doubled, lat: KROGER.lat, lon: KROGER.lon });
+    expect(viaPush.chainKey).toBe('');
+    expect(resolveStore(db, { rawStore: '4901 Maple Avenue', lat: KROGER.lat, lon: KROGER.lon }).id).toBe(viaPush.id);
+
+    // A row written before the fix: chain key set, name equal to address.
+    sqlite.prepare("UPDATE stores SET chain_key = '4901 maple avenue' WHERE id = ?").run(viaPush.id);
+    const fake = new FakeFetch({ 'http://overpass.test': { elements: [] } });
+    const app = build(fake);
+    const token = await deviceToken(app);
+    const body = await json(await get(app, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, token));
+    expect(body.stores).toEqual([]);
+    expect(fake.calls).toHaveLength(1);
+  });
+
   it('gives the same storeId that a later push resolves to, so the client and server agree on the store', async () => {
     const fake = new FakeFetch({
       'http://overpass.test': {
