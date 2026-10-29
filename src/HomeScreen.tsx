@@ -3,11 +3,13 @@ import { Search, Camera, Trash2, Download, Upload, Cloud, CloudOff, Globe } from
 import PriceData, { GroceryItem } from './PriceData';
 import type { GeocodeResult } from './sync/api';
 import type { HomeArea } from './sync/storage';
+import type { LockedSummary } from '../shared/types';
 
 const HomeScreen = ({
   onScan,
   priceData,
   discoverItems,
+  discoverLocked,
   homeArea,
   onSearchHomeArea,
   onChooseHomeArea,
@@ -25,6 +27,8 @@ const HomeScreen = ({
   onScan: VoidFunction;
   priceData: PriceData[];
   discoverItems: PriceData[];
+  /** Price-less teasers for products a free account can't see; tapping one opens the membership screen. */
+  discoverLocked: LockedSummary[];
   homeArea: HomeArea | null;
   onSearchHomeArea?: (q: string) => Promise<GeocodeResult[]>;
   onChooseHomeArea?: (area: HomeArea | null) => Promise<void>;
@@ -159,7 +163,7 @@ const HomeScreen = ({
         </div>
 
         {/* Discover: a taste of what's out there to search for, even before a location is set */}
-        {discoverItems.length > 0 && (
+        {(discoverItems.length > 0 || discoverLocked.length > 0) && (
           <div className="bg-white rounded-lg shadow-md p-4 mb-4">
             <h2 className="text-lg font-semibold mb-1 text-gray-800 flex items-center gap-1.5">
               <Globe size={18} className="text-green-600" />
@@ -211,6 +215,22 @@ const HomeScreen = ({
               </>
             )}
             <div className="space-y-2">
+              {discoverLocked.map((item) => (
+                <button
+                  key={item.productId}
+                  type="button"
+                  onClick={onOpenSync}
+                  className="w-full text-left p-2 border-b border-gray-100 flex flex-col bg-gray-50 rounded-md"
+                >
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-700">{item.canonicalName}</span>
+                    <span className="text-xs text-blue-600 font-medium whitespace-nowrap">Subscribe to see</span>
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {item.reportCount} price{item.reportCount === 1 ? '' : 's'} at {item.storeCount} store{item.storeCount === 1 ? '' : 's'}
+                  </span>
+                </button>
+              ))}
               {discoverItems.slice(0, 6).map((item) => (
                 <div key={item.id} className="p-2 border-b border-gray-100 flex flex-col">
                   <div className="flex justify-between">

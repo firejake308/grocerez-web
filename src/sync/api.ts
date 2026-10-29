@@ -1,4 +1,5 @@
 import type {
+  DiscoverResponseBody,
   ParsedPriceFields,
   PriceReportUpsert,
   ProductMatchCandidate,
@@ -25,9 +26,15 @@ export interface Profile {
   entitlement: {
     enforced: boolean;
     level: 'public' | 'contributor' | 'subscriber';
+    /** False until the server has a Stripe key and price; hides the Subscribe button. */
+    billingConfigured: boolean;
+    priceCents: number;
     plan: 'free' | 'paid';
     planExpiresAt: string | null;
-    credits: { earned: number; needed: number };
+    subscription: { status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+    /** End of a free month earned by redeeming credits, if any. */
+    creditAccessUntil: string | null;
+    credits: { balance: number; perReport: number; perFreeMonth: number; expiryDays: number };
   };
 }
 
@@ -151,8 +158,15 @@ export function createSyncApi(baseUrl: string, fetchImpl: typeof fetch = (...arg
     /** The AI parse proxy (Phase 3): moves the OpenRouter call server-side so its key never ships in the client bundle. */
     parseImages: (token: string, priceImage: string, productImage: string, reportId?: string) =>
       request<ParsedPriceFields>('/api/parse', { method: 'POST', token, body: { priceImage, productImage, reportId }, timeoutMs: 45_000 }),
+    /** Home-screen sample of what people are sharing, anywhere (no location needed). */
+    discover: (token: string, limit = 6) =>
+      request<DiscoverResponseBody>(`/api/discover?limit=${limit}`, { token, timeoutMs: 12_000 }),
     checkoutSubscription: (token: string) =>
       request<{ url: string }>('/api/billing/checkout', { method: 'POST', token, timeoutMs: 15_000 }),
+    openBillingPortal: (token: string) =>
+      request<{ url: string }>('/api/billing/portal', { method: 'POST', token, timeoutMs: 15_000 }),
+    redeemCredits: (token: string) =>
+      request<{ entitlement: Profile['entitlement'] }>('/api/billing/redeem-credits', { method: 'POST', token, timeoutMs: 15_000 }),
   };
 }
 

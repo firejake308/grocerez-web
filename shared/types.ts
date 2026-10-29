@@ -148,6 +148,13 @@ export interface LockedSummary {
   newestDate: string;
 }
 
+/** GET /api/discover: a location-free sample for the home screen. Locked teasers carry no price. */
+export interface DiscoverResponseBody {
+  accessLevel: PullResponseBody['accessLevel'];
+  reports: SyncedPriceReport[];
+  locked: LockedSummary[];
+}
+
 export interface PullResponseBody {
   /**
    * 'unrestricted' while ENTITLEMENTS_ENFORCED is off (plan section 6.3.3,
@@ -158,4 +165,11 @@ export interface PullResponseBody {
   reports: SyncedPriceReport[];
   locked: LockedSummary[];
   nextSince: number;
+  /**
+   * Fingerprint of the region's free set, for 'public' callers only (null for
+   * everyone else, and while enforcement is off; absent from older servers).
+   * When it changes, reports withheld as locked earlier are behind the
+   * client's cursor, so the client rebuilds the region from the start.
+   */
+  freeSet?: string | null;
 }

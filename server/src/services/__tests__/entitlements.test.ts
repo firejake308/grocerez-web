@@ -3,14 +3,16 @@ import { eq } from 'drizzle-orm';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { runMigrations } from '../../db/migrate.js';
 import type { AppDb } from '../../db/client.js';
-import { contributionCredits, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../../db/schema.js';
+import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../../db/schema.js';
 import { newId } from '../../lib/ids.js';
 import {
   computeFreeTier,
-  creditsThisMonth,
+  creditBalance,
   entitlementLevel,
   evaluateContributionCredits,
   freeTierProductIds,
+  RedeemError,
+  redeemFreeMonth,
   regionKey,
   revokeCreditForReport,
 } from '../entitlements.js';
@@ -64,6 +66,7 @@ describe('entitlementLevel', () => {
   let db: AppDb;
   let sqlite: SqliteDatabase;
   const now = () => new Date('2026-06-15T00:00:00.000Z');
+  const load = (id: string) => db.select().from(users).where(eq(users.id, id)).all()[0];
 
   beforeEach(() => {
     ({ db, sqlite } = runMigrations(':memory:'));
@@ -75,36 +78,64 @@ describe('entitlementLevel', () => {
 
   it('is subscriber for an active, unexpired paid plan', () => {
     const id = seedUser(db, { plan: 'paid', planExpiresAt: '2026-07-01T00:00:00.000Z' });
-    const user = db.select().from(users).where(eq(users.id, id)).all()[0];
-    expect(entitlementLevel(db, user, now)).toBe('subscriber');
+    expect(entitlementLevel(load(id), now)).toBe('subscriber');
   });
 
-  it('falls back to public once a paid plan has expired', () => {
-    const id = seedUser(db, { plan: 'paid', planExpiresAt: '2026-06-01T00:00:00.000Z' });
-    const user = db.select().from(users).where(eq(users.id, id)).all()[0];
-    expect(entitlementLevel(db, user, now)).toBe('public');
+  it('stays subscriber for up to 3 days past the period end (a delayed renewal webhook), then falls back to public', () => {
+    const id = seedUser(db, { plan: 'paid', planExpiresAt: '2026-06-13T00:00:00.000Z' }); // ended 2 days ago
+    expect(entitlementLevel(load(id), now)).toBe('subscriber');
+    const lapsed = seedUser(db, { plan: 'paid', planExpiresAt: '2026-06-11T00:00:00.000Z' }); // ended 4 days ago
+    expect(entitlementLevel(load(lapsed), now)).toBe('public');
+    const longGone = seedUser(db, { plan: 'paid', planExpiresAt: '2026-06-01T00:00:00.000Z' });
+    expect(entitlementLevel(load(longGone), now)).toBe('public');
   });
 
-  it('is contributor once 15 unrevoked credits have been earned in the trailing 30 days', () => {
+  it('a paid plan with no recorded expiry grants nothing (it used to mean "forever")', () => {
+    const id = seedUser(db, { plan: 'paid', planExpiresAt: null });
+    expect(entitlementLevel(load(id), now)).toBe('public');
+  });
+
+  it('a free plan is public even with a far-future expiry left over', () => {
+    const id = seedUser(db, { plan: 'free', planExpiresAt: '2099-01-01T00:00:00.000Z' });
+    expect(entitlementLevel(load(id), now)).toBe('public');
+  });
+
+  it('is contributor while credit access has not ended, and public the instant it has', () => {
+    const active = seedUser(db, { creditAccessUntil: '2026-06-15T00:00:01.000Z' });
+    expect(entitlementLevel(load(active), now)).toBe('contributor');
+    const ended = seedUser(db, { creditAccessUntil: '2026-06-15T00:00:00.000Z' });
+    expect(entitlementLevel(load(ended), now)).toBe('public');
+    const never = seedUser(db);
+    expect(entitlementLevel(load(never), now)).toBe('public');
+  });
+
+  it('subscriber outranks contributor', () => {
+    const id = seedUser(db, { plan: 'paid', planExpiresAt: '2026-07-01T00:00:00.000Z', creditAccessUntil: '2026-07-01T00:00:00.000Z' });
+    expect(entitlementLevel(load(id), now)).toBe('subscriber');
+  });
+
+  it('earning credits alone does not unlock anything -- only redeeming does', () => {
     const id = seedUser(db);
-    const productId = seedProduct(db);
-    const storeId = seedStore(db, KROGER.lat, KROGER.lon);
-    for (let i = 0; i < 15; i++) {
-      const reportId = seedReport(db, id, productId, storeId);
-      db.insert(contributionCredits).values({ id: newId(), userId: id, reportId, earnedAt: '2026-06-10T00:00:00.000Z' }).run();
-    }
-    const user = db.select().from(users).where(eq(users.id, id)).all()[0];
-    expect(entitlementLevel(db, user, now)).toBe('contributor');
-  });
-
-  it('is public with no subscription and fewer than 15 credits', () => {
-    const id = seedUser(db);
-    const user = db.select().from(users).where(eq(users.id, id)).all()[0];
-    expect(entitlementLevel(db, user, now)).toBe('public');
+    giveCredits(db, id, 100, '2026-06-10T00:00:00.000Z');
+    expect(entitlementLevel(load(id), now)).toBe('public');
   });
 });
 
-describe('creditsThisMonth', () => {
+/** Gives `n` credit rows (10 credits each) to a user, each backed by a real report row. */
+function giveCredits(db: AppDb, userId: string, n: number, earnedAt: string, extra: Partial<typeof contributionCredits.$inferInsert> = {}): string[] {
+  const productId = seedProduct(db);
+  const storeId = seedStore(db, KROGER.lat, KROGER.lon);
+  const ids: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const reportId = seedReport(db, userId, productId, storeId);
+    const id = newId();
+    db.insert(contributionCredits).values({ id, userId, reportId, earnedAt, ...extra }).run();
+    ids.push(id);
+  }
+  return ids;
+}
+
+describe('creditBalance', () => {
   let db: AppDb;
   let sqlite: SqliteDatabase;
   const now = () => new Date('2026-06-15T00:00:00.000Z');
@@ -117,17 +148,118 @@ describe('creditsThisMonth', () => {
     sqlite.close();
   });
 
-  it('counts unrevoked credits within the trailing 30 days only', () => {
+  it('is 10 credits per row, ignoring revoked, spent, and older-than-90-day rows', () => {
     const userId = seedUser(db);
-    const productId = seedProduct(db);
-    const storeId = seedStore(db, KROGER.lat, KROGER.lon);
-    const r1 = seedReport(db, userId, productId, storeId);
-    const r2 = seedReport(db, userId, productId, storeId);
-    const r3 = seedReport(db, userId, productId, storeId);
-    db.insert(contributionCredits).values({ id: newId(), userId, reportId: r1, earnedAt: '2026-06-10T00:00:00.000Z' }).run();
-    db.insert(contributionCredits).values({ id: newId(), userId, reportId: r2, earnedAt: '2026-06-10T00:00:00.000Z', revokedAt: '2026-06-11T00:00:00.000Z' }).run();
-    db.insert(contributionCredits).values({ id: newId(), userId, reportId: r3, earnedAt: '2026-04-01T00:00:00.000Z' }).run();
-    expect(creditsThisMonth(db, userId, now)).toBe(1);
+    giveCredits(db, userId, 3, '2026-06-10T00:00:00.000Z'); // counts: 30
+    giveCredits(db, userId, 2, '2026-06-10T00:00:00.000Z', { revokedAt: '2026-06-11T00:00:00.000Z' });
+    giveCredits(db, userId, 4, '2026-03-01T00:00:00.000Z'); // 106 days old
+    const redemptionId = newId();
+    db.insert(creditRedemptions).values({ id: redemptionId, userId, credits: 200, accessFrom: '2026-06-01T00:00:00.000Z', accessUntil: '2026-07-01T00:00:00.000Z', createdAt: '2026-06-01T00:00:00.000Z' }).run();
+    giveCredits(db, userId, 5, '2026-06-02T00:00:00.000Z', { spentRedemptionId: redemptionId });
+    expect(creditBalance(db, userId, now)).toBe(30);
+  });
+
+  it('the 90-day window is inclusive of day 90 and exclusive after', () => {
+    const userId = seedUser(db);
+    giveCredits(db, userId, 1, '2026-03-17T00:00:00.000Z'); // exactly 90 days before now
+    giveCredits(db, userId, 1, '2026-03-16T23:59:59.000Z'); // just past
+    expect(creditBalance(db, userId, now)).toBe(10);
+  });
+
+  it("does not include other users' credits", () => {
+    const a = seedUser(db);
+    const b = seedUser(db);
+    giveCredits(db, a, 3, '2026-06-10T00:00:00.000Z');
+    expect(creditBalance(db, b, now)).toBe(0);
+  });
+});
+
+describe('redeemFreeMonth', () => {
+  let db: AppDb;
+  let sqlite: SqliteDatabase;
+  const now = () => new Date('2026-06-15T00:00:00.000Z');
+  const load = (id: string) => db.select().from(users).where(eq(users.id, id)).all()[0];
+
+  beforeEach(() => {
+    ({ db, sqlite } = runMigrations(':memory:'));
+  });
+
+  afterEach(() => {
+    sqlite.close();
+  });
+
+  it('spends exactly 200 credits and grants 30 days from now', () => {
+    const userId = seedUser(db);
+    giveCredits(db, userId, 20, '2026-06-10T00:00:00.000Z');
+    const result = redeemFreeMonth(db, userId, now);
+    expect(result).toEqual({ accessUntil: '2026-07-15T00:00:00.000Z', balance: 0 });
+    expect(load(userId).creditAccessUntil).toBe('2026-07-15T00:00:00.000Z');
+    expect(entitlementLevel(load(userId), now)).toBe('contributor');
+  });
+
+  it('spends the oldest credits first', () => {
+    const userId = seedUser(db);
+    const oldest = giveCredits(db, userId, 20, '2026-05-01T00:00:00.000Z');
+    const newest = giveCredits(db, userId, 3, '2026-06-10T00:00:00.000Z');
+    redeemFreeMonth(db, userId, now);
+    const rows = db.select().from(contributionCredits).all();
+    expect(rows.filter((r) => r.spentRedemptionId).map((r) => r.id).sort()).toEqual(oldest.sort());
+    expect(rows.filter((r) => newest.includes(r.id)).every((r) => !r.spentRedemptionId)).toBe(true);
+    expect(creditBalance(db, userId, now)).toBe(30);
+  });
+
+  it('refuses with a 409 below 200 and changes nothing', () => {
+    const userId = seedUser(db);
+    giveCredits(db, userId, 19, '2026-06-10T00:00:00.000Z');
+    expect(() => redeemFreeMonth(db, userId, now)).toThrow(RedeemError);
+    try {
+      redeemFreeMonth(db, userId, now);
+    } catch (err) {
+      expect((err as RedeemError).status).toBe(409);
+    }
+    expect(creditBalance(db, userId, now)).toBe(190);
+    expect(load(userId).creditAccessUntil).toBeNull();
+    expect(db.select().from(creditRedemptions).all()).toHaveLength(0);
+  });
+
+  it('refuses for a subscriber, but not for a user whose subscription has lapsed', () => {
+    const subscribed = seedUser(db, { plan: 'paid', planExpiresAt: '2026-07-01T00:00:00.000Z' });
+    giveCredits(db, subscribed, 20, '2026-06-10T00:00:00.000Z');
+    expect(() => redeemFreeMonth(db, subscribed, now)).toThrow(/active subscription/);
+    expect(creditBalance(db, subscribed, now)).toBe(200);
+
+    const lapsed = seedUser(db, { plan: 'paid', planExpiresAt: '2026-05-01T00:00:00.000Z' });
+    giveCredits(db, lapsed, 20, '2026-06-10T00:00:00.000Z');
+    expect(() => redeemFreeMonth(db, lapsed, now)).not.toThrow();
+  });
+
+  it('stacks: a second redemption extends from the end of the current access, not from today', () => {
+    const userId = seedUser(db);
+    giveCredits(db, userId, 40, '2026-06-10T00:00:00.000Z');
+    redeemFreeMonth(db, userId, now);
+    const second = redeemFreeMonth(db, userId, now);
+    expect(second.accessUntil).toBe('2026-08-14T00:00:00.000Z');
+  });
+
+  it('starts fresh from today when the previous free month has already ended', () => {
+    const userId = seedUser(db, { creditAccessUntil: '2026-06-01T00:00:00.000Z' });
+    giveCredits(db, userId, 20, '2026-06-10T00:00:00.000Z');
+    expect(redeemFreeMonth(db, userId, now).accessUntil).toBe('2026-07-15T00:00:00.000Z');
+  });
+
+  it('404s for an unknown user', () => {
+    expect(() => redeemFreeMonth(db, 'ghost', now)).toThrow(RedeemError);
+  });
+
+  it('is all-or-nothing: if a write fails midway, no credits are spent and no access is granted', () => {
+    const userId = seedUser(db);
+    giveCredits(db, userId, 20, '2026-06-10T00:00:00.000Z');
+    sqlite.exec(`create trigger boom before update on users begin select raise(abort, 'boom'); end`);
+    expect(() => redeemFreeMonth(db, userId, now)).toThrow();
+    sqlite.exec('drop trigger boom');
+    expect(db.select().from(creditRedemptions).all()).toHaveLength(0);
+    expect(db.select().from(contributionCredits).all().every((c) => !c.spentRedemptionId)).toBe(true);
+    expect(creditBalance(db, userId, now)).toBe(200);
   });
 });
 
