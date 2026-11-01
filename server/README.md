@@ -257,7 +257,11 @@ steps with live ones once a test purchase works end to end.
    Customers **write**, Checkout Sessions **write**, Customer portal **write**,
    Prices **read**. A restricted key can't touch your payouts or other products
    if it ever leaks. Keep the key only in `server/.env` on the VPS (it is
-   gitignored); never commit it, and never put it in the client.
+   gitignored); never commit it, and never put it in the client. (If you have
+   an older `.env` with `STRIPE_SECRET`, rename it to `STRIPE_API_KEY`: the
+   server still accepts the old name when run directly, but Docker Compose only
+   passes `STRIPE_API_KEY` into the container, so checkout would answer 503 and
+   Compose would warn that `STRIPE_API_KEY` is not set.)
 3. **Add the webhook.** Developers > Webhooks > Add endpoint:
    `https://api.grocerez.app/api/billing/webhook`, listening for
    `checkout.session.completed`, `customer.subscription.created`,
