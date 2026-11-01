@@ -104,6 +104,8 @@ const SyncSettingsScreen = ({ sync, onBack }: { sync: SyncController; onBack: Vo
                     <div className="flex justify-between"><dt>Cached community reports</dt><dd>{sync.status.diagnostics.cachedReports}</dd></div>
                     <div className="flex justify-between"><dt>Of those, signed-in user's own</dt><dd>{sync.status.diagnostics.ownInCommunityCache}</dd></div>
                     <div className="flex justify-between"><dt>Sharing an id with a local report</dt><dd>{sync.status.diagnostics.idOverlap}</dd></div>
+                    <div className="flex justify-between"><dt>Signed in</dt><dd>{sync.auth ? `yes (${sync.auth.userId.slice(0, 8)})` : 'no'}</dd></div>
+                    <div><dt>Lookalike reports (id/author/price/date)</dt><dd className="break-words">{sync.status.diagnostics.lookalikes.join(' | ') || 'none'}</dd></div>
                     <div><dt>Stores</dt><dd className="break-words">{sync.status.diagnostics.cachedStores.join(', ') || 'none'}</dd></div>
                   </dl>
                 </details>

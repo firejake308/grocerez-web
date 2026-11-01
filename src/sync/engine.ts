@@ -168,6 +168,8 @@ export interface SyncDiagnostics {
   ownInCommunityCache: number;
   /** Cached community reports sharing an id with a local report (the duplicate case). */
   idOverlap: number;
+  /** Cached reports with the same store, brand and name, as "name @ store: id/author/price/date, ..." (the duplicate-rows case). */
+  lookalikes: string[];
 }
 
 export interface SyncSummary {
@@ -182,6 +184,17 @@ export interface SyncSummary {
   diagnostics: SyncDiagnostics;
   /** Section 6.3: products outside the free set for a 'public'-level caller, deduped by product across pull pages. Always empty while ENTITLEMENTS_ENFORCED is off. */
   locked: LockedSummary[];
+}
+
+function findLookalikes(community: PriceData[]): string[] {
+  const groups = new Map<string, PriceData[]>();
+  for (const r of community) {
+    const key = [r.store, r.brand, r.itemName].map((x) => (x ?? '').trim().toLowerCase()).join('|');
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  return [...groups.values()]
+    .filter((g) => g.length > 1)
+    .map((g) => `${g[0].itemName} @ ${g[0].store}: ${g.map((r) => `${r.id.slice(0, 8)}/${(r.userId ?? '?').slice(0, 8)}/$${r.price}/${r.date}`).join(', ')}`);
 }
 
 function buildDiagnostics(
@@ -201,6 +214,7 @@ function buildDiagnostics(
     cachedStores: [...new Set(community.map((r) => r.store))].sort(),
     ownInCommunityCache: ownUserId ? community.filter((r) => r.userId === ownUserId).length : 0,
     idOverlap: community.filter((r) => localIds.has(r.id)).length,
+    lookalikes: findLookalikes(community),
   };
 }
 
