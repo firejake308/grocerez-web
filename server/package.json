@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "admin": "tsx src/admin-cli.ts",
-    "backfill-stores": "tsx src/backfill-stores.ts"
+    "backfill-stores": "tsx src/backfill-stores.ts",
+    "seed-store-test": "tsx src/seed-store-test-data.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
