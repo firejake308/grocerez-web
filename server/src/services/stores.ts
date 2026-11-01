@@ -21,7 +21,7 @@ const CHAIN_ALIASES: Record<string, string> = {
 
 const stripUndefined = (raw: string): string => raw.replace(/\bundefined\b/gi, ' ');
 
-const normalizeKeyPart = (raw: string): string =>
+export const normalizeKeyPart = (raw: string): string =>
   stripUndefined(raw)
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -55,6 +55,15 @@ export function splitStoreString(raw: string): { chainRaw: string | null; addres
   // Chapel Road"), not a store name.
   if (/^\d/.test(cleaned)) return { chainRaw: null, addressRaw: cleaned };
   return { chainRaw: cleaned, addressRaw: null };
+}
+
+/**
+ * A store row that is really just an address: a scan with no detected store
+ * ("4901 Maple Avenue"), or the "addr @ addr" label the client built from
+ * such a row and pushed back.
+ */
+export function isAddressOnlyStore(row: { name: string; address: string | null; chainKey: string }): boolean {
+  return row.chainKey === '' || (row.address !== null && normalizeKeyPart(row.name) === normalizeKeyPart(row.address));
 }
 
 export interface StoreInput {
