@@ -4,7 +4,8 @@ import { sql } from 'drizzle-orm';
 import type { AppDb } from './db/client.js';
 import { authenticate, type AppEnv } from './lib/authenticate.js';
 import { buildCorsOriginMatcher } from './lib/cors.js';
-import { ConsoleMailer, type Mailer } from './lib/mail.js';
+import { assertDevLoginSafe, type DevLogin } from './lib/devLogin.js';
+import { ConsoleMailer, ResendMailer, type Mailer } from './lib/mail.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { meRoutes } from './routes/me.js';
@@ -13,9 +14,11 @@ import { geoRoutes } from './routes/geo.js';
 import { reportRoutes } from './routes/reports.js';
 import { photoRoutes } from './routes/photos.js';
 import { productRoutes } from './routes/products.js';
+import { discoverRoutes } from './routes/discover.js';
 import { adminRoutes } from './routes/admin.js';
 import { parseRoutes, type ParseRouteDeps } from './routes/parse.js';
 import { billingRoutes, type BillingDeps } from './routes/billing.js';
+import { checkoutConfigured } from './services/billing.js';
 import { consumeRateLimit, LIMITS } from './services/rateLimit.js';
 import type { GeoDeps } from './services/geo.js';
 
@@ -36,6 +39,8 @@ export interface AppContext {
   parse?: ParseRouteDeps;
   /** Stripe checkout/webhook config (Phase 3). Empty secret means /api/billing/* answers 503. */
   billing?: BillingDeps;
+  /** Dev API only: test-domain addresses sign in with a fixed code. createApp refuses it next to live Stripe keys or real email. */
+  devLogin?: DevLogin;
   /** Injectable clock for time-based rules (rate limits, staleness) in tests. */
   now?: () => Date;
 }
@@ -54,9 +59,11 @@ export function createApp({
   adminToken = '',
   entitlementsEnforced = false,
   parse = { apiKey: '', centsPer1kTokens: 0.2, dailyBudgetCents: 500, photoDir: './data/photos' },
-  billing = { secretKey: '', webhookSecret: '', priceId: '', appUrl: 'http://localhost:5173' },
+  billing = { apiKey: '', webhookSecret: '', priceId: '', appUrl: 'http://localhost:5173' },
+  devLogin,
   now = () => new Date(),
 }: AppContext) {
+  assertDevLoginSafe({ code: devLogin?.code ?? '', mailProvider: mailer instanceof ResendMailer ? 'resend' : 'console', stripeApiKey: billing.apiKey });
   const app = new Hono<AppEnv>();
 
   const matchCorsOrigin = buildCorsOriginMatcher(corsOrigins, netlifySiteSlug);
@@ -70,10 +77,11 @@ export function createApp({
     return c.json({ ok: row?.ok === 1 });
   });
 
-  app.route('/api/auth', authRoutes({ db, mailer }));
+  app.route('/api/auth', authRoutes({ db, mailer, devLogin }));
   app.route('/api/devices', deviceRoutes(db));
-  app.route('/api/me', meRoutes(db, entitlementsEnforced, now));
+  app.route('/api/me', meRoutes(db, entitlementsEnforced, now, checkoutConfigured(billing)));
   app.route('/api/sync', syncRoutes(db, now, entitlementsEnforced));
+  app.route('/api/discover', discoverRoutes(db, entitlementsEnforced, now));
 
   // The geo proxy is metered per caller so a single device can't use the
   // server as a relay to Nominatim or the Overpass box (section 9.4).
@@ -93,7 +101,7 @@ export function createApp({
   app.route('/api/products', productRoutes(db, now));
   app.route('/api/admin', adminRoutes(db, adminToken, now));
   app.route('/api/parse', parseRoutes(db, parse, now));
-  app.route('/api/billing', billingRoutes(db, billing, now));
+  app.route('/api/billing', billingRoutes(db, billing, entitlementsEnforced, now));
 
   return app;
 }

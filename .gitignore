@@ -35,6 +35,7 @@ __pycache__/
 # Server (server/) runtime and local-dev artifacts. drizzle/ migrations are
 # checked in on purpose -- they are not generated build output.
 server/data
+server/data-dev
 server/.env
 server/*.db
 server/*.db-wal

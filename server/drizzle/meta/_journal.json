@@ -26,8 +26,22 @@
     {
       "idx": 3,
       "version": "6",
-      "when": 1793565411085,
-      "tag": "0003_unknown_pete_wisdom",
+      "when": 1792273483188,
+      "tag": "0003_faulty_blink",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793225111401,
+      "tag": "0004_flippant_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793568791757,
+      "tag": "0005_quiet_golden_guardian",
       "breakpoints": true
     }
   ]

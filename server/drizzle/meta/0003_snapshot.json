@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5eaa7538-8d74-40c8-a5d5-802d17832a6b",
+  "id": "7fa10e49-aa53-48c0-93a1-c97500d626b9",
   "prevId": "9e804636-804c-4e3d-9ed3-6fc1a933e4f4",
   "tables": {
     "auth_codes": {
@@ -110,6 +110,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "spent_redemption_id": {
+          "name": "spent_redemption_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -148,6 +155,93 @@
           "tableTo": "price_reports",
           "columnsFrom": [
             "report_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "contribution_credits_spent_redemption_id_credit_redemptions_id_fk": {
+          "name": "contribution_credits_spent_redemption_id_credit_redemptions_id_fk",
+          "tableFrom": "contribution_credits",
+          "tableTo": "credit_redemptions",
+          "columnsFrom": [
+            "spent_redemption_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "credit_redemptions": {
+      "name": "credit_redemptions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credits": {
+          "name": "credits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "access_from": {
+          "name": "access_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "access_until": {
+          "name": "access_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "credit_redemptions_user_idx": {
+          "name": "credit_redemptions_user_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "credit_redemptions_user_id_users_id_fk": {
+          "name": "credit_redemptions_user_id_users_id_fk",
+          "tableFrom": "credit_redemptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -1234,13 +1328,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "shop_type": {
-          "name": "shop_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -1267,6 +1354,37 @@
           "isUnique": false
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "stripe_events": {
+      "name": "stripe_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -1317,6 +1435,21 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "cancel_at_period_end": {
+          "name": "cancel_at_period_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "last_event_at": {
+          "name": "last_event_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -1326,6 +1459,13 @@
             "user_id"
           ],
           "isUnique": false
+        },
+        "subscriptions_provider_ref_unique": {
+          "name": "subscriptions_provider_ref_unique",
+          "columns": [
+            "provider_ref"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -1455,6 +1595,20 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "stripe_customer_id": {
+          "name": "stripe_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "credit_access_until": {
+          "name": "credit_access_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -1462,6 +1616,13 @@
           "name": "users_email_unique",
           "columns": [
             "email"
+          ],
+          "isUnique": true
+        },
+        "users_stripe_customer_unique": {
+          "name": "users_stripe_customer_unique",
+          "columns": [
+            "stripe_customer_id"
           ],
           "isUnique": true
         }

@@ -10,6 +10,8 @@ export const LIMITS = {
   geoPerCallerHour: 120,
   /** Section 9.4/Phase 3, decision 9: anonymous AI parsing allowed, capped per caller per day. */
   parsePerCallerDay: 50,
+  /** Each attempt can create a Stripe customer and Checkout session, so cap them (Phase 3 billing). */
+  checkoutPerUserHour: 10,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
