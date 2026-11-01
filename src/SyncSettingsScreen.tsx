@@ -94,6 +94,20 @@ const SyncSettingsScreen = ({ sync, onBack }: { sync: SyncController; onBack: Vo
                 </p>
               )}
               {sync.status.lastError && <p className="mt-2 text-sm text-red-600">{sync.status.lastError}</p>}
+              {sync.status.diagnostics && (
+                <details className="mt-3 text-xs text-gray-500">
+                  <summary className="cursor-pointer">Diagnostics</summary>
+                  <dl className="mt-1 space-y-0.5">
+                    <div className="flex justify-between"><dt>Location from</dt><dd>{sync.status.locationSource ?? 'none'}</dd></div>
+                    <div className="flex justify-between"><dt>Region</dt><dd>{sync.status.diagnostics.regionKey ?? 'none'}</dd></div>
+                    <div className="flex justify-between"><dt>Pull cursor / pages</dt><dd>{sync.status.diagnostics.cursor ?? '-'} / {sync.status.diagnostics.pagesFetched}</dd></div>
+                    <div className="flex justify-between"><dt>Cached community reports</dt><dd>{sync.status.diagnostics.cachedReports}</dd></div>
+                    <div className="flex justify-between"><dt>Of those, signed-in user's own</dt><dd>{sync.status.diagnostics.ownInCommunityCache}</dd></div>
+                    <div className="flex justify-between"><dt>Sharing an id with a local report</dt><dd>{sync.status.diagnostics.idOverlap}</dd></div>
+                    <div><dt>Stores</dt><dd className="break-words">{sync.status.diagnostics.cachedStores.join(', ') || 'none'}</dd></div>
+                  </dl>
+                </details>
+              )}
             </section>
 
             <section className="bg-white rounded-lg shadow p-4">

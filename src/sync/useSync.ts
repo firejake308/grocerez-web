@@ -3,9 +3,9 @@ import type PriceData from '../PriceData';
 import type { LockedSummary } from '../../shared/types';
 import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Profile, type VoteState } from './api';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
-import { cachedCommunity, patchSyncedReport, pendingReports, runSync } from './engine';
+import { cachedCommunity, patchSyncedReport, pendingReports, runSync, type SyncDiagnostics } from './engine';
 import { fetchDiscoverSamples } from './discover';
-import { getSyncLocation } from './location';
+import { resolveSyncLocation, type LocationSource } from './location';
 import { localSyncStorage, type HomeArea, type SyncAuth } from './storage';
 
 export interface SyncStatus {
@@ -16,6 +16,9 @@ export interface SyncStatus {
   rejected: { id: string; error: string }[];
   communityCount: number;
   skippedPull: 'no-location' | null;
+  /** Where the pull's location came from, and what the last sync saw. Null until a sync has run. */
+  locationSource: LocationSource | null;
+  diagnostics: SyncDiagnostics | null;
 }
 
 export interface SyncController {
@@ -85,6 +88,8 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     rejected: [],
     communityCount: 0,
     skippedPull: null,
+    locationSource: null,
+    diagnostics: null,
   }));
 
   // Latest values for callbacks that outlive a render.
@@ -92,6 +97,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   priceDataRef.current = priceData;
   const homeAreaRef = useRef(homeArea);
   homeAreaRef.current = homeArea;
+  const locationSourceRef = useRef<LocationSource | null>(null);
   const runningRef = useRef(false);
   const queuedRef = useRef(false);
 
@@ -111,7 +117,11 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
         storage,
         getPriceData: () => priceDataRef.current,
         setPriceData: (update) => setPriceData(update),
-        getLocation: () => getSyncLocation(priceDataRef.current, homeAreaRef.current),
+        getLocation: async () => {
+          const resolved = await resolveSyncLocation(priceDataRef.current, homeAreaRef.current);
+          locationSourceRef.current = resolved?.source ?? null;
+          return resolved?.point ?? null;
+        },
         radiusMi: PULL_RADIUS_MI,
       });
       setCommunity(summary.community);
@@ -123,6 +133,8 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
         rejected: summary.rejected,
         communityCount: summary.community.length,
         skippedPull: summary.skippedPull,
+        locationSource: locationSourceRef.current,
+        diagnostics: summary.diagnostics,
       }));
     } catch (err) {
       console.error('Sync failed:', err);

@@ -154,6 +154,22 @@ export interface SyncDeps {
   now?: () => Date;
 }
 
+/** What the last sync saw, for the settings screen and console; none of it affects behavior. */
+export interface SyncDiagnostics {
+  regionKey: string | null;
+  /** Pull cursor after this run. 0 with nothing cached means the server has never returned reports for this region. */
+  cursor: number | null;
+  pagesFetched: number;
+  /** Reports cached for the region after merging. */
+  cachedReports: number;
+  /** Distinct store names among the cached reports. */
+  cachedStores: string[];
+  /** Cached community reports authored by the signed-in user (should be 0: own reports live in local data). */
+  ownInCommunityCache: number;
+  /** Cached community reports sharing an id with a local report (the duplicate case). */
+  idOverlap: number;
+}
+
 export interface SyncSummary {
   signedIn: boolean;
   pushed: number;
@@ -163,8 +179,29 @@ export interface SyncSummary {
   /** Set when the pull was skipped because no location could be determined. */
   skippedPull: 'no-location' | null;
   community: PriceData[];
+  diagnostics: SyncDiagnostics;
   /** Section 6.3: products outside the free set for a 'public'-level caller, deduped by product across pull pages. Always empty while ENTITLEMENTS_ENFORCED is off. */
   locked: LockedSummary[];
+}
+
+function buildDiagnostics(
+  regionKey: string | null,
+  cursor: number | null,
+  pagesFetched: number,
+  community: PriceData[],
+  ownUserId: string | null,
+  local: PriceData[],
+): SyncDiagnostics {
+  const localIds = new Set(local.map((r) => r.id));
+  return {
+    regionKey,
+    cursor,
+    pagesFetched,
+    cachedReports: community.length,
+    cachedStores: [...new Set(community.map((r) => r.store))].sort(),
+    ownInCommunityCache: ownUserId ? community.filter((r) => r.userId === ownUserId).length : 0,
+    idOverlap: community.filter((r) => localIds.has(r.id)).length,
+  };
 }
 
 /** The community reports for the region last synced, as PriceData, from cache. */
@@ -233,7 +270,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   const token = auth?.sessionToken ?? deviceToken;
   const location = await deps.getLocation();
   if (!location) {
-    return { signedIn: Boolean(auth), pushed, rejected, pulled: 0, location: null, skippedPull: 'no-location', community: cachedCommunity(deps.storage), locked: cachedLocked(deps.storage) };
+    return { signedIn: Boolean(auth), pushed, rejected, pulled: 0, location: null, skippedPull: 'no-location', community: cachedCommunity(deps.storage), diagnostics: buildDiagnostics(deps.storage.getCurrentRegionKey(), null, 0, cachedCommunity(deps.storage), auth?.userId ?? null, deps.getPriceData()), locked: cachedLocked(deps.storage) };
   }
 
   const key = regionKey(location, deps.radiusMi);
@@ -246,9 +283,11 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   // already known to be locked (see RegionCache.locked).
   const lockedById = new Map<string, LockedSummary>((region.locked ?? []).map((l) => [l.productId, l]));
 
+  let pagesFetched = 0;
   for (let page = 0; page < MAX_PULL_PAGES; page++) {
     const res = await deps.api.pull(token, { since: region.since, lat: location.lat, lon: location.lon, radiusMi: deps.radiusMi, limit: PULL_PAGE });
     region.reports = mergePull(region.reports, res.reports, auth?.userId ?? null);
+    pagesFetched++;
     pulled += res.reports.length;
     for (const summary of res.locked) lockedById.set(summary.productId, summary);
     // A product that now arrives as a full report is no longer locked (it entered the free set, or the caller's level changed).
@@ -264,6 +303,10 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   deps.storage.setCurrentRegionKey(key);
   deps.storage.setLastSyncedAt(now().toISOString());
 
+  const community = region.reports.map(communityToPriceData);
+  const diagnostics = buildDiagnostics(key, region.since, pagesFetched, community, auth?.userId ?? null, deps.getPriceData());
+  console.info('[sync]', { pushed, pulled, location, ...diagnostics });
+
   return {
     signedIn: Boolean(auth),
     pushed,
@@ -271,7 +314,8 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     pulled,
     location,
     skippedPull: null,
-    community: region.reports.map(communityToPriceData),
+    community,
+    diagnostics,
     locked: region.locked,
   };
 }

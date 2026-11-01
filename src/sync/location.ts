@@ -25,16 +25,21 @@ async function currentPositionIfGranted(): Promise<Point | null> {
   });
 }
 
-/** Plan section 7's order: device position, then the newest located own report, then the home area. */
-export async function getSyncLocation(priceData: PriceData[], homeArea: HomeArea | null): Promise<Point | null> {
+export type LocationSource = 'device' | 'own-report' | 'home-area';
+
+/** Plan section 7's order: device position, then the newest located own report, then the home area. Also says which one won, for diagnostics. */
+export async function resolveSyncLocation(
+  priceData: PriceData[],
+  homeArea: HomeArea | null,
+): Promise<{ point: Point; source: LocationSource } | null> {
   const fromDevice = await currentPositionIfGranted();
-  if (fromDevice) return fromDevice;
+  if (fromDevice) return { point: fromDevice, source: 'device' };
 
   const located = priceData
     .filter((r) => !r.deletedAt && typeof r.latitude === 'number' && typeof r.longitude === 'number')
     .sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (located) return { lat: located.latitude as number, lon: located.longitude as number };
+  if (located) return { point: { lat: located.latitude as number, lon: located.longitude as number }, source: 'own-report' };
 
-  if (homeArea) return { lat: homeArea.lat, lon: homeArea.lon };
+  if (homeArea) return { point: { lat: homeArea.lat, lon: homeArea.lon }, source: 'home-area' };
   return null;
 }
