@@ -250,10 +250,14 @@ function syncUserPlan(db: AppDb, userId: string): void {
  *    nothing grants open-ended access.
  */
 export function handleWebhookEvent(db: AppDb, event: StripeEvent, opts: { livemode: boolean | null }, now: () => Date = () => new Date()): WebhookOutcome {
+  // Logged, with ids only (no emails or payment details), so a 200 that changed nothing can be explained from the server logs.
+  const ignore = (reason: string): 'ignored' => {
+    console.log(`Stripe webhook ${event.type} ${event.id} ignored: ${reason}`);
+    return 'ignored';
+  };
   // `livemode: null` means no API key is configured to infer the mode from, so accept either.
   if (opts.livemode !== null && event.livemode !== opts.livemode) {
-    console.warn(`Ignoring ${event.livemode ? 'live' : 'test'}-mode Stripe event ${event.id}; this server is using ${opts.livemode ? 'live' : 'test'} keys.`);
-    return 'ignored';
+    return ignore(`${event.livemode ? 'live' : 'test'}-mode event but this server is using ${opts.livemode ? 'live' : 'test'} keys`);
   }
 
   return db.transaction((tx) => {
@@ -263,21 +267,21 @@ export function handleWebhookEvent(db: AppDb, event: StripeEvent, opts: { livemo
 
     if (event.type === 'checkout.session.completed') {
       const obj = event.data.object as { client_reference_id?: string | null; customer?: string | null; mode?: string };
-      if (obj.mode && obj.mode !== 'subscription') return 'ignored';
-      if (!obj.client_reference_id || !obj.customer) return 'ignored';
+      if (obj.mode && obj.mode !== 'subscription') return ignore(`checkout mode is ${obj.mode}, not subscription`);
+      if (!obj.client_reference_id || !obj.customer) return ignore('checkout session has no client_reference_id or customer');
       const user = txDb.select().from(users).where(eq(users.id, obj.client_reference_id)).all()[0];
       if (!user) {
-        console.warn(`Stripe checkout ${event.id} references unknown user ${obj.client_reference_id}.`);
-        return 'ignored';
+        return ignore(`checkout references unknown user ${obj.client_reference_id}`);
       }
       // Linking only: paid access comes from the subscription events, which carry the period end.
       if (!user.stripeCustomerId) txDb.update(users).set({ stripeCustomerId: obj.customer }).where(eq(users.id, user.id)).run();
+      console.log(`Stripe webhook ${event.type} ${event.id} applied: linked customer ${obj.customer} to user ${user.id}`);
       return 'applied';
     }
 
     if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       const obj = event.data.object as unknown as StripeSubscriptionObject;
-      if (!obj.id || !obj.status) return 'ignored';
+      if (!obj.id || !obj.status) return ignore('subscription object has no id or status');
       const existing = txDb.select().from(subscriptions).where(eq(subscriptions.providerRef, obj.id)).all()[0];
       const customerId = customerIdOf(obj.customer);
 
@@ -286,16 +290,15 @@ export function handleWebhookEvent(db: AppDb, event: StripeEvent, opts: { livemo
       // A subscription stays with the user it was first linked to; metadata or customer lookups only decide who a *new* one belongs to.
       const userId = existing?.userId ?? metadataUser?.id ?? customerUser?.id;
       if (!userId) {
-        console.warn(`Stripe subscription event ${event.id} (${obj.id}) matches no user.`);
-        return 'ignored';
+        return ignore(`subscription ${obj.id} matches no user (customer ${customerId ?? 'none'}, metadata user_id ${obj.metadata?.user_id ?? 'none'})`);
       }
 
       const eventAt = new Date(event.created * 1000).toISOString();
       const status = event.type === 'customer.subscription.deleted' ? 'canceled' : obj.status;
 
       if (existing) {
-        if (TERMINAL_STATUSES.has(existing.status)) return 'ignored';
-        if (existing.lastEventAt && eventAt < existing.lastEventAt) return 'ignored';
+        if (TERMINAL_STATUSES.has(existing.status)) return ignore(`subscription ${obj.id} is already ${existing.status}`);
+        if (existing.lastEventAt && eventAt < existing.lastEventAt) return ignore(`subscription ${obj.id} already has a newer event applied`);
         txDb.update(subscriptions).set({
           status,
           currentPeriodEnd: periodEndOf(obj) ?? existing.currentPeriodEnd,
@@ -321,9 +324,11 @@ export function handleWebhookEvent(db: AppDb, event: StripeEvent, opts: { livemo
         txDb.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, userId)).run();
       }
       syncUserPlan(txDb, userId);
+      const after = txDb.select().from(users).where(eq(users.id, userId)).all()[0];
+      console.log(`Stripe webhook ${event.type} ${event.id} applied: subscription ${obj.id} is ${status}; user ${userId} plan is now ${after?.plan} until ${after?.planExpiresAt ?? 'n/a'}`);
       return 'applied';
     }
 
-    return 'ignored';
+    return ignore('event type is not handled');
   });
 }

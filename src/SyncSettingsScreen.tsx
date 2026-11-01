@@ -47,14 +47,11 @@ const MembershipCard = ({
       <h2 className="font-semibold text-lg text-gray-800">Membership</h2>
 
       {m.subscribed ? (
-        <div className="text-sm text-gray-600">
-          <p>You're subscribed ({formatMonthlyPrice(entitlement.priceCents)}) -- every community price is unlocked.</p>
-          {m.renewal && (
-            <p className="mt-1">{m.renewal.ending ? `Your subscription ends on ${formatDate(m.renewal.date)}.` : `Renews on ${formatDate(m.renewal.date)}.`}</p>
-          )}
-        </div>
+        m.renewal && (
+          <p className="text-sm text-gray-600">{m.renewal.ending ? `Your subscription ends on ${formatDate(m.renewal.date)}.` : `Renews on ${formatDate(m.renewal.date)}.`}</p>
+        )
       ) : m.freeMonthUntil ? (
-        <p className="text-sm text-gray-600">Free month active until {formatDate(m.freeMonthUntil)} -- every community price is unlocked.</p>
+        <p className="text-sm text-gray-600">Free month active until {formatDate(m.freeMonthUntil)}.</p>
       ) : (
         <p className="text-sm text-gray-600">
           Free accounts see prices for the most popular items. Unlock everything for {formatMonthlyPrice(entitlement.priceCents)}, or earn a free month by sharing prices.
