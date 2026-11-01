@@ -146,6 +146,27 @@ describe('geo routes', () => {
     expect(fake.calls).toHaveLength(1);
   });
 
+  it('prefers a grocery/warehouse store over a closer non-grocery one, now and on later lookups from the table', async () => {
+    const fake = new FakeFetch({
+      'http://overpass.test': {
+        elements: [
+          { type: 'node', lat: KROGER.lat + 0.0001, lon: KROGER.lon, tags: { shop: 'tyres', name: 'Costco Tire Center', 'addr:housenumber': '8900', 'addr:street': 'Tehama Ridge Parkway' } },
+          { type: 'way', center: { lat: KROGER.lat + 0.0003, lon: KROGER.lon }, tags: { shop: 'wholesale', name: 'Costco', 'addr:housenumber': '8900', 'addr:street': 'Tehama Ridge Parkway' } },
+          { type: 'node', lat: KROGER.lat, lon: KROGER.lon, tags: { shop: 'mobile_phone', name: 'AT&T' } },
+        ],
+      },
+    });
+    const app = build(fake);
+    const token = await deviceToken(app);
+    const url = `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`;
+
+    const first = await json(await get(app, url, token));
+    expect(first.stores[0].name).toBe('Costco');
+    const second = await json(await get(app, url, token));
+    expect(second.stores[0].name).toBe('Costco');
+    expect(fake.calls).toHaveLength(1);
+  });
+
   it('gives the same storeId that a later push resolves to, so the client and server agree on the store', async () => {
     const fake = new FakeFetch({
       'http://overpass.test': {

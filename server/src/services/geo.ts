@@ -2,6 +2,7 @@ import { and, isNotNull, ne } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { stores } from '../db/schema.js';
 import { haversineMeters } from '../lib/geohash.js';
+import { osmStoreKind, storeKindRank } from '../../../shared/storeKind.js';
 import { normalizeChainKey, resolveStore } from './stores.js';
 
 /**
@@ -28,6 +29,7 @@ export interface NearbyStore {
   lat: number;
   lon: number;
   distanceM: number;
+  shopType: string | null;
 }
 
 export interface ReverseResult {
@@ -101,9 +103,11 @@ function knownStoresNear(db: AppDb, lat: number, lon: number): NearbyStore[] {
       lat: s.lat as number,
       lon: s.lon as number,
       distanceM: haversineMeters(lat, lon, s.lat as number, s.lon as number),
+      shopType: s.shopType,
     }))
     .filter((s) => s.distanceM <= NEARBY_RADIUS_M)
-    .sort((a, b) => a.distanceM - b.distanceM);
+    // Grocery stores first (a Costco beats its own Tire Center), then closest.
+    .sort((a, b) => storeKindRank(a.shopType) - storeKindRank(b.shopType) || a.distanceM - b.distanceM);
 }
 
 interface OverpassElement {
@@ -148,7 +152,7 @@ async function overpassShopsNear(deps: GeoDeps, lat: number, lon: number): Promi
  */
 export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: number): Promise<NearbyStore[]> {
   const known = knownStoresNear(db, lat, lon);
-  if (!deps.overpassUrl || (known.length > 0 && known[0].distanceM <= KNOWN_STORE_CLOSE_ENOUGH_M)) {
+  if (!deps.overpassUrl || known.some((k) => k.distanceM <= KNOWN_STORE_CLOSE_ENOUGH_M)) {
     return known;
   }
 
@@ -168,7 +172,7 @@ export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: n
     const house = el.tags?.['addr:housenumber'];
     const street = el.tags?.['addr:street'];
     const address = house && street ? `${house} ${street}` : street ?? null;
-    resolveStore(db, { rawStore: address ? `${name} @ ${address}` : name, lat: elLat, lon: elLon });
+    resolveStore(db, { rawStore: address ? `${name} @ ${address}` : name, lat: elLat, lon: elLon, shopType: osmStoreKind(el.tags) });
   }
 
   const result = knownStoresNear(db, lat, lon);

@@ -61,6 +61,8 @@ export interface StoreInput {
   rawStore: string;
   lat?: number | null;
   lon?: number | null;
+  /** OSM shop value, when known (from Overpass). */
+  shopType?: string | null;
 }
 
 export interface ResolvedStore {
@@ -125,7 +127,10 @@ export function resolveStore(db: AppDb, input: StoreInput): ResolvedStore {
   }
 
   const found = db.select().from(stores).where(eq(stores.storeKey, storeKey)).all()[0];
-  if (found) return toResolved(found);
+  if (found) {
+    if (input.shopType && !found.shopType) db.update(stores).set({ shopType: input.shopType }).where(eq(stores.id, found.id)).run();
+    return toResolved(found);
+  }
 
   const id = newId();
   db.insert(stores)
@@ -139,6 +144,7 @@ export function resolveStore(db: AppDb, input: StoreInput): ResolvedStore {
       chainKey,
       isChainLevel,
       storeKey,
+      shopType: input.shopType ?? null,
     })
     .run();
 

@@ -104,6 +104,8 @@ export const stores = sqliteTable('stores', {
   isChainLevel: integer('is_chain_level', { mode: 'boolean' }).notNull().default(false),
   /** Dedup key: chainKey + geohash7, or chainKey + normalized address, or chainKey alone. */
   storeKey: text('store_key').notNull(),
+  /** OSM shop value ("supermarket", "wholesale", "tyres", ...) when the store came from Overpass. Used to prefer grocery stores. */
+  shopType: text('shop_type'),
 }, (t) => ([
   uniqueIndex('stores_store_key_unique').on(t.storeKey),
   index('stores_chain_key_idx').on(t.chainKey),
