@@ -92,13 +92,17 @@ export function billingRoutes(db: AppDb, deps: BillingDeps, entitlementsEnforced
 
   // No requireAuth: Stripe calls this unauthenticated and is verified by signature instead.
   router.post('/webhook', async (c) => {
-    if (!deps.webhookSecret) return c.json({ error: 'Webhooks are not configured yet.' }, 503);
+    if (!deps.webhookSecret) {
+      console.warn('Stripe webhook rejected: STRIPE_WEBHOOK_SECRET is not set.');
+      return c.json({ error: 'Webhooks are not configured yet.' }, 503);
+    }
     const declaredLength = Number(c.req.header('Content-Length') ?? 0);
     if (declaredLength > MAX_WEBHOOK_BYTES) return c.json({ error: 'Payload too large.' }, 400);
     const rawBody = await c.req.text();
     if (rawBody.length > MAX_WEBHOOK_BYTES) return c.json({ error: 'Payload too large.' }, 400);
 
     if (!verifyWebhookSignature(rawBody, c.req.header('Stripe-Signature') ?? '', deps.webhookSecret, 300, now)) {
+      console.warn('Stripe webhook rejected: signature did not verify. Check STRIPE_WEBHOOK_SECRET matches this endpoint\'s signing secret.');
       return c.json({ error: 'Invalid signature.' }, 400);
     }
 
@@ -106,11 +110,14 @@ export function billingRoutes(db: AppDb, deps: BillingDeps, entitlementsEnforced
     try {
       parsed = eventSchema.parse(JSON.parse(rawBody));
     } catch {
+      console.warn('Stripe webhook rejected: body was not a valid event.');
       return c.json({ error: 'Malformed event.' }, 400);
     }
 
     try {
+      console.log(`Stripe webhook received: ${parsed.type} ${parsed.id} (${parsed.livemode ? 'live' : 'test'})`);
       const outcome = handleWebhookEvent(db, parsed, { livemode: deps.apiKey ? isLiveKey(deps.apiKey) : null }, now);
+      if (outcome === 'duplicate') console.log(`Stripe webhook ${parsed.type} ${parsed.id} duplicate: already processed`);
       return c.json(outcome === 'duplicate' ? { received: true, duplicate: true } : { received: true });
     } catch (err) {
       console.error('Failed to apply billing webhook event:', parsed.id, parsed.type, err);
