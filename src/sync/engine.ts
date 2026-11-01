@@ -128,6 +128,64 @@ export function communityToPriceData(report: SyncedPriceReport): PriceData {
   };
 }
 
+/** A pulled report authored by the signed-in user, as a local report: no community fields, already synced. */
+export function ownReportToPriceData(report: SyncedPriceReport): PriceData {
+  return {
+    id: report.id,
+    price: (report.priceCents / 100).toFixed(2),
+    store: report.storeName,
+    date: report.observedDate,
+    priceImage: null,
+    productImage: null,
+    itemName: report.itemName,
+    brand: report.brand,
+    tags: report.tags,
+    quantity: report.quantity ?? 1,
+    quantity_units: report.quantityUnits ?? '',
+    latitude: null,
+    longitude: null,
+    updatedAt: report.updatedAt,
+    origin: 'mine',
+    isSale: report.isSale,
+    expiresAt: report.expiresAt,
+    userId: report.userId,
+    productId: report.productId,
+    storeId: report.storeId,
+    syncedAt: report.updatedAt,
+  };
+}
+
+/**
+ * Folds the signed-in user's own reports from the server into local data, so
+ * signing in on a new device (or after a local wipe) brings the scans back:
+ * - unknown ids are added;
+ * - a known id is refreshed only if the server copy is newer and nothing local is pending (the server is the later write);
+ * - ids in `deletedIds` (deleted on another device) are removed unless they have unsynced local edits.
+ * Returns `current` itself when nothing changed.
+ */
+export function restoreOwnReports(current: PriceData[], own: SyncedPriceReport[], deletedIds: string[] = []): PriceData[] {
+  const pendingIds = new Set(pendingReports(current).map((r) => r.id));
+  const deleted = new Set(deletedIds);
+  const incoming = new Map(own.map((r) => [r.id, r]));
+  let changed = false;
+
+  const next = current.flatMap((item) => {
+    if (deleted.has(item.id) && !pendingIds.has(item.id)) {
+      changed = true;
+      return [];
+    }
+    const server = incoming.get(item.id);
+    incoming.delete(item.id);
+    if (!server || item.deletedAt || pendingIds.has(item.id) || Date.parse(server.updatedAt) <= Date.parse(item.updatedAt)) return [item];
+    changed = true;
+    return [{ ...ownReportToPriceData(server), priceImage: item.priceImage, productImage: item.productImage, latitude: item.latitude, longitude: item.longitude }];
+  });
+
+  const added = [...incoming.values()].filter((r) => !deleted.has(r.id)).map(ownReportToPriceData);
+  if (added.length > 0) changed = true;
+  return changed ? [...next, ...added] : current;
+}
+
 /** Applies a vote's resulting counts to one cached report, wherever it's cached. Used to reflect confirm/flag/withdraw immediately, without waiting for the next pull. */
 export function patchSyncedReport(
   reports: SyncedPriceReport[],
@@ -166,6 +224,8 @@ export interface SyncDiagnostics {
   cachedStores: string[];
   /** Cached community reports authored by the signed-in user (should be 0: own reports live in local data). */
   ownInCommunityCache: number;
+  /** Own reports this run added to (or, if negative, removed from) local data from the server. */
+  restoredOwn: number;
   /** Cached community reports sharing an id with a local report (the duplicate case). */
   idOverlap: number;
   /** Cached reports with the same store, brand and name, as "name @ store: id/author/price/date, ..." (the duplicate-rows case). */
@@ -204,6 +264,7 @@ function buildDiagnostics(
   community: PriceData[],
   ownUserId: string | null,
   local: PriceData[],
+  restoredOwn: number,
 ): SyncDiagnostics {
   const localIds = new Set(local.map((r) => r.id));
   return {
@@ -214,16 +275,17 @@ function buildDiagnostics(
     cachedStores: [...new Set(community.map((r) => r.store))].sort(),
     ownInCommunityCache: ownUserId ? community.filter((r) => r.userId === ownUserId).length : 0,
     idOverlap: community.filter((r) => localIds.has(r.id)).length,
+    restoredOwn,
     lookalikes: findLookalikes(community),
   };
 }
 
 /** The community reports for the region last synced, as PriceData, from cache. */
-export function cachedCommunity(storage: SyncStorage): PriceData[] {
+export function cachedCommunity(storage: SyncStorage, ownUserId: string | null = null): PriceData[] {
   const key = storage.getCurrentRegionKey();
   if (!key) return [];
   const region = storage.getRegions()[key];
-  return region ? region.reports.map(communityToPriceData) : [];
+  return region ? region.reports.filter((r) => !ownUserId || r.userId !== ownUserId).map(communityToPriceData) : [];
 }
 
 /** The locked summaries for the region last synced, from cache (see RegionCache.locked). */
@@ -284,7 +346,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   const token = auth?.sessionToken ?? deviceToken;
   const location = await deps.getLocation();
   if (!location) {
-    return { signedIn: Boolean(auth), pushed, rejected, pulled: 0, location: null, skippedPull: 'no-location', community: cachedCommunity(deps.storage), diagnostics: buildDiagnostics(deps.storage.getCurrentRegionKey(), null, 0, cachedCommunity(deps.storage), auth?.userId ?? null, deps.getPriceData()), locked: cachedLocked(deps.storage) };
+    return { signedIn: Boolean(auth), pushed, rejected, pulled: 0, location: null, skippedPull: 'no-location', community: cachedCommunity(deps.storage, auth?.userId ?? null), diagnostics: buildDiagnostics(deps.storage.getCurrentRegionKey(), null, 0, cachedCommunity(deps.storage, auth?.userId ?? null), auth?.userId ?? null, deps.getPriceData(), 0), locked: cachedLocked(deps.storage) };
   }
 
   const key = regionKey(location, deps.radiusMi);
@@ -298,9 +360,11 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   const lockedById = new Map<string, LockedSummary>((region.locked ?? []).map((l) => [l.productId, l]));
 
   let pagesFetched = 0;
+  const ownIncoming: SyncedPriceReport[] = [];
   for (let page = 0; page < MAX_PULL_PAGES; page++) {
     const res = await deps.api.pull(token, { since: region.since, lat: location.lat, lon: location.lon, radiusMi: deps.radiusMi, limit: PULL_PAGE });
-    region.reports = mergePull(region.reports, res.reports, auth?.userId ?? null);
+    if (auth) ownIncoming.push(...res.reports.filter((r) => r.userId === auth.userId));
+    region.reports = mergePull(region.reports, res.reports, null);
     pagesFetched++;
     pulled += res.reports.length;
     for (const summary of res.locked) lockedById.set(summary.productId, summary);
@@ -311,6 +375,18 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
     if (!advanced || res.reports.length < PULL_PAGE) break;
   }
 
+  // The caller's own reports belong in local data, not the community cache. This
+  // also sweeps up copies cached before sign-in, which the cursor never re-sends.
+  let restored = 0;
+  if (auth) {
+    const own = region.reports.filter((r) => r.userId === auth.userId);
+    const deletedIds = ownIncoming.filter((r) => r.status === 'deleted').map((r) => r.id);
+    region.reports = region.reports.filter((r) => r.userId !== auth.userId);
+    const before = deps.getPriceData();
+    restored = restoreOwnReports(before, own, deletedIds).length - before.length;
+    deps.setPriceData((current) => restoreOwnReports(current, own, deletedIds));
+  }
+
   region.lastUsedAt = now().toISOString();
   region.locked = [...lockedById.values()];
   deps.storage.setRegions(evictRegions({ ...regions, [key]: region }));
@@ -318,7 +394,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncSummary> {
   deps.storage.setLastSyncedAt(now().toISOString());
 
   const community = region.reports.map(communityToPriceData);
-  const diagnostics = buildDiagnostics(key, region.since, pagesFetched, community, auth?.userId ?? null, deps.getPriceData());
+  const diagnostics = buildDiagnostics(key, region.since, pagesFetched, community, auth?.userId ?? null, deps.getPriceData(), restored);
   console.info('[sync]', { pushed, pulled, location, ...diagnostics });
 
   return {

@@ -77,7 +77,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const [auth, setAuthState] = useState<SyncAuth | null>(() => (enabled ? storage.getAuth() : null));
   const [profile, setProfile] = useState<Profile | null>(null);
   const [homeArea, setHomeAreaState] = useState<HomeArea | null>(() => (enabled ? storage.getHomeArea() : null));
-  const [community, setCommunity] = useState<PriceData[]>(() => (enabled ? cachedCommunity(storage) : []));
+  const [community, setCommunity] = useState<PriceData[]>(() => (enabled ? cachedCommunity(storage, storage.getAuth()?.userId ?? null) : []));
   const [discover, setDiscover] = useState<PriceData[]>([]);
   const [locked, setLocked] = useState<LockedSummary[]>([]);
   const [status, setStatus] = useState<SyncStatus>(() => ({

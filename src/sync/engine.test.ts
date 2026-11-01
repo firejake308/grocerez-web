@@ -4,12 +4,14 @@ import type { PriceReportPushResult, SyncedPriceReport } from '../../shared/type
 import { ApiError, type SyncApi } from './api';
 import {
   applyPushResults,
+  cachedCommunity,
   communityToPriceData,
   evictRegions,
   mergePull,
   patchSyncedReport,
   pendingReports,
   regionKey,
+  restoreOwnReports,
   runSync,
   toUpsert,
 } from './engine';
@@ -139,6 +141,55 @@ describe('mergePull', () => {
   });
 });
 
+describe('restoreOwnReports', () => {
+  const mine = (overrides: Partial<SyncedPriceReport> = {}) => synced({ id: 'm1', userId: 'me', updatedAt: '2026-09-05T00:00:00.000Z', ...overrides });
+
+  it('adds own reports this device has never seen, as synced local reports', () => {
+    const next = restoreOwnReports([report({ id: 'other' })], [mine()]);
+    const restored = next.find((r) => r.id === 'm1');
+    expect(next).toHaveLength(2);
+    expect(restored).toMatchObject({ origin: 'mine', userId: 'me', price: '6.79', syncedAt: '2026-09-05T00:00:00.000Z' });
+    expect(pendingReports(next).map((r) => r.id)).not.toContain('m1'); // restoring must not trigger a re-push
+  });
+
+  it('returns the same array when nothing changes', () => {
+    const current = [report({ id: 'm1', updatedAt: '2026-09-05T00:00:00.000Z', syncedAt: '2026-09-05T00:00:00.000Z' })];
+    expect(restoreOwnReports(current, [mine()])).toBe(current);
+  });
+
+  it('refreshes a synced local report only when the server copy is newer, keeping local images and coordinates', () => {
+    const local = report({ id: 'm1', price: '1.00', updatedAt: '2026-09-01T00:00:00.000Z', syncedAt: '2026-09-01T00:00:00.000Z', priceImage: 'img' });
+    const [next] = restoreOwnReports([local], [mine()]);
+    expect(next.price).toBe('6.79');
+    expect(next.priceImage).toBe('img');
+    expect(next.latitude).toBe(32.9019798);
+    expect(restoreOwnReports([local], [mine({ updatedAt: '2026-08-01T00:00:00.000Z' })])[0].price).toBe('1.00');
+  });
+
+  it('never overwrites unsynced local edits or tombstones', () => {
+    const edited = report({ id: 'm1', price: '1.00', updatedAt: '2026-09-01T00:00:00.000Z' }); // no syncedAt: pending
+    expect(restoreOwnReports([edited], [mine()])[0].price).toBe('1.00');
+    const tombstone = report({ id: 'm1', deletedAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z', syncedAt: '2026-09-02T00:00:00.000Z' });
+    expect(restoreOwnReports([tombstone], [mine({ updatedAt: '2026-09-09T00:00:00.000Z' })])[0].deletedAt).toBeTruthy();
+  });
+
+  it('removes reports deleted on another device unless they have unsynced local edits', () => {
+    const synced1 = report({ id: 'gone', syncedAt: '2026-09-01T12:00:00.000Z' });
+    const pending = report({ id: 'edited' });
+    expect(restoreOwnReports([synced1, pending], [], ['gone', 'edited']).map((r) => r.id)).toEqual(['edited']);
+  });
+});
+
+describe('cachedCommunity', () => {
+  it('leaves out the signed-in user\'s own reports cached before they signed in', () => {
+    const storage = memorySyncStorage();
+    storage.setRegions({ k: { since: 2, reports: [synced({ id: 'a' }), synced({ id: 'b', userId: 'me' })], lastUsedAt: '2026-09-01T00:00:00.000Z' } });
+    storage.setCurrentRegionKey('k');
+    expect(cachedCommunity(storage, 'me').map((r) => r.id)).toEqual(['a']);
+    expect(cachedCommunity(storage).map((r) => r.id)).toEqual(['a', 'b']);
+  });
+});
+
 describe('communityToPriceData', () => {
   it('renders cents as a price string and marks the origin', () => {
     const pd = communityToPriceData(synced({ priceCents: 605, quantity: null, quantityUnits: null }));
@@ -253,6 +304,37 @@ describe('runSync', () => {
     expect(calls[1].args[0]).toBe('sess');
     expect(summary.pushed).toBe(1);
     expect(d.getData().find((r) => r.id === 'local')?.syncedAt).toBe('2026-09-10T00:00:00.000Z');
+  });
+
+  it('signed in: moves own reports out of the community list and into local data, including ones cached before sign-in', async () => {
+    const { api } = fakeApi({
+      pull: (async () => ({
+        accessLevel: 'unrestricted' as const,
+        reports: [synced({ id: 'c1', seq: 5 }), synced({ id: 'new-own', seq: 6, userId: 'me' }), synced({ id: 'del-own', seq: 7, userId: 'me', status: 'deleted' })],
+        locked: [],
+        nextSince: 7,
+      })) as never,
+    });
+    const d = deps(api, [report({ id: 'del-own', syncedAt: '2026-09-02T00:00:00.000Z' })], true);
+    d.storage.setDeviceToken('dev-1');
+    d.storage.setRegions({ '32.9,-97.2,50': { since: 4, reports: [synced({ id: 'stale-own', seq: 3, userId: 'me' })], lastUsedAt: '2026-09-01T00:00:00.000Z' } });
+    const summary = await runSync(d.deps);
+    expect(summary.community.map((r) => r.id)).toEqual(['c1']);
+    expect(d.storage.getRegions()['32.9,-97.2,50'].reports.map((r) => r.id)).toEqual(['c1']);
+    expect(d.getData().map((r) => r.id).sort()).toEqual(['new-own', 'stale-own']);
+    expect(d.getData().every((r) => r.origin === 'mine')).toBe(true);
+    expect(summary.diagnostics.restoredOwn).toBe(1);
+    expect(summary.diagnostics.ownInCommunityCache).toBe(0);
+  });
+
+  it('anonymous: keeps every pulled report in the community list', async () => {
+    const { api } = fakeApi({
+      pull: (async () => ({ accessLevel: 'public' as const, reports: [synced({ id: 'x', userId: 'me' })], locked: [], nextSince: 1 })) as never,
+    });
+    const d = deps(api, [], false);
+    const summary = await runSync(d.deps);
+    expect(summary.community.map((r) => r.id)).toEqual(['x']);
+    expect(d.getData()).toEqual([]);
   });
 
   it('resumes the pull from the stored cursor for a known region', async () => {
