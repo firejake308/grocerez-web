@@ -5,6 +5,7 @@
  * endpoints the app has always used when sync is off or the server is
  * unreachable, so anonymous users are never broken by an API outage.
  */
+import { osmStoreKind, storeKindRank } from '../../shared/storeKind';
 import { createSyncApi } from './api';
 import { SYNC_API_URL, syncEnabled } from './config';
 import { localSyncStorage } from './storage';
@@ -23,6 +24,7 @@ interface OverpassNode {
   tags?: {
     name?: string;
     shop?: string;
+    amenity?: string;
     'addr:housenumber'?: string;
     'addr:street'?: string;
   };
@@ -94,6 +96,10 @@ export async function locateViaPublicServices(latitude: number, longitude: numbe
   const elemLat = (el: OverpassNode) => el.lat ?? el.center?.lat ?? latitude;
   const elemLon = (el: OverpassNode) => el.lon ?? el.center?.lon ?? longitude;
   const nearest = elements.reduce((prev, curr) => {
+    // Grocery stores first (a Costco beats its own Tire Center), then closest.
+    const pr = storeKindRank(osmStoreKind(prev.tags));
+    const cr = storeKindRank(osmStoreKind(curr.tags));
+    if (pr !== cr) return cr < pr ? curr : prev;
     const pd = Math.hypot(elemLat(prev) - latitude, elemLon(prev) - longitude);
     const cd = Math.hypot(elemLat(curr) - latitude, elemLon(curr) - longitude);
     return cd < pd ? curr : prev;

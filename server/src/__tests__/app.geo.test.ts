@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createApp } from '../app.js';
 import { runMigrations } from '../db/migrate.js';
@@ -104,6 +104,69 @@ describe('geo routes', () => {
     expect(fake.calls).toHaveLength(1); // still one: answered from the table this time
   });
 
+  it('ignores address-only rows left by a scan with no detected store, and still asks Overpass', async () => {
+    resolveStore(db, { rawStore: '9150 North Tarrant Parkway', lat: KROGER.lat, lon: KROGER.lon });
+    const fake = new FakeFetch({
+      'http://overpass.test': {
+        elements: [{ type: 'node', lat: KROGER.lat, lon: KROGER.lon, tags: { shop: 'supermarket', name: 'Kroger', 'addr:housenumber': '9150', 'addr:street': 'North Tarrant Parkway' } }],
+      },
+    });
+    const app = build(fake);
+    const token = await deviceToken(app);
+
+    const body = await json(await get(app, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, token));
+    expect(fake.calls).toHaveLength(1);
+    expect(body.stores.map((s: { name: string }) => s.name)).toEqual(['Kroger']);
+  });
+
+  it('returns no stores (so the client shows a plain address) when only an address-only row exists and Overpass finds nothing', async () => {
+    resolveStore(db, { rawStore: '4901 Maple Avenue', lat: KROGER.lat, lon: KROGER.lon });
+    const fake = new FakeFetch({ 'http://overpass.test': { elements: [] } });
+    const app = build(fake);
+    const token = await deviceToken(app);
+
+    const body = await json(await get(app, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, token));
+    expect(body.stores).toEqual([]);
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  it('does not turn a doubled "addr @ addr" label into a chain, and ignores such rows already saved', async () => {
+    const doubled = '4901 Maple Avenue @ 4901 Maple Avenue';
+    const viaPush = resolveStore(db, { rawStore: doubled, lat: KROGER.lat, lon: KROGER.lon });
+    expect(viaPush.chainKey).toBe('');
+    expect(resolveStore(db, { rawStore: '4901 Maple Avenue', lat: KROGER.lat, lon: KROGER.lon }).id).toBe(viaPush.id);
+
+    // A row written before the fix: chain key set, name equal to address.
+    sqlite.prepare("UPDATE stores SET chain_key = '4901 maple avenue' WHERE id = ?").run(viaPush.id);
+    const fake = new FakeFetch({ 'http://overpass.test': { elements: [] } });
+    const app = build(fake);
+    const token = await deviceToken(app);
+    const body = await json(await get(app, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, token));
+    expect(body.stores).toEqual([]);
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  it('prefers a grocery/warehouse store over a closer non-grocery one, now and on later lookups from the table', async () => {
+    const fake = new FakeFetch({
+      'http://overpass.test': {
+        elements: [
+          { type: 'node', lat: KROGER.lat + 0.0001, lon: KROGER.lon, tags: { shop: 'tyres', name: 'Costco Tire Center', 'addr:housenumber': '8900', 'addr:street': 'Tehama Ridge Parkway' } },
+          { type: 'way', center: { lat: KROGER.lat + 0.0003, lon: KROGER.lon }, tags: { shop: 'wholesale', name: 'Costco', 'addr:housenumber': '8900', 'addr:street': 'Tehama Ridge Parkway' } },
+          { type: 'node', lat: KROGER.lat, lon: KROGER.lon, tags: { shop: 'mobile_phone', name: 'AT&T' } },
+        ],
+      },
+    });
+    const app = build(fake);
+    const token = await deviceToken(app);
+    const url = `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`;
+
+    const first = await json(await get(app, url, token));
+    expect(first.stores[0].name).toBe('Costco');
+    const second = await json(await get(app, url, token));
+    expect(second.stores[0].name).toBe('Costco');
+    expect(fake.calls).toHaveLength(1);
+  });
+
   it('gives the same storeId that a later push resolves to, so the client and server agree on the store', async () => {
     const fake = new FakeFetch({
       'http://overpass.test': {
@@ -125,6 +188,24 @@ describe('geo routes', () => {
     const res = await get(app, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, token);
     expect(res.status).toBe(200);
     expect((await json(res)).stores).toEqual([]);
+  });
+
+  it('logs the coordinates when Overpass fails or finds no usable store', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const down = build(new FakeFetch({ 'http://overpass.test': () => new Error('connection refused') }));
+      await get(down, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, await deviceToken(down));
+      expect(warn.mock.calls.some((c) => String(c[0]).includes(`${KROGER.lat},${KROGER.lon}`))).toBe(true);
+
+      warn.mockClear();
+      const empty = build(new FakeFetch({ 'http://overpass.test': { elements: [{ type: 'node', lat: KROGER.lat, lon: KROGER.lon, tags: { shop: 'yes' } }] } }));
+      await get(empty, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, await deviceToken(empty));
+      const msg = String(warn.mock.calls[0]?.[0]);
+      expect(msg).toContain(`${KROGER.lat},${KROGER.lon}`);
+      expect(msg).toContain('1 element(s)');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('skips Overpass entirely when no URL is configured', async () => {

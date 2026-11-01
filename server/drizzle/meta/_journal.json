@@ -36,6 +36,13 @@
       "when": 1793225111401,
       "tag": "0004_flippant_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793568791757,
+      "tag": "0005_quiet_golden_guardian",
+      "breakpoints": true
     }
   ]
 }
