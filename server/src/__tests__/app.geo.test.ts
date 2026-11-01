@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { createApp } from '../app.js';
 import { runMigrations } from '../db/migrate.js';
@@ -167,6 +167,24 @@ describe('geo routes', () => {
     const res = await get(app, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, token);
     expect(res.status).toBe(200);
     expect((await json(res)).stores).toEqual([]);
+  });
+
+  it('logs the coordinates when Overpass fails or finds no usable store', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const down = build(new FakeFetch({ 'http://overpass.test': () => new Error('connection refused') }));
+      await get(down, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, await deviceToken(down));
+      expect(warn.mock.calls.some((c) => String(c[0]).includes(`${KROGER.lat},${KROGER.lon}`))).toBe(true);
+
+      warn.mockClear();
+      const empty = build(new FakeFetch({ 'http://overpass.test': { elements: [{ type: 'node', lat: KROGER.lat, lon: KROGER.lon, tags: { shop: 'yes' } }] } }));
+      await get(empty, `/api/geo/nearby-stores?lat=${KROGER.lat}&lon=${KROGER.lon}`, await deviceToken(empty));
+      const msg = String(warn.mock.calls[0]?.[0]);
+      expect(msg).toContain(`${KROGER.lat},${KROGER.lon}`);
+      expect(msg).toContain('1 element(s)');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('skips Overpass entirely when no URL is configured', async () => {

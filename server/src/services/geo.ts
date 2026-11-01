@@ -156,7 +156,7 @@ export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: n
   try {
     elements = await overpassShopsNear(deps, lat, lon);
   } catch (err) {
-    console.warn('Overpass lookup failed; answering from known stores only:', err instanceof Error ? err.message : err);
+    console.warn(`Overpass lookup failed at ${lat},${lon}; answering from known stores only:`, err instanceof Error ? err.message : err);
     return known;
   }
 
@@ -171,7 +171,12 @@ export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: n
     resolveStore(db, { rawStore: address ? `${name} @ ${address}` : name, lat: elLat, lon: elLon });
   }
 
-  return knownStoresNear(db, lat, lon);
+  const result = knownStoresNear(db, lat, lon);
+  if (result.length === 0) {
+    // Lets you replay the exact point against Overpass when a scan comes back address-only.
+    console.warn(`No store found near ${lat},${lon}: Overpass returned ${elements.length} element(s), none usable as a named store.`);
+  }
+  return result;
 }
 
 export async function reverseGeocode(deps: GeoDeps, lat: number, lon: number): Promise<ReverseResult | null> {
