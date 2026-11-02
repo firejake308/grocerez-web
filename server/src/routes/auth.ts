@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppDb } from '../db/client.js';
+import type { DevLogin } from '../lib/devLogin.js';
 import type { Mailer } from '../lib/mail.js';
 import { requireUser, type AppEnv } from '../lib/authenticate.js';
 import {
@@ -19,9 +20,11 @@ const codeSchema = z.string().trim().regex(/^\d{6}$/, 'Codes are 6 digits');
 export interface AuthRoutesDeps {
   db: AppDb;
   mailer: Mailer;
+  /** Dev API only; see lib/devLogin.ts. */
+  devLogin?: DevLogin;
 }
 
-export function authRoutes({ db, mailer }: AuthRoutesDeps) {
+export function authRoutes({ db, mailer, devLogin }: AuthRoutesDeps) {
   const router = new Hono<AppEnv>();
 
   router.post('/request-code', async (c) => {
@@ -30,7 +33,7 @@ export function authRoutes({ db, mailer }: AuthRoutesDeps) {
     if (!email.success) return c.json({ error: 'A valid email is required.' }, 400);
 
     try {
-      await requestCode(db, mailer, email.data);
+      await requestCode(db, mailer, email.data, undefined, undefined, devLogin);
     } catch (err) {
       if (err instanceof AuthCooldownError) return c.json({ error: err.message }, 429);
       throw err;
@@ -47,7 +50,7 @@ export function authRoutes({ db, mailer }: AuthRoutesDeps) {
     }
 
     try {
-      const result = await verifyCode(db, email.data, code.data);
+      const result = await verifyCode(db, email.data, code.data, undefined, undefined, devLogin);
       return c.json(result);
     } catch (err) {
       if (err instanceof AuthInvalidCodeError || err instanceof AuthCodeExpiredError) {

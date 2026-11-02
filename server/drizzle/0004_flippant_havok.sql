@@ -1,0 +1,1 @@
+CREATE INDEX `price_reports_store_idx` ON `price_reports` (`store_id`,`status`,`created_at`);

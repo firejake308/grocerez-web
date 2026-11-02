@@ -8,6 +8,7 @@ import AddItemScreen from './AddItemScreen';
 import { normalizePriceData } from './normalizePriceData';
 import SyncSettingsScreen from './SyncSettingsScreen';
 import ProductPricesScreen from './ProductPricesScreen';
+import CheckoutBanner from './CheckoutBanner';
 import { useSync } from './sync/useSync';
 import { syncEnabled } from './sync/config';
 import { excludeOwnReports } from './excludeOwnReports';
@@ -189,6 +190,7 @@ const App = () => {
 
   return (
     <div className="h-screen">
+      <CheckoutBanner notice={sync.checkoutNotice} onDismiss={sync.dismissCheckoutNotice} />
       {currentScreen === 'home' && (
         <HomeScreen
           onScan={() => navigateTo('scanner')}
@@ -196,6 +198,7 @@ const App = () => {
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
           discoverItems={communityPrices}
+          discoverLocked={sync.community.length > 0 ? sync.locked : sync.discoverLocked}
           homeArea={sync.homeArea}
           onSearchHomeArea={sync.enabled ? sync.searchHomeArea : undefined}
           onChooseHomeArea={sync.enabled ? sync.chooseHomeArea : undefined}

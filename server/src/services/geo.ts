@@ -2,7 +2,8 @@ import { and, isNotNull } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
 import { stores } from '../db/schema.js';
 import { haversineMeters } from '../lib/geohash.js';
-import { resolveStore } from './stores.js';
+import { osmStoreKind, storeKindRank } from '../../../shared/storeKind.js';
+import { isAddressOnlyStore, resolveStore } from './stores.js';
 
 /**
  * Geo proxy (plan section 8.6): nearby-store lookup answered from our own
@@ -28,6 +29,7 @@ export interface NearbyStore {
   lat: number;
   lon: number;
   distanceM: number;
+  shopType: string | null;
 }
 
 export interface ReverseResult {
@@ -76,6 +78,12 @@ const throttleNominatim = (minGapMs: number): Promise<void> => {
   return next;
 };
 
+/**
+ * Address-only rows (chainKey '') are what a scan with no detected store
+ * leaves behind. They aren't stores, so they must neither count as "a store
+ * is already known here" (which would stop us asking Overpass for good) nor
+ * be returned as one.
+ */
 function knownStoresNear(db: AppDb, lat: number, lon: number): NearbyStore[] {
   const latDelta = NEARBY_RADIUS_M / METERS_PER_DEG_LAT;
   const lonDelta = NEARBY_RADIUS_M / (METERS_PER_DEG_LAT * Math.max(Math.cos((lat * Math.PI) / 180), 0.01));
@@ -85,6 +93,7 @@ function knownStoresNear(db: AppDb, lat: number, lon: number): NearbyStore[] {
     .where(and(isNotNull(stores.lat), isNotNull(stores.lon)))
     .all();
   return rows
+    .filter((s) => !isAddressOnlyStore(s))
     .filter((s) => s.lat !== null && s.lon !== null && Math.abs(s.lat - lat) <= latDelta && Math.abs(s.lon - lon) <= lonDelta)
     .map((s) => ({
       storeId: s.id,
@@ -93,9 +102,11 @@ function knownStoresNear(db: AppDb, lat: number, lon: number): NearbyStore[] {
       lat: s.lat as number,
       lon: s.lon as number,
       distanceM: haversineMeters(lat, lon, s.lat as number, s.lon as number),
+      shopType: s.shopType,
     }))
     .filter((s) => s.distanceM <= NEARBY_RADIUS_M)
-    .sort((a, b) => a.distanceM - b.distanceM);
+    // Grocery stores first (a Costco beats its own Tire Center), then closest.
+    .sort((a, b) => storeKindRank(a.shopType) - storeKindRank(b.shopType) || a.distanceM - b.distanceM);
 }
 
 interface OverpassElement {
@@ -140,7 +151,7 @@ async function overpassShopsNear(deps: GeoDeps, lat: number, lon: number): Promi
  */
 export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: number): Promise<NearbyStore[]> {
   const known = knownStoresNear(db, lat, lon);
-  if (!deps.overpassUrl || (known.length > 0 && known[0].distanceM <= KNOWN_STORE_CLOSE_ENOUGH_M)) {
+  if (!deps.overpassUrl || known.some((k) => k.distanceM <= KNOWN_STORE_CLOSE_ENOUGH_M)) {
     return known;
   }
 
@@ -148,7 +159,7 @@ export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: n
   try {
     elements = await overpassShopsNear(deps, lat, lon);
   } catch (err) {
-    console.warn('Overpass lookup failed; answering from known stores only:', err instanceof Error ? err.message : err);
+    console.warn(`Overpass lookup failed at ${lat},${lon}; answering from known stores only:`, err instanceof Error ? err.message : err);
     return known;
   }
 
@@ -160,10 +171,15 @@ export async function nearbyStores(db: AppDb, deps: GeoDeps, lat: number, lon: n
     const house = el.tags?.['addr:housenumber'];
     const street = el.tags?.['addr:street'];
     const address = house && street ? `${house} ${street}` : street ?? null;
-    resolveStore(db, { rawStore: address ? `${name} @ ${address}` : name, lat: elLat, lon: elLon });
+    resolveStore(db, { rawStore: address ? `${name} @ ${address}` : name, lat: elLat, lon: elLon, shopType: osmStoreKind(el.tags) });
   }
 
-  return knownStoresNear(db, lat, lon);
+  const result = knownStoresNear(db, lat, lon);
+  if (result.length === 0) {
+    // Lets you replay the exact point against Overpass when a scan comes back address-only.
+    console.warn(`No store found near ${lat},${lon}: Overpass returned ${elements.length} element(s), none usable as a named store.`);
+  }
+  return result;
 }
 
 export async function reverseGeocode(deps: GeoDeps, lat: number, lon: number): Promise<ReverseResult | null> {

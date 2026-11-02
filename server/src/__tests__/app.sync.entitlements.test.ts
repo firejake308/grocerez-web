@@ -7,6 +7,7 @@ import type { AppDb } from '../db/client.js';
 import type { Mailer } from '../lib/mail.js';
 import { users } from '../db/schema.js';
 import { computeFreeTier } from '../services/entitlements.js';
+import { fillerReports } from './helpers/freeSet.js';
 
 const json = (res: Response): Promise<Record<string, any>> => res.json() as Promise<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -23,6 +24,14 @@ class FakeMailer implements Mailer {
   }
 }
 
+/** A movable clock, so the free-set refresh throttle can be stepped past without sleeping. */
+const clock = {
+  t: Date.now(),
+  now: () => new Date(clock.t),
+  advance: (ms: number) => { clock.t += ms; },
+  reset: () => { clock.t = Date.now(); },
+};
+
 describe('pull with ENTITLEMENTS_ENFORCED on', () => {
   let db: AppDb;
   let sqlite: SqliteDatabase;
@@ -32,7 +41,8 @@ describe('pull with ENTITLEMENTS_ENFORCED on', () => {
   beforeEach(() => {
     ({ db, sqlite } = runMigrations(':memory:'));
     mailer = new FakeMailer();
-    app = createApp({ db, corsOrigins: ['http://localhost:5173'], mailer, entitlementsEnforced: true });
+    clock.reset();
+    app = createApp({ db, corsOrigins: ['http://localhost:5173'], mailer, entitlementsEnforced: true, now: clock.now });
   });
 
   afterEach(() => {
@@ -52,15 +62,27 @@ describe('pull with ENTITLEMENTS_ENFORCED on', () => {
     ...overrides,
   });
 
+  /** 25 distinct products, each reported by two users, so the region's free set is full and a product reported once ranks below it. */
+  const fillFreeSet = async (tokens: string[]) => {
+    for (const [i, token] of tokens.entries()) {
+      await app.request('/api/sync/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reports: fillerReports(`filler-${i}`, report) }),
+      });
+    }
+  };
+
   it('shows a locked summary instead of the price for a public caller, for a product outside the free set', async () => {
     const scannerToken = await signIn('scanner@example.com');
+    const otherToken = await signIn('other@example.com');
+    await fillFreeSet([scannerToken, otherToken]);
     const pushRes = await app.request('/api/sync/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scannerToken}` },
       body: JSON.stringify({ reports: [report('r1', 'Olipop')] }),
     });
     expect(pushRes.status).toBe(200);
-    // Never add this product to any region's free tier -- computeFreeTier is not called, so freeTierProductIds is empty everywhere.
 
     const deviceRes = await app.request('/api/devices/register', { method: 'POST' });
     const { deviceToken } = await json(deviceRes);
@@ -68,7 +90,7 @@ describe('pull with ENTITLEMENTS_ENFORCED on', () => {
     const body = await json(pullRes);
 
     expect(body.accessLevel).toBe('public');
-    expect(body.reports).toHaveLength(0);
+    expect(body.reports.map((r: { itemName: string }) => r.itemName)).not.toContain('Olipop');
     expect(body.locked).toHaveLength(1);
     expect(body.locked[0].canonicalName).toBe('Olipop');
     expect(body.locked[0].storeCount).toBe(1);
@@ -92,6 +114,62 @@ describe('pull with ENTITLEMENTS_ENFORCED on', () => {
     expect(body.reports).toHaveLength(1);
     expect(body.reports[0].itemName).toBe('Milk');
     expect(body.locked).toHaveLength(0);
+  });
+
+  describe('a young region (fewer than 25 products)', () => {
+    const publicPull = async (since = 0) => {
+      const { deviceToken } = await json(await app.request('/api/devices/register', { method: 'POST' }));
+      return json(await app.request(`/api/sync/pull?since=${since}&lat=${KROGER_LAT}&lon=${KROGER_LON}&radiusMi=10`, { headers: { Authorization: `Bearer ${deviceToken}` } }));
+    };
+
+    it('shows a brand-new product to a public caller straight away, without waiting for the periodic free-tier job', async () => {
+      const scannerToken = await signIn('scanner@example.com');
+      await app.request('/api/sync/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scannerToken}` },
+        body: JSON.stringify({ reports: [report('r1', 'Milk')] }),
+      });
+      // computeFreeTier is deliberately NOT called here: the timer has not run since this report was pushed.
+      const body = await publicPull();
+      expect(body.accessLevel).toBe('public');
+      expect(body.reports.map((r: { itemName: string }) => r.itemName)).toEqual(['Milk']);
+      expect(body.locked).toHaveLength(0);
+    });
+
+    it('reports a free-set fingerprint to public callers that changes when a product enters the set, and is null otherwise', async () => {
+      const scannerToken = await signIn('scanner@example.com');
+      const push = (reports: unknown[]) =>
+        app.request('/api/sync/push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scannerToken}` }, body: JSON.stringify({ reports }) });
+      await push([report('r1', 'Milk')]);
+      const first = await publicPull();
+      expect(typeof first.freeSet).toBe('string');
+      expect(await publicPull()).toMatchObject({ freeSet: first.freeSet }); // stable while nothing changes
+
+      clock.advance(2 * 60 * 1000); // past the refresh throttle
+      await push([report('r2', 'Eggs')]);
+      const second = await publicPull();
+      expect(second.freeSet).not.toBe(first.freeSet);
+
+      const subscriberToken = await signIn('sub@example.com');
+      const subscriberId = (await json(await app.request('/api/me', { headers: { Authorization: `Bearer ${subscriberToken}` } }))).id as string;
+      db.update(users).set({ plan: 'paid', planExpiresAt: new Date(clock.now().getTime() + 30 * 86400_000).toISOString() }).where(eq(users.id, subscriberId)).run();
+      const paid = await json(await app.request(`/api/sync/pull?since=0&lat=${KROGER_LAT}&lon=${KROGER_LON}&radiusMi=10`, { headers: { Authorization: `Bearer ${subscriberToken}` } }));
+      expect(paid.freeSet).toBeNull();
+    });
+
+    it('does not rescan on every pull: the free set is refreshed at most once a minute per region', async () => {
+      const scannerToken = await signIn('scanner@example.com');
+      const push = (name: string, id: string) =>
+        app.request('/api/sync/push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${scannerToken}` }, body: JSON.stringify({ reports: [report(id, name)] }) });
+      await push('Milk', 'r1');
+      await publicPull();
+      await push('Eggs', 'r2');
+      const within = await publicPull(); // still inside the throttle window: Eggs is not yet in the free set
+      expect(within.locked.map((l: { canonicalName: string }) => l.canonicalName)).toContain('Eggs');
+      clock.advance(61_000);
+      const after = await publicPull();
+      expect(after.reports.map((r: { itemName: string }) => r.itemName)).toContain('Eggs');
+    });
   });
 
   it('an active subscriber sees everything, locked list stays empty', async () => {

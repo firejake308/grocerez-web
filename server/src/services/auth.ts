@@ -3,6 +3,7 @@ import type { AppDb } from '../db/client.js';
 import { authCodes, sessions, users } from '../db/schema.js';
 import { newId } from '../lib/ids.js';
 import { hashCode, randomCode, randomToken, sha256Hex, verifyCode as verifyCodeHash } from '../lib/crypto.js';
+import { isTestEmail, type DevLogin } from '../lib/devLogin.js';
 import type { Mailer } from '../lib/mail.js';
 
 export interface AuthConfig {
@@ -43,9 +44,13 @@ export async function requestCode(
   email: string,
   config: AuthConfig = defaultAuthConfig,
   now: () => Date = () => new Date(),
+  devLogin?: DevLogin,
 ): Promise<void> {
   const normalized = normalizeEmail(email);
   const nowMs = now().getTime();
+
+  // Dev shortcut: a test address has no mailbox, so nothing is generated or sent (see lib/devLogin.ts).
+  if (devLogin && isTestEmail(normalized)) return;
 
   const recent = latestPendingCode(db, normalized);
   if (recent && nowMs - Date.parse(recent.createdAt) < config.codeCooldownSeconds * 1000) {
@@ -79,9 +84,16 @@ export async function verifyCode(
   code: string,
   config: AuthConfig = defaultAuthConfig,
   now: () => Date = () => new Date(),
+  devLogin?: DevLogin,
 ): Promise<VerifiedSession> {
   const normalized = normalizeEmail(email);
   const nowMs = now().getTime();
+
+  // Dev shortcut: a test address accepts the fixed code and nothing else (see lib/devLogin.ts).
+  if (devLogin && isTestEmail(normalized)) {
+    if (code.trim() !== devLogin.code) throw new AuthInvalidCodeError('Incorrect code.');
+    return issueSession(db, normalized, nowMs, config);
+  }
 
   const pending = latestPendingCode(db, normalized);
   if (!pending) throw new AuthInvalidCodeError('Request a code before verifying.');
@@ -97,6 +109,11 @@ export async function verifyCode(
 
   db.update(authCodes).set({ consumedAt: new Date(nowMs).toISOString() }).where(eq(authCodes.id, pending.id)).run();
 
+  return issueSession(db, normalized, nowMs, config);
+}
+
+/** Creates the user on first sign-in and issues a session token. */
+function issueSession(db: AppDb, normalized: string, nowMs: number, config: AuthConfig): VerifiedSession {
   let user = db.select().from(users).where(eq(users.email, normalized)).all()[0];
   if (!user) {
     const id = newId();
