@@ -11,16 +11,21 @@ export class ConsoleMailer implements Mailer {
 
 /** Sends through Resend's HTTP API: https://resend.com/docs/api-reference/emails/send-email */
 export class ResendMailer implements Mailer {
-  constructor(private apiKey: string, private from: string) {}
+  constructor(
+    private apiKey: string,
+    private from: string,
+    private fetchImpl: typeof fetch = fetch,
+  ) {}
 
   async send(to: string, subject: string, text: string): Promise<void> {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await this.fetchImpl('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ from: this.from, to, subject, text }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
@@ -30,9 +35,12 @@ export class ResendMailer implements Mailer {
 }
 
 export function createMailer(provider: string, apiKey: string, from: string): Mailer {
-  if (provider === 'resend') {
+  const name = provider.trim().toLowerCase();
+  if (name === 'resend') {
     if (!apiKey) throw new Error('RESEND_API_KEY is required when MAIL_PROVIDER=resend');
     return new ResendMailer(apiKey, from);
   }
-  return new ConsoleMailer();
+  if (name === 'console' || name === '') return new ConsoleMailer();
+  // Fail loudly: silently falling back to console would drop real sign-in emails.
+  throw new Error(`Unknown MAIL_PROVIDER "${provider}" (expected "resend" or "console")`);
 }
