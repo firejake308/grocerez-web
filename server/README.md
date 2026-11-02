@@ -237,6 +237,26 @@ never starts it, so production deploys are unaffected. To reset dev data,
 stop it and delete `data-dev/`. Don't copy the production database into it:
 that file holds real email addresses.
 
+## Email (Resend)
+
+Sign-in codes are emailed through [Resend](https://resend.com). To turn it on:
+
+1. Create a Resend account, add and verify your sending domain (DNS records), and create an API key.
+2. In the server's `.env` set:
+
+   ```
+   MAIL_PROVIDER=resend
+   RESEND_API_KEY=re_...
+   MAIL_FROM=GrocerEZ <noreply@your-verified-domain>
+   ```
+
+3. Restart the API. It refuses to start if `MAIL_PROVIDER=resend` has no key, or if
+   `MAIL_PROVIDER` is anything other than `resend` or `console` (the default, which
+   prints codes to the log for local dev).
+
+`MAIL_FROM` must be on a domain verified in Resend, or sends fail with a 403 that is
+logged with Resend's response body.
+
 ## Turning on subscriptions
 
 Shared prices are free for the most popular items in your area and need either a
