@@ -16,9 +16,16 @@ export interface DiscoverSample {
   locked: LockedSummary[];
 }
 
+/**
+ * Without a known location the sample also backs the add-item search, so ask
+ * for as much as the server allows: showing prices from everywhere is the
+ * best advertisement for filtering by ZIP code or subscribing.
+ */
+const DISCOVER_COUNT = 100;
+
 /** Best-effort: the caller treats a failure as "nothing to show". */
-export async function fetchDiscover(api: SyncApi, token: string, count = 6): Promise<DiscoverSample> {
-  const res = await api.discover(token, count);
+export async function fetchDiscover(api: SyncApi, token: string, count = DISCOVER_COUNT, teasers = DISCOVER_COUNT): Promise<DiscoverSample> {
+  const res = await api.discover(token, count, teasers);
   return {
     items: res.reports.filter((r) => r.status === 'active').map(communityToPriceData),
     locked: res.locked,

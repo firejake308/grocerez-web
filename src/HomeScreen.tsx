@@ -215,7 +215,7 @@ const HomeScreen = ({
               </>
             )}
             <div className="space-y-2">
-              {discoverLocked.map((item) => (
+              {discoverLocked.slice(0, 3).map((item) => (
                 <button
                   key={item.productId}
                   type="button"

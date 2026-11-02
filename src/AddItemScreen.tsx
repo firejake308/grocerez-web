@@ -211,11 +211,13 @@ const AddItemScreen = ({
     if (searchResults === null) return [];
     const queryTokens = Array.from(tokenize(searchedQuery.trim().toLowerCase()));
     if (queryTokens.length === 0) return [];
-    return (sync?.locked ?? []).filter((item) => {
+    // With no located community pull, the "discover" teasers stand in for the locked list.
+    const lockedPool = sync ? (sync.community.length > 0 ? sync.locked : sync.discoverLocked) : [];
+    return lockedPool.filter((item) => {
       const nameTokens = Array.from(tokenize(item.canonicalName.toLowerCase()));
       return queryTokens.every((qt) => nameTokens.some((nt) => tokensMatch(qt, nt)));
     });
-  }, [searchResults, searchedQuery, sync?.locked]);
+  }, [searchResults, searchedQuery, sync]);
 
   // searchResults is a snapshot taken at search time; re-derive the volatile fields
   // (vote counts, myVote, status) from the latest priceData so confirm/flag reflect instantly.
