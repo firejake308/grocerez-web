@@ -54,6 +54,13 @@ export class SignInRequiredError extends Error {
   }
 }
 
+declare global {
+  interface Window {
+    /** Dev Tools helper: what the last sync saw. Read-only and secret-free (no tokens or email). */
+    grocerezDiagnostics?: () => Record<string, unknown>;
+  }
+}
+
 /** Delay between a local change and the push it triggers, so a burst of edits becomes one request. */
 const PUSH_DEBOUNCE_MS = 1500;
 
@@ -98,8 +105,32 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const homeAreaRef = useRef(homeArea);
   homeAreaRef.current = homeArea;
   const locationSourceRef = useRef<LocationSource | null>(null);
+  const statusRef = useRef<SyncStatus>(status);
+  statusRef.current = status;
   const runningRef = useRef(false);
   const queuedRef = useRef(false);
+
+  // Dev Tools helper: run `grocerezDiagnostics()` in the console to see what the last sync saw.
+  const authRef = useRef(auth);
+  authRef.current = auth;
+  useEffect(() => {
+    if (!enabled) return;
+    window.grocerezDiagnostics = () => {
+      const status = statusRef.current;
+      return {
+        signedIn: Boolean(authRef.current),
+        userId: authRef.current?.userId.slice(0, 8) ?? null,
+        locationSource: status?.locationSource ?? null,
+        lastSyncedAt: status?.lastSyncedAt ?? null,
+        pendingCount: status?.pendingCount ?? 0,
+        skippedPull: status?.skippedPull ?? null,
+        ...status?.diagnostics,
+      };
+    };
+    return () => {
+      delete window.grocerezDiagnostics;
+    };
+  }, [enabled]);
 
   const pendingCount = useMemo(() => (enabled ? pendingReports(priceData).length : 0), [enabled, priceData]);
 
