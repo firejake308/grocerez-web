@@ -11,6 +11,7 @@ import ProductPricesScreen from './ProductPricesScreen';
 import CheckoutBanner from './CheckoutBanner';
 import { useSync } from './sync/useSync';
 import { syncEnabled } from './sync/config';
+import { excludeOwnReports } from './excludeOwnReports';
 
 type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit' | 'sync' | 'productPrices';
 
@@ -43,10 +44,12 @@ const App = () => {
   const sync = useSync(priceData, setPriceData);
   // Tombstones (deleted-but-not-yet-pushed) stay in priceData until the delete syncs; never show them.
   const mine = useMemo(() => priceData.filter((item) => !item.deletedAt), [priceData]);
-  const searchable = useMemo(() => {
-    const communityPrices = sync.community.length > 0 ? sync.community : sync.discover;
-    return [...mine, ...communityPrices];
-  }, [mine, sync.community, sync.discover]);
+  // Our own uploads come back from the server as community reports with the same id; show the local copy only.
+  const communityPrices = useMemo(
+    () => excludeOwnReports(sync.community.length > 0 ? sync.community : sync.discover, priceData),
+    [priceData, sync.community, sync.discover],
+  );
+  const searchable = useMemo(() => [...mine, ...communityPrices], [mine, communityPrices]);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(() => {
     const saved = localStorage.getItem('groceryItems');
     return saved ? JSON.parse(saved) : [];
@@ -194,7 +197,7 @@ const App = () => {
           priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
-          discoverItems={sync.community.length > 0 ? sync.community : sync.discover}
+          discoverItems={communityPrices}
           discoverLocked={sync.community.length > 0 ? sync.locked : sync.discoverLocked}
           homeArea={sync.homeArea}
           onSearchHomeArea={sync.enabled ? sync.searchHomeArea : undefined}
