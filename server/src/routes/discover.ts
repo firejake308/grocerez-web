@@ -4,16 +4,15 @@ import type { AppDb } from '../db/client.js';
 import { priceReports, products, stores, users } from '../db/schema.js';
 import { requireAuth, type AppEnv } from '../lib/authenticate.js';
 import { todayOf } from '../services/freshness.js';
-import { ensureFreeTierFresh, entitlementLevel, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
+import { ensureFreeTierFresh, entitlementLevel, freeAnywhereProductIds, lockedSummaryFor } from '../services/entitlements.js';
 import { toSyncedReport, type ReportRow } from '../services/syncedReport.js';
 import type { LockedSummary } from '../../../shared/types.js';
 
 /** How many of the newest reports to look through, and how many locked teasers to return. */
-const RECENT_WINDOW = 1000;
-const DEFAULT_TEASERS = 3;
-const MAX_TEASERS = 100;
+const RECENT_WINDOW = 300;
+const MAX_TEASERS = 3;
 const DEFAULT_LIMIT = 6;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 20;
 /** Free sets are looked up per 0.1-degree cell at the default pull radius (see entitlements.ts regionKey). */
 const FREE_SET_RADIUS_MI = 50;
 
@@ -32,8 +31,6 @@ export function discoverRoutes(db: AppDb, entitlementsEnforced = false, now: () 
   router.get('/', requireAuth(db), (c) => {
     const auth = c.get('auth');
     const limit = Math.min(Math.max(Math.floor(Number(c.req.query('limit') ?? DEFAULT_LIMIT)) || DEFAULT_LIMIT, 1), MAX_LIMIT);
-
-    const maxTeasers = Math.min(Math.max(Math.floor(Number(c.req.query('teasers') ?? DEFAULT_TEASERS)) || DEFAULT_TEASERS, 1), MAX_TEASERS);
 
     const caller = auth.kind === 'session' ? db.select().from(users).where(eq(users.id, auth.userId)).all()[0] : undefined;
     const level = caller ? entitlementLevel(caller, now) : 'public';
@@ -63,27 +60,28 @@ export function discoverRoutes(db: AppDb, entitlementsEnforced = false, now: () 
     const today = todayOf(now());
     const reports = [];
     const lockedProducts: { productId: string; newestDate: string }[] = [];
-    const freeSets = new Map<string, Set<string>>();
+    const freshCells = new Set<string>();
+    let free: Set<string> | null = null;
 
     for (const [productId, row] of newestByProduct) {
-      if (reports.length >= limit && (!gated || lockedProducts.length >= maxTeasers)) break;
+      if (reports.length >= limit && (!gated || lockedProducts.length >= MAX_TEASERS)) break;
 
       let isFree = true;
       if (gated) {
-        // Same rule as a pull, evaluated in the store's own region.
+        // Same rule as a pull: free anywhere. A store's own region is refreshed first so a brand-new product there unlocks promptly.
         const cell = `${row.store.lat!.toFixed(1)},${row.store.lon!.toFixed(1)}`;
-        let free = freeSets.get(cell);
-        if (!free) {
+        if (!freshCells.has(cell)) {
           ensureFreeTierFresh(db, row.store.lat!, row.store.lon!, FREE_SET_RADIUS_MI, now);
-          free = freeTierProductIds(db, row.store.lat!, row.store.lon!, FREE_SET_RADIUS_MI);
-          freeSets.set(cell, free);
+          freshCells.add(cell);
+          free = null;
         }
+        free ??= freeAnywhereProductIds(db);
         isFree = free.has(productId);
       }
 
       if (isFree) {
         if (reports.length < limit) reports.push(toSyncedReport(row, today));
-      } else if (lockedProducts.length < maxTeasers) {
+      } else if (lockedProducts.length < MAX_TEASERS) {
         lockedProducts.push({ productId, newestDate: row.report.observedDate });
       }
     }

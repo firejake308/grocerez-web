@@ -259,6 +259,7 @@ describe('runSync', () => {
       openBillingPortal: record('openBillingPortal', async () => { throw new Error('unused'); }),
       redeemCredits: record('redeemCredits', async () => { throw new Error('unused'); }),
       discover: record('discover', async () => ({ accessLevel: 'public' as const, reports: [], locked: [] })),
+      search: record('search', async () => ({ accessLevel: 'public' as const, reports: [], locked: [], truncated: false })),
       ...overrides,
     };
     return { api, calls };

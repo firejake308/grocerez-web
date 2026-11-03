@@ -5,7 +5,7 @@ import { createMailer } from './lib/mail.js';
 import { env } from './env.js';
 import { recomputeAllTrust } from './services/trust.js';
 import { cleanupPhotos } from './services/photos.js';
-import { computeFreeTierForAllRegions, evaluateContributionCredits } from './services/entitlements.js';
+import { computeFreeTierForAllRegions, evaluateContributionCredits, pruneSearchCounts } from './services/entitlements.js';
 
 const { db, sqlite } = runMigrations(env.DATABASE_PATH);
 const mailer = createMailer(env.MAIL_PROVIDER, env.RESEND_API_KEY, env.MAIL_FROM);
@@ -50,6 +50,7 @@ const runMaintenance = () => {
     console.error('Trust maintenance failed:', err);
   }
   try {
+    pruneSearchCounts(db);
     console.log(`Free tier recomputed for ${computeFreeTierForAllRegions(db)} region(s)`);
     console.log(`${evaluateContributionCredits(db)} contribution credit(s) awarded`);
   } catch (err) {

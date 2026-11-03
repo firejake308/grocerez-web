@@ -8,6 +8,8 @@ export const LIMITS = {
   reportsPerIpHour: 200,
   votesPerUserHour: 30,
   geoPerCallerHour: 120,
+  /** Searches beyond this per caller per hour still return results but no longer count toward the free-tier ranking. */
+  searchCountedPerCallerHour: 60,
   /** Section 9.4/Phase 3, decision 9: anonymous AI parsing allowed, capped per caller per day. */
   parsePerCallerDay: 50,
   /** Each attempt can create a Stripe customer and Checkout session, so cap them (Phase 3 billing). */

@@ -11,7 +11,7 @@ import { followMerge, refreshProductFromReports, resolveProduct } from '../servi
 import { refreshCurrentPrice, todayOf } from '../services/freshness.js';
 import { consumeRateLimit, LIMITS } from '../services/rateLimit.js';
 import { toSyncedReport } from '../services/syncedReport.js';
-import { ensureFreeTierFresh, entitlementLevel, freeSetFingerprint, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
+import { ensureFreeTierFresh, entitlementLevel, freeAnywhereProductIds, freeSetFingerprint, lockedSummaryFor } from '../services/entitlements.js';
 import { parsePrice } from '../../../shared/price.js';
 import type { LockedSummary, PriceReportUpsert, PriceReportPushResult, SyncedPriceReport } from '../../../shared/types.js';
 import { products } from '../db/schema.js';
@@ -308,8 +308,8 @@ export function syncRoutes(db: AppDb, now: () => Date = () => new Date(), entitl
     let freeSet: string | null = null;
     if (entitlementsEnforced && level === 'public') {
       ensureFreeTierFresh(db, lat, lon, radiusMi, now);
-      freeSet = freeSetFingerprint(db, lat, lon, radiusMi);
-      const freeIds = freeTierProductIds(db, lat, lon, radiusMi);
+      freeSet = freeSetFingerprint(db);
+      const freeIds = freeAnywhereProductIds(db);
       const isLocked = (row: (typeof page)[number]) => !!row.report.productId && !freeIds.has(row.report.productId);
       reports = page.filter((row) => !isLocked(row)).map(toWire);
 

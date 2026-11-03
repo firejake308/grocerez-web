@@ -4,7 +4,7 @@ import type { LockedSummary } from '../../shared/types';
 import { ApiError, createSyncApi, type FlagReason, type GeocodeResult, type Profile, type VoteState } from './api';
 import { readCheckoutReturn, waitForLevel, withoutCheckoutParam } from './checkoutReturn';
 import { PULL_RADIUS_MI, SYNC_API_URL, syncEnabled } from './config';
-import { cachedCommunity, patchSyncedReport, pendingReports, runSync, type SyncDiagnostics } from './engine';
+import { cachedCommunity, communityToPriceData, patchSyncedReport, pendingReports, runSync, type SyncDiagnostics } from './engine';
 import { fetchDiscover } from './discover';
 import { resolveSyncLocation, type LocationSource } from './location';
 import { localSyncStorage, type HomeArea, type SyncAuth } from './storage';
@@ -43,9 +43,14 @@ export interface SyncController {
   searchHomeArea: (q: string) => Promise<GeocodeResult[]>;
   chooseHomeArea: (area: HomeArea | null) => Promise<void>;
   /** Confirm / flag / withdraw a community report (plan section 9.3). Throws if not signed in. */
-  confirmReport: (reportId: string) => Promise<void>;
-  flagReport: (reportId: string, reason: FlagReason, note?: string) => Promise<void>;
-  removeVote: (reportId: string) => Promise<void>;
+  confirmReport: (reportId: string) => Promise<VoteState>;
+  flagReport: (reportId: string, reason: FlagReason, note?: string) => Promise<VoteState>;
+  removeVote: (reportId: string) => Promise<VoteState>;
+  /**
+   * Server-side search over every community report (limited to the user's area when one is known). Throws when the
+   * server can't be reached; callers fall back to searching the local cache. Needs no sign-in.
+   */
+  search: (query: string) => Promise<{ items: PriceData[]; locked: LockedSummary[]; truncated: boolean }>;
   /** Section 6.3.3: starts a Stripe Checkout session and returns its URL. Throws if not signed in, or if billing isn't configured server-side. */
   checkoutSubscription: () => Promise<string>;
   /** Stripe's billing portal (update card, cancel, invoices); returns its URL. */
@@ -355,18 +360,21 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const confirmReport = useCallback(async (reportId: string) => {
     const state = await api.confirmReport(requireSession(), reportId);
     applyVote(reportId, state);
+    return state;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, applyVote, storage]);
 
   const flagReport = useCallback(async (reportId: string, reason: FlagReason, note?: string) => {
     const state = await api.flagReport(requireSession(), reportId, reason, note);
     applyVote(reportId, state);
+    return state;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, applyVote, storage]);
 
   const removeVote = useCallback(async (reportId: string) => {
     const state = await api.removeVote(requireSession(), reportId);
     applyVote(reportId, state);
+    return state;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, applyVote, storage]);
 
@@ -390,6 +398,23 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, storage, syncNow]);
 
+  const search = useCallback(async (query: string) => {
+    let token = storage.getAuth()?.sessionToken ?? storage.getDeviceToken();
+    if (!token) {
+      const { deviceToken } = await api.registerDevice();
+      storage.setDeviceToken(deviceToken);
+      token = deviceToken;
+    }
+    const resolved = await resolveSyncLocation(priceDataRef.current, homeAreaRef.current);
+    const near = resolved ? { lat: resolved.point.lat, lon: resolved.point.lon, radiusMi: PULL_RADIUS_MI } : undefined;
+    const res = await api.search(token, query, near);
+    return {
+      items: res.reports.filter((r) => r.status === 'active').map(communityToPriceData),
+      locked: res.locked,
+      truncated: res.truncated,
+    };
+  }, [api, storage]);
+
   const dismissCheckoutNotice = useCallback(() => setCheckoutNotice(null), []);
 
   return {
@@ -412,6 +437,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     confirmReport,
     flagReport,
     removeVote,
+    search,
     checkoutSubscription,
     openBillingPortal,
     redeemCredits,

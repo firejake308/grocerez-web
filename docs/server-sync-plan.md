@@ -244,16 +244,28 @@ client cannot be patched around it.
 #### 6.3.1 The free set
 
 - `free_tier_products` (`region_key`, `product_id`, `rank`, `computed_at`),
-  recomputed nightly per region (the same 0.1° cell + radius key as the
-  pull cursor) by `distinct_reporters × distinct_stores` over the last 90
-  days, taking the top `FREE_TIER_PRODUCT_COUNT` (default 25).
-- Ranking by reporters × stores rather than raw report count keeps one
-  user's repeated scans of the same item from dominating the free set.
+  recomputed periodically per region (the same 0.1° cell + radius key as the
+  pull cursor): the top `FREE_TIER_PRODUCT_COUNT` (default 25) **most
+  searched** products among those with reports in the region over the last 90
+  days. The search signal comes from `GET /api/search` (6.3.4): every search
+  adds one to each product it returns, bucketed by the caller's 0.1° cell.
+  A region's score for a product is the searches from cells inside its radius
+  plus unlocated searches (callers with no location) at half weight. Ties --
+  notably before anyone has searched -- fall back to `distinct_reporters ×
+  distinct_stores`, which keeps one user's repeated scans of the same item
+  from dominating the set.
+- **What callers are gated by is the union of every region's set**
+  (`freeAnywhereProductIds`): a product is free if it is in any region's top
+  25. A ZIP only filters results to a radius; it never changes what is locked,
+  so entering one can't hide a price the visitor could see before.
 - A product stays in the set for at least 7 days after entering it so the
   free tier does not visibly churn day to day.
 - Early on, when a region has fewer than 25 products, the free set is
   simply everything there, which is the right behavior for a dataset that
   needs seeding.
+- Search counts older than 90 days are pruned by the maintenance timer. Counted
+  searches are rate-limited per caller (`searchCountedPerCallerHour`); past the
+  cap a search still returns results but no longer counts.
 - Region-scoped reads (the refresh and `GET /api/sync/pull`) filter by
   location in SQLite -- stores in the bounding box via the lat/lon index, an
   exact circle check on that handful, then a grouped count / chunked read over
@@ -641,9 +653,22 @@ GET    /api/discover?limit=                → home-screen sample, no location n
                                              the newest report per product anywhere
                                              (device token or session). A public
                                              caller gets full reports only for
-                                             products in the free set of the store's
-                                             own region, plus up to 3 price-less
+                                             products in the free set (the union of
+                                             every region's), plus up to 3 price-less
                                              teasers for the rest.
+
+GET    /api/search?q=&lat=&lon=&radiusMi=&limit=
+                                           → { accessLevel, reports, locked, truncated }
+                                             every active report matching q (same
+                                             matcher as the client's offline search,
+                                             shared/search.ts), newest per product
+                                             and store; limited to the radius when
+                                             lat/lon are given. A public caller gets
+                                             full reports for free-set products and
+                                             price-less teasers for the rest. Counts
+                                             toward the "most searched" ranking.
+                                             The client calls it when online and
+                                             searches its local cache when offline.
 
 GET    /api/geo/nearby-stores?lat=&lon=    → stores table first, Overpass fallback
 GET    /api/geo/reverse?lat=&lon=

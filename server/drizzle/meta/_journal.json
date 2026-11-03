@@ -43,6 +43,13 @@
       "when": 1793568791757,
       "tag": "0005_quiet_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793664257402,
+      "tag": "0006_bright_morbius",
+      "breakpoints": true
     }
   ]
 }
