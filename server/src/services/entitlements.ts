@@ -257,20 +257,44 @@ export function computeFreeTier(db: AppDb, lat: number, lon: number, radiusMi: n
   });
 }
 
-/** How long a region's free set may go unrefreshed while people are pulling from it. */
+/** Throttle for on-demand refreshes of a region that is due one (young, or past its daily snapshot). */
 const FREE_TIER_REFRESH_MS = 60 * 1000;
+/**
+ * A full region's ranking is a snapshot refreshed about once a day, so one
+ * burst of searches can't flip a product into (or out of) the free set within
+ * minutes. Search counts still accumulate live; only the ranking waits.
+ */
+export const FREE_TIER_RANKING_REFRESH_MS = 24 * 60 * 60 * 1000;
 const lastFreeTierRefresh = new WeakMap<AppDb, Map<string, number>>();
 
 /**
- * Brings a region's free set up to date on demand. Without this it only
- * changed when the periodic job ran, so in a young region (fewer than 25
- * products, where everything is meant to be free) a brand-new product stayed
- * locked for hours. Throttled to once a minute per region per process, so a
- * burst of pulls costs one scan; the scan is O(reports in the last 90 days),
- * which is fine while the dataset is small -- revisit if it isn't.
+ * True when a region's stored free set is a full (>= 25 products) ranking
+ * computed less than a day ago, i.e. there is nothing to refresh yet. A young
+ * region (fewer than 25 products, where everything is meant to be free) is
+ * never "current": recomputing it only admits new products and can't reorder
+ * a ranking, so it refreshes whenever asked.
+ */
+function rankingIsCurrent(db: AppDb, key: string, now: () => Date): boolean {
+  const row = db
+    .select({ n: sql<number>`count(*)`, computedAt: sql<string | null>`max(${freeTierProducts.computedAt})` })
+    .from(freeTierProducts)
+    .where(eq(freeTierProducts.regionKey, key))
+    .all()[0];
+  if (!row || row.n < FREE_TIER_PRODUCT_COUNT || !row.computedAt) return false;
+  return now().getTime() - Date.parse(row.computedAt) < FREE_TIER_RANKING_REFRESH_MS;
+}
+
+/**
+ * Brings a region's free set up to date on demand: immediately for a region
+ * that has never been computed or is still young, but a full region's ranking
+ * only once its daily snapshot is a day old (the periodic job normally gets
+ * there first). Throttled to once a minute per region per process, so a burst
+ * of pulls costs one scan; the scan is O(reports in the last 90 days), which
+ * is fine while the dataset is small -- revisit if it isn't.
  */
 export function ensureFreeTierFresh(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date = () => new Date()): void {
   const key = regionKey(lat, lon, radiusMi);
+  if (rankingIsCurrent(db, key, now)) return;
   const seen = lastFreeTierRefresh.get(db) ?? new Map<string, number>();
   lastFreeTierRefresh.set(db, seen);
   const last = seen.get(key);
@@ -306,8 +330,8 @@ export function freeTierProductIds(db: AppDb, lat: number, lon: number, radiusMi
   return new Set(db.select({ productId: freeTierProducts.productId }).from(freeTierProducts).where(eq(freeTierProducts.regionKey, key)).all().map((r) => r.productId));
 }
 
-/** No live registry of "regions a pull was ever made for" -- so recompute around every distinct store location's 0.1-degree cell instead, at the default pull radius. Meant for the periodic maintenance timer. */
-export function computeFreeTierForAllRegions(db: AppDb, defaultRadiusMi = 50, now: () => Date = () => new Date()): number {
+/** No live registry of "regions a pull was ever made for" -- so recompute around every distinct store location's 0.1-degree cell instead, at the default pull radius. Meant for the periodic maintenance timer, which passes `onlyStale` so a full region is recomputed only once its daily snapshot is a day old (and a redeploy doesn't reshuffle everything). Returns how many regions were recomputed. */
+export function computeFreeTierForAllRegions(db: AppDb, defaultRadiusMi = 50, now: () => Date = () => new Date(), { onlyStale = false }: { onlyStale?: boolean } = {}): number {
   const seen = new Set<string>();
   let regions = 0;
   for (const s of db.select({ lat: stores.lat, lon: stores.lon }).from(stores).all()) {
@@ -317,6 +341,7 @@ export function computeFreeTierForAllRegions(db: AppDb, defaultRadiusMi = 50, no
     const key = `${rLat},${rLon}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    if (onlyStale && rankingIsCurrent(db, regionKey(rLat, rLon, defaultRadiusMi), now)) continue;
     computeFreeTier(db, rLat, rLon, defaultRadiusMi, now);
     regions++;
   }

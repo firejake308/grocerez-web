@@ -7,9 +7,12 @@ import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts
 import { newId } from '../../lib/ids.js';
 import {
   computeFreeTier,
+  computeFreeTierForAllRegions,
   creditBalance,
   entitlementLevel,
+  ensureFreeTierFresh,
   evaluateContributionCredits,
+  FREE_TIER_RANKING_REFRESH_MS,
   freeAnywhereProductIds,
   freeTierProductIds,
   pruneSearchCounts,
@@ -365,6 +368,61 @@ describe('computeFreeTier / freeTierProductIds', () => {
     expect(db.select().from(productSearchCounts).all()).toHaveLength(2);
     pruneSearchCounts(db, now);
     expect(db.select().from(productSearchCounts).all()).toHaveLength(1);
+  });
+
+  describe('daily ranking snapshot', () => {
+    const HOUR = 60 * 60 * 1000;
+    const t0 = new Date('2026-06-15T00:00:00.000Z').getTime();
+    let clock = t0;
+    const at = () => new Date(clock);
+    const computedAts = () => [...new Set(db.select().from(freeTierProducts).all().map((r) => r.computedAt))];
+
+    beforeEach(() => { clock = t0; });
+
+    it('does not recompute a full region on demand within 24 hours, however much is searched, then does after a day', () => {
+      const { searched } = seedFullRegion();
+      computeFreeTier(db, KROGER.lat, KROGER.lon, 50, at);
+      const first = computedAts();
+      expect(first).toHaveLength(1);
+
+      for (let i = 0; i < 20; i++) recordSearches(db, [searched], { lat: KROGER.lat, lon: KROGER.lon }, at);
+      clock = t0 + 23 * HOUR;
+      ensureFreeTierFresh(db, KROGER.lat, KROGER.lon, 50, at);
+      expect(computedAts()).toEqual(first); // untouched
+
+      clock = t0 + FREE_TIER_RANKING_REFRESH_MS + HOUR;
+      ensureFreeTierFresh(db, KROGER.lat, KROGER.lon, 50, at);
+      expect(computedAts()).not.toEqual(first);
+      expect(freeTierProductIds(db, KROGER.lat, KROGER.lon, 50).has(searched)).toBe(true);
+    });
+
+    it('computes a never-computed region on first request, and refreshes a young region within a minute so new products unlock', () => {
+      const store = seedStore(db, KROGER.lat, KROGER.lon);
+      const u = seedUser(db);
+      const milk = seedProduct(db, 'Milk');
+      seedReport(db, u, milk, store, { createdAt: new Date(t0).toISOString() });
+      ensureFreeTierFresh(db, KROGER.lat, KROGER.lon, 50, at);
+      expect(freeTierProductIds(db, KROGER.lat, KROGER.lon, 50).has(milk)).toBe(true);
+
+      const eggs = seedProduct(db, 'Eggs');
+      seedReport(db, u, eggs, store, { createdAt: new Date(t0).toISOString() });
+      clock = t0 + 2 * 60 * 1000;
+      ensureFreeTierFresh(db, KROGER.lat, KROGER.lon, 50, at);
+      expect(freeTierProductIds(db, KROGER.lat, KROGER.lon, 50).has(eggs)).toBe(true);
+    });
+
+    it('the maintenance job (onlyStale) skips a fresh full region and recomputes it once a day old', () => {
+      seedFullRegion();
+      expect(computeFreeTierForAllRegions(db, 50, at, { onlyStale: true })).toBe(1); // first time
+      const first = computedAts();
+      clock = t0 + 6 * HOUR;
+      expect(computeFreeTierForAllRegions(db, 50, at, { onlyStale: true })).toBe(0);
+      expect(computedAts()).toEqual(first);
+      clock = t0 + 25 * HOUR;
+      expect(computeFreeTierForAllRegions(db, 50, at, { onlyStale: true })).toBe(1);
+      // Without the option it always recomputes (admin/tests).
+      expect(computeFreeTierForAllRegions(db, 50, at)).toBe(1);
+    });
   });
 
   it('freeAnywhereProductIds is the union of every region\'s free set', () => {

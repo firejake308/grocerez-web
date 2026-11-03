@@ -198,6 +198,27 @@ describe('GET /api/search', () => {
       expect(rows.reduce((n, r) => n + r.count, 0)).toBe(LIMITS.searchCountedPerCallerHour);
     });
 
+    it('promotes a searched product only when the daily snapshot refreshes, not on the searches themselves', async () => {
+      let clock = Date.now();
+      const now = () => new Date(clock);
+      const app = createApp({ db, corsOrigins: [], mailer, entitlementsEnforced: true, now });
+      const a = await signIn(app, 'a@example.com');
+      const b = await signIn(app, 'b@example.com');
+      await push(app, a, [...fillerReports('a', mk(DFW)), mk(DFW)('milk', 'Milk')]);
+      await push(app, b, fillerReports('b', mk(DFW)));
+      computeFreeTierForAllRegions(db, 50, now);
+
+      const token = await device(app);
+      const here = `?q=milk&lat=${DFW.lat}&lon=${DFW.lon}`;
+      for (let i = 0; i < 10; i++) expect((await search(app, token, here)).locked).toHaveLength(1);
+      clock += 23 * 60 * 60 * 1000;
+      expect((await search(app, token, here)).locked).toHaveLength(1); // still the old snapshot
+
+      clock += 2 * 60 * 60 * 1000;
+      await search(app, token, here); // past a day: this request refreshes the region...
+      expect(names(await search(app, token, here))).toEqual(['Milk']); // ...and Milk, the only searched product, is now free
+    });
+
     it('lets searching promote a locked product into the free set', async () => {
       const app = build(true);
       const a = await signIn(app, 'a@example.com');

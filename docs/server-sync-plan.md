@@ -258,6 +258,13 @@ client cannot be patched around it.
   (`freeAnywhereProductIds`): a product is free if it is in any region's top
   25. A ZIP only filters results to a radius; it never changes what is locked,
   so entering one can't hide a price the visitor could see before.
+- A full region's ranking is a **daily snapshot**: search counts accumulate
+  live, but the stored set is recomputed only when it is a day old (by the
+  6-hourly maintenance tick or the first request after that), so a burst of
+  searches can't flip a product into the free set within minutes, and
+  `freeSetFingerprint` -- hence client region-cache rebuilds -- changes at most
+  daily. A young region (fewer than 25 products, where everything is free)
+  still refreshes on demand, since that only admits new products.
 - A product stays in the set for at least 7 days after entering it so the
   free tier does not visibly churn day to day.
 - Early on, when a region has fewer than 25 products, the free set is
