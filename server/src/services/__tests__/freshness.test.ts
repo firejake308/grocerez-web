@@ -30,7 +30,7 @@ function seed(db: AppDb) {
   const productId = newId();
   const storeId = newId();
   db.insert(products).values({ id: productId, canonicalName: 'Milk' }).run();
-  db.insert(stores).values({ id: storeId, name: 'Kroger', chainKey: 'kroger', storeKey: newId() }).run();
+  db.insert(stores).values({ id: storeId, name: 'Kroger', lat: 32.9, lon: -97.2, chainKey: 'kroger', storeKey: newId() }).run();
   const userOf = (tier: 'new' | 'established' | 'trusted') => {
     const id = newId();
     const [reportsCount, confirmedCount] = tier === 'new' ? [0, 0] : tier === 'established' ? [5, 4] : [5, 40];

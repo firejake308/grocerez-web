@@ -67,18 +67,16 @@ describe('resolveStore', () => {
     expect(b.id).toBe(a.id);
   });
 
-  it('gives a bare chain name a chain-level store distinct from a located one', () => {
-    const located = resolveStore(db, { rawStore: 'Kroger @ 9150 North Tarrant Parkway', lat: 32.9019798, lon: -97.1889734 });
-    const chainLevel = resolveStore(db, { rawStore: 'Kroger ' });
-    expect(chainLevel.id).not.toBe(located.id);
-    expect(chainLevel.isChainLevel).toBe(true);
-    expect(located.isChainLevel).toBe(false);
+  it('refuses a store without a location', () => {
+    expect(() => resolveStore(db, { rawStore: 'Kroger ' } as never)).toThrow(/location/);
+    expect(() => resolveStore(db, { rawStore: 'Kroger', lat: NaN, lon: -97 })).toThrow(/location/);
   });
 
-  it('reuses the same chain-level store for repeated bare-name reports', () => {
-    const a = resolveStore(db, { rawStore: 'Kroger' });
-    const b = resolveStore(db, { rawStore: 'Kroger ' });
-    expect(b.id).toBe(a.id);
+  it('keeps the same chain at different places as different stores', () => {
+    const a = resolveStore(db, { rawStore: 'Kroger', lat: 32.9019798, lon: -97.1889734 });
+    const b = resolveStore(db, { rawStore: 'Kroger', lat: 30.2672, lon: -97.7431 });
+    expect(b.id).not.toBe(a.id);
+    expect(a.isChainLevel).toBe(false);
   });
 
   it('attaches a bare address with coordinates to the named store already known there', () => {
@@ -88,10 +86,10 @@ describe('resolveStore', () => {
     expect(bare.name).toBe(named.name);
   });
 
-  it('creates a standalone store for a bare address with no coordinates and no prior match', () => {
-    const a = resolveStore(db, { rawStore: '5055 Northwest Loop 410' });
-    const b = resolveStore(db, { rawStore: '5025 Northwest Loop 410' });
-    expect(a.id).not.toBe(b.id); // different text, no coordinates to reconcile them -- a documented limitation
+  it('creates a standalone store for a bare address with no named store known there', () => {
+    const a = resolveStore(db, { rawStore: '5055 Northwest Loop 410', lat: 29.5, lon: -98.5 });
+    const b = resolveStore(db, { rawStore: '5025 Northwest Loop 410', lat: 29.6, lon: -98.6 });
+    expect(a.id).not.toBe(b.id);
   });
 
   it('is idempotent for the exact same input', () => {

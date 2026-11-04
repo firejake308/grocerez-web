@@ -50,6 +50,13 @@
       "when": 1793664257402,
       "tag": "0006_bright_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793836352631,
+      "tag": "0007_require_store_coordinates",
+      "breakpoints": true
     }
   ]
 }

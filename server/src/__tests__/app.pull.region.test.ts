@@ -24,7 +24,6 @@ describe('region-scoped reads', () => {
     db.insert(stores).values({ id: 'near', name: 'Near', lat: CENTER.lat + 0.02, lon: CENTER.lon + 0.02, chainKey: 'near', storeKey: 'near' }).run();
     db.insert(stores).values({ id: 'corner', name: 'Corner', lat: CENTER.lat + 0.1, lon: CENTER.lon + 0.17, chainKey: 'corner', storeKey: 'corner' }).run();
     db.insert(stores).values({ id: 'far', name: 'Far', lat: 40.7, lon: -74.0, chainKey: 'far', storeKey: 'far' }).run();
-    db.insert(stores).values({ id: 'nowhere', name: 'Chain', lat: null, lon: null, isChainLevel: true, chainKey: 'chain', storeKey: 'chain' }).run();
     for (const id of ['milk', 'eggs', 'bread']) db.insert(products).values({ id, canonicalName: id }).run();
   });
 
@@ -77,11 +76,10 @@ describe('region-scoped reads', () => {
       }
     });
 
-    it('excludes chain-level stores with no coordinates and stores outside the box', async () => {
+    it('excludes stores outside the box and outside the circle', async () => {
       const app = createApp({ db, corsOrigins: [] });
       const { deviceToken } = await json(await app.request('/api/devices/register', { method: 'POST' }));
       addReport('a', 'near');
-      addReport('b', 'nowhere');
       addReport('c', 'far');
       addReport('d', 'corner');
       const seen = await pullAll(app, deviceToken, 500);

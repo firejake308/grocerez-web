@@ -75,6 +75,16 @@ describe('pendingReports', () => {
     ];
     expect(pendingReports(data).map((r) => r.id)).toEqual(['never', 'stale', 'gone']);
   });
+
+  it('leaves out reports without coordinates (the server refuses them), but still sends their tombstones', () => {
+    const data = [
+      report({ id: 'located' }),
+      report({ id: 'nowhere', latitude: null, longitude: null }),
+      report({ id: 'half', longitude: undefined }),
+      report({ id: 'withdrawn', latitude: null, longitude: null, syncedAt: '2026-09-01T12:00:00.000Z', deletedAt: '2026-09-02T00:00:00.000Z' }),
+    ];
+    expect(pendingReports(data).map((r) => r.id)).toEqual(['located', 'withdrawn']);
+  });
 });
 
 describe('toUpsert', () => {

@@ -18,7 +18,7 @@ function seedUser(db: AppDb, overrides: Partial<typeof users.$inferInsert> = {})
 
 function seedStore(db: AppDb): string {
   const id = newId();
-  db.insert(stores).values({ id, name: 'Kroger', chainKey: 'kroger', storeKey: newId() }).run();
+  db.insert(stores).values({ id, name: 'Kroger', lat: 32.9, lon: -97.2, chainKey: 'kroger', storeKey: newId() }).run();
   return id;
 }
 

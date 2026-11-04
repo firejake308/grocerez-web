@@ -144,8 +144,8 @@ for now (`currency` column present, defaulted, not yet exposed).
 
 **stores**
 - `id`, `name` (chain/display name, e.g. "Kroger"), `address`, `lat`, `lon`
-- `chain_key` (normalized, aliased chain name); `is_chain_level` (true when
-  the store has no location, see 8.5)
+- `chain_key` (normalized, aliased chain name); `is_chain_level` (legacy:
+  stores no longer exist without a location, see "Location is required" in 8.5)
 - `geohash7` (about 150 m cell) for blocking
 - `store_key`: normalized name + geohash7, or name + address when no coordinates
 
@@ -399,7 +399,9 @@ Geo-scoped from day one (your decision 4).
   sync settings (a zip code or city, geocoded through the server's geo
   proxy in section 8.6). Pull is skipped with a visible "set your area"
   hint if none of these exist.
-- Reports at chain-level stores (no coordinates, see 8.5) carry an
+- (Superseded: reports without coordinates are no longer accepted, see
+  "Location is required" in 8.5, so there are no chain-level stores to
+  approximate.) Reports at chain-level stores carried an
   `approx` location: the centroid of the reporter's located reports in the
   same 7-day window, else the reporter's home area. They are included in
   the pull when that approximate point is inside the circle and are shown
@@ -736,7 +738,7 @@ a reverse-geocode miss (`"undefined La Cima"`), and chain spelling variants
 - Store resolution gets a normalization step: trim, drop `undefined`
   fragments, split on ` @ `, and map the chain through a small alias table
   (`heb→h-e-b`, `walmart supercenter→walmart`, `kroger marketplace→kroger`).
-- A report with only a chain name resolves to a **chain-level store**
+- (Superseded by "Location is required" below.) A report with only a chain name resolved to a **chain-level store**
   (`Walmart`, no location). The `current_prices` view and the client group
   by chain when location is unknown, so "Walmart $1.47" and "Walmart
   Supercenter @ Webb Chapel $1.47" for the same eggs show as one chain with
@@ -746,6 +748,23 @@ a reverse-geocode miss (`"undefined La Cima"`), and chain spelling variants
   (the 11 `9410 Webb Chapel Road` reports attach to the Walmart there).
 - The `store` field the client sends is not changed by any of this; the
   server records the raw string and the resolved `store_id`.
+
+**Location is required.** A price is only useful to people near the store, and
+we can't tell who that is without coordinates, so every report and every store
+must have a latitude and longitude:
+- `POST /api/sync/push` rejects a report with no `latitude`/`longitude` ("A
+  location is required to share a price."). A withdrawal (`deletedAt`) is exempt
+  so it can always get through. `resolveStore` always keys on chain + geohash (or
+  address + geohash), never on text alone.
+- The database refuses a store without `lat`/`lon` (triggers
+  `stores_require_location_insert` / `_update`, migration 0007). Triggers rather
+  than NOT NULL, so the migration deletes nothing; stores that predate the rule
+  stay until `npm run cleanup-unlocated -- --apply` removes them and their reports
+  (it prints counts without `--apply`).
+- The scanner won't save a price until the device gave a position: it explains
+  why and offers "Try again", which asks again (a timeout is not a refusal).
+  Older local reports without coordinates stay in the user's own list but are
+  never pushed.
 
 **Prices need a parser, and the outlier check earns its keep.**
 Seven of 148 prices are not `d.dd`: `$10`, `$19.7`, `548` (a missed decimal

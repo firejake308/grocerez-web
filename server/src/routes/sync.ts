@@ -41,6 +41,11 @@ const reportSchema = z.object({
   updatedAt: z.string().min(1),
   deletedAt: z.string().nullable().optional(),
   productId: z.string().nullable().optional(),
+}).superRefine((report, ctx) => {
+  // A price is only useful to people near the store, so we insist on where it was seen. A withdrawal (tombstone) is exempt: it must always get through.
+  if (report.deletedAt) return;
+  if (typeof report.latitude !== 'number') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['latitude'], message: 'A location is required to share a price.' });
+  if (typeof report.longitude !== 'number') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['longitude'], message: 'A location is required to share a price.' });
 });
 
 /** The batch is validated per report, not as a whole: one malformed legacy report must not block the other 499. */
@@ -79,6 +84,10 @@ function pushOneReport(db: AppDb, ctx: PushContext, input: PriceReportUpsert): P
     if (existing.productId) refreshProductFromReports(db, existing.productId);
     if (existing.productId && existing.storeId) refreshCurrentPrice(db, existing.productId, existing.storeId, ctx.now);
     return { id: input.id, status: 'deleted', productId: existing.productId ?? undefined, storeId: existing.storeId ?? undefined, seq: existing.seq };
+  }
+
+  if (typeof input.latitude !== 'number' || typeof input.longitude !== 'number') {
+    return { id: input.id, status: 'rejected', error: 'latitude: A location is required to share a price.' };
   }
 
   const parsedPrice = parsePrice(input.price);
