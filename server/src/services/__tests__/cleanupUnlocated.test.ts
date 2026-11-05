@@ -93,6 +93,22 @@ describe('cleanupUnlocatedStores', () => {
       expect(db.select().from(products).where(eq(products.id, productId)).all()[0].reportCount).toBe(2); // keep + gone1 (gone2 is hidden)
     });
 
+    it('can also move an address-only store, but never a named store at the same address', () => {
+      const target = webb();
+      const addrOnly = newId();
+      db.insert(stores).values({ id: addrOnly, name: '9410 Webb Chapel Road', address: '9410 Webb Chapel Road', chainKey: '', storeKey: 'addr:legacy' }).run();
+      report('addr1', addrOnly, 321);
+      const named = newId(); // a named store at that same address, also unlocated: not an address-only store
+      db.insert(stores).values({ id: named, name: 'Costco', address: '9410 Webb Chapel Road', chainKey: 'costco', storeKey: 'costco:legacy' }).run();
+      report('costco1', named, 555);
+
+      const summary = cleanupUnlocatedStores(db, { apply: true, moves: [{ from: '9410 Webb Chapel Rd', to: 'Walmart @ 9410 Webb Chapel Road' }] });
+      expect(summary.moves).toEqual([expect.objectContaining({ from: '9410 Webb Chapel Rd', reports: 1, to: expect.objectContaining({ id: target.id }) })]);
+      const byId = Object.fromEntries(db.select().from(priceReports).all().map((r) => [r.id, r.storeId]));
+      expect(byId.addr1).toBe(target.id);
+      expect(byId.costco1).toBeUndefined(); // deleted with the rest, not swept up by the address move
+    });
+
     it('maps HEB onto "H-E-B @ ..." and shows the plan, touching nothing, without apply', () => {
       const heb = newId();
       db.insert(stores).values({ id: heb, name: 'HEB', chainKey: 'heb', storeKey: 'heb:chain' }).run();

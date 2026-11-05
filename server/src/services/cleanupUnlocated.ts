@@ -3,7 +3,7 @@ import type { AppDb } from '../db/client.js';
 import { contributionCredits, currentPrices, priceReports, products, reportVotes, stores } from '../db/schema.js';
 import { refreshCurrentPrice } from './freshness.js';
 import { refreshProductFromReports } from './products.js';
-import { normalizeChainKey, normalizeKeyPart, splitStoreString } from './stores.js';
+import { isAddressOnlyStore, normalizeChainKey, normalizeKeyPart, splitStoreString } from './stores.js';
 
 export interface UnlocatedStore {
   id: string;
@@ -13,7 +13,13 @@ export interface UnlocatedStore {
   activeReports: number;
 }
 
-/** "Move everything at the unlocated store called `from` to the located store `to` ("Chain @ Street Address")." */
+/**
+ * "Move everything at the unlocated store `from` to the located store `to`
+ * ("Chain @ Street Address")." `from` is either a bare chain name ("Kroger")
+ * or the street address of an address-only store ("9410 Webb Chapel Road");
+ * an address matches only stores that are just an address, never a named
+ * store that happens to be at that address.
+ */
 export interface StoreMove {
   from: string;
   to: string;
@@ -91,12 +97,16 @@ export function cleanupUnlocatedStores(db: AppDb, { apply, moves = [] }: { apply
       moved: { reports: 0, stores: 0 },
     };
 
-    // 1. Moves: a bare chain name ("Kroger", no address) goes to the one located store named for it.
+    // 1. Moves: a bare chain name ("Kroger", no address) or an address-only store goes to the one located store named for it.
     const movedStoreIds = new Set<string>();
     const unmatched: string[] = [];
     for (const move of moves) {
       const fromKey = normalizeChainKey(move.from);
-      const sources = unlocated.filter((s) => s.address === null && normalizeChainKey(s.name) === fromKey && !movedStoreIds.has(s.id));
+      const fromAddress = normalizeAddress(move.from);
+      const sources = unlocated.filter((s) => !movedStoreIds.has(s.id) && (
+        (s.address === null && normalizeChainKey(s.name) === fromKey) ||
+        (isAddressOnlyStore(s) && normalizeAddress(s.address ?? s.name) === fromAddress)
+      ));
       if (sources.length === 0) {
         unmatched.push(move.from);
         continue;

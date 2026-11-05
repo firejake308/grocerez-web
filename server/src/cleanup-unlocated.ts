@@ -4,14 +4,15 @@
  * where this code is deployed. To just count against an older deployment, use
  * the read-only scripts/count-unlocated-stores.mjs.
  *
- * A bare chain name ("Kroger", no address) can't be placed by itself, but if
- * you know which store those reports belong to, --move re-files them there
- * (the target must already exist, with coordinates). Whatever is left unplaced
+ * A bare chain name ("Kroger", no address) or a bare street address can't be
+ * placed by itself, but if you know which store those reports belong to,
+ * --move re-files them there (the target must already exist, with coordinates). Whatever is left unplaced
  * is deleted with --apply, along with its reports, votes, credits and prices.
  *
  *   npm run cleanup-unlocated -- \
  *     --move "Kroger=Kroger @ 4901 Maple Avenue" \
- *     --move "Walmart=Walmart @ 9410 Webb Chapel Rd"       # dry run: shows the plan
+ *     --move "Walmart=Walmart @ 9410 Webb Chapel Rd" \
+ *     --move "9410 Webb Chapel Road=Walmart @ 9410 Webb Chapel Rd"   # dry run: shows the plan
  *   npm run cleanup-unlocated -- --move ... --apply        # does it, in one transaction
  */
 import { runMigrations } from './db/migrate.js';
@@ -26,7 +27,7 @@ for (let i = 0; i < args.length; i++) {
   const spec = args[++i] ?? '';
   const eq = spec.indexOf('=');
   if (eq < 1) {
-    console.error(`--move needs "Legacy name=Chain @ Street Address", got "${spec}".`);
+    console.error(`--move needs "Chain name or street address=Chain @ Street Address", got "${spec}".`);
     process.exit(1);
   }
   moves.push({ from: spec.slice(0, eq).trim(), to: spec.slice(eq + 1).trim() });
