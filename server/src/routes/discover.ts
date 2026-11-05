@@ -4,7 +4,7 @@ import type { AppDb } from '../db/client.js';
 import { priceReports, products, stores, users } from '../db/schema.js';
 import { requireAuth, type AppEnv } from '../lib/authenticate.js';
 import { todayOf } from '../services/freshness.js';
-import { ensureFreeTierFresh, entitlementLevel, freeTierProductIds, lockedSummaryFor } from '../services/entitlements.js';
+import { ensureFreeTierFresh, entitlementLevel, freeAnywhereProductIds, lockedSummaryFor } from '../services/entitlements.js';
 import { toSyncedReport, type ReportRow } from '../services/syncedReport.js';
 import type { LockedSummary } from '../../../shared/types.js';
 
@@ -60,21 +60,22 @@ export function discoverRoutes(db: AppDb, entitlementsEnforced = false, now: () 
     const today = todayOf(now());
     const reports = [];
     const lockedProducts: { productId: string; newestDate: string }[] = [];
-    const freeSets = new Map<string, Set<string>>();
+    const freshCells = new Set<string>();
+    let free: Set<string> | null = null;
 
     for (const [productId, row] of newestByProduct) {
       if (reports.length >= limit && (!gated || lockedProducts.length >= MAX_TEASERS)) break;
 
       let isFree = true;
       if (gated) {
-        // Same rule as a pull, evaluated in the store's own region.
+        // Same rule as a pull: free anywhere. A store's own region is refreshed first so a brand-new product there unlocks promptly.
         const cell = `${row.store.lat!.toFixed(1)},${row.store.lon!.toFixed(1)}`;
-        let free = freeSets.get(cell);
-        if (!free) {
+        if (!freshCells.has(cell)) {
           ensureFreeTierFresh(db, row.store.lat!, row.store.lon!, FREE_SET_RADIUS_MI, now);
-          free = freeTierProductIds(db, row.store.lat!, row.store.lon!, FREE_SET_RADIUS_MI);
-          freeSets.set(cell, free);
+          freshCells.add(cell);
+          free = null;
         }
+        free ??= freeAnywhereProductIds(db);
         isFree = free.has(productId);
       }
 

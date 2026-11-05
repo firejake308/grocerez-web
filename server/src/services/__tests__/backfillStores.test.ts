@@ -111,10 +111,13 @@ describe('backfillStoreNames', () => {
     expect(db.select().from(priceReports).all()[0].storeId).toBe(plain.id);
   });
 
-  it('skips address-only stores that have no coordinates', async () => {
+  it('skips legacy address-only stores that have no coordinates', async () => {
     const productId = seedProduct();
-    const noCoords = resolveStore(db, { rawStore: '12 Nowhere Lane' });
-    seedReport(noCoords.id, productId);
+    // Such rows predate the stores_require_location triggers, so make one the way an old database had it.
+    sqlite.exec('drop trigger stores_require_location_insert');
+    const noCoords = newId();
+    db.insert(stores).values({ id: noCoords, name: '12 Nowhere Lane', address: '12 Nowhere Lane', chainKey: '', storeKey: 'addr:12 nowhere lane' }).run();
+    seedReport(noCoords, productId);
     const summary = await backfillStoreNames(db, deps(), { apply: true });
     expect(summary).toMatchObject({ noCoordinates: 1, reportsMoved: 0 });
     expect(overpassCalls).toBe(0);

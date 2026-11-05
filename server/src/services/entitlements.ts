@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { and, asc, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 import type { AppDb } from '../db/client.js';
-import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts, priceReports, products, stores, users } from '../db/schema.js';
+import { contributionCredits, creditRedemptions, currentPrices, freeTierProducts, priceReports, productSearchCounts, products, stores, users } from '../db/schema.js';
 import { haversineMiles } from '../lib/geohash.js';
 import { newId } from '../lib/ids.js';
 import type { LockedSummary } from '../../../shared/types.js';
@@ -16,6 +16,8 @@ import { isUnverifiedTier, tierForUser } from './trust.js';
 export const FREE_TIER_PRODUCT_COUNT = 25;
 const FREE_TIER_STICKY_DAYS = 7;
 const FREE_TIER_WINDOW_DAYS = 90;
+/** An unlocated search (no ZIP) is a weaker, everywhere-at-once signal than one from inside the region. */
+const UNLOCATED_SEARCH_WEIGHT = 0.5;
 
 export const CREDIT_DAILY_CAP = 10;
 /** Each verified, non-redundant report is worth this many credits (section 6.3.2). */
@@ -163,17 +165,79 @@ function regionCandidates(db: AppDb, lat: number, lon: number, radiusMi: number,
   return rows.map((r) => ({ productId: r.productId, reporters: r.reporters, storesCount: r.storesCount }));
 }
 
+/** Searches over the trailing window per product, in or near a region: located searches inside the radius count fully, unlocated ones at half weight. */
+export function regionSearchScores(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date = () => new Date()): Map<string, number> {
+  const latDelta = radiusMi / 69;
+  const lonDelta = radiusMi / (69 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01));
+  const cutoffDay = daysAgoIso(now, FREE_TIER_WINDOW_DAYS).slice(0, 10);
+  const scores = new Map<string, number>();
+
+  const located = db
+    .select({ productId: productSearchCounts.productId, cellLat: productSearchCounts.cellLat, cellLon: productSearchCounts.cellLon, n: sql<number>`sum(${productSearchCounts.count})` })
+    .from(productSearchCounts)
+    .where(and(
+      eq(productSearchCounts.located, true),
+      gte(productSearchCounts.day, cutoffDay),
+      gte(productSearchCounts.cellLat, lat - latDelta),
+      lte(productSearchCounts.cellLat, lat + latDelta),
+      gte(productSearchCounts.cellLon, lon - lonDelta),
+      lte(productSearchCounts.cellLon, lon + lonDelta),
+    ))
+    .groupBy(productSearchCounts.productId, productSearchCounts.cellLat, productSearchCounts.cellLon)
+    .all();
+  for (const r of located) {
+    if (haversineMiles(lat, lon, r.cellLat, r.cellLon) > radiusMi) continue;
+    scores.set(r.productId, (scores.get(r.productId) ?? 0) + r.n);
+  }
+
+  const unlocated = db
+    .select({ productId: productSearchCounts.productId, n: sql<number>`sum(${productSearchCounts.count})` })
+    .from(productSearchCounts)
+    .where(and(eq(productSearchCounts.located, false), gte(productSearchCounts.day, cutoffDay)))
+    .groupBy(productSearchCounts.productId)
+    .all();
+  for (const r of unlocated) scores.set(r.productId, (scores.get(r.productId) ?? 0) + r.n * UNLOCATED_SEARCH_WEIGHT);
+  return scores;
+}
+
+/** Bumps today's search count for each product, bucketed by the caller's 0.1-degree cell (or "unlocated"). One count per product per search. */
+export function recordSearches(db: AppDb, productIds: Iterable<string>, location: { lat: number; lon: number } | null, now: () => Date = () => new Date()): void {
+  const day = now().toISOString().slice(0, 10);
+  const located = location !== null;
+  const cellLat = location ? Number(location.lat.toFixed(1)) : 0;
+  const cellLon = location ? Number(location.lon.toFixed(1)) : 0;
+  for (const productId of new Set(productIds)) {
+    db.insert(productSearchCounts)
+      .values({ productId, day, located, cellLat, cellLon, count: 1 })
+      .onConflictDoUpdate({
+        target: [productSearchCounts.productId, productSearchCounts.day, productSearchCounts.located, productSearchCounts.cellLat, productSearchCounts.cellLon],
+        set: { count: sql`${productSearchCounts.count} + 1` },
+      })
+      .run();
+  }
+}
+
+/** Drops search counts older than the ranking window. Meant for the maintenance timer. */
+export function pruneSearchCounts(db: AppDb, now: () => Date = () => new Date()): void {
+  db.delete(productSearchCounts).where(lte(productSearchCounts.day, daysAgoIso(now, FREE_TIER_WINDOW_DAYS).slice(0, 10))).run();
+}
+
 /**
- * Recomputes the free tier for one region: top `FREE_TIER_PRODUCT_COUNT`
- * by distinct-reporters x distinct-stores, everything if the region has
- * fewer candidates than that, and a 7-day floor so a product entering the
- * set doesn't visibly churn back out the next day. Meant to run
- * periodically (see the maintenance timer in index.ts), not per-request.
+ * Recomputes the free tier for one region: the top `FREE_TIER_PRODUCT_COUNT`
+ * most-searched products among those with reports there (searches from
+ * inside the region plus unlocated ones; ties broken by distinct-reporters x
+ * distinct-stores), everything if the region has fewer candidates than that,
+ * and a 7-day floor so a product entering the set doesn't visibly churn back
+ * out the next day. Meant to run periodically (see the maintenance timer in
+ * index.ts), not per-request.
  */
 export function computeFreeTier(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date = () => new Date()): void {
   const key = regionKey(lat, lon, radiusMi);
   const candidates = regionCandidates(db, lat, lon, radiusMi, now);
-  const scored = candidates.map((c) => ({ productId: c.productId, score: c.reporters * c.storesCount })).sort((a, b) => b.score - a.score);
+  const searches = regionSearchScores(db, lat, lon, radiusMi, now);
+  const scored = candidates
+    .map((c) => ({ productId: c.productId, searched: searches.get(c.productId) ?? 0, score: c.reporters * c.storesCount }))
+    .sort((a, b) => b.searched - a.searched || b.score - a.score);
 
   const existing = db.select().from(freeTierProducts).where(eq(freeTierProducts.regionKey, key)).all();
   const existingById = new Map(existing.map((e) => [e.productId, e]));
@@ -193,20 +257,44 @@ export function computeFreeTier(db: AppDb, lat: number, lon: number, radiusMi: n
   });
 }
 
-/** How long a region's free set may go unrefreshed while people are pulling from it. */
+/** Throttle for on-demand refreshes of a region that is due one (young, or past its daily snapshot). */
 const FREE_TIER_REFRESH_MS = 60 * 1000;
+/**
+ * A full region's ranking is a snapshot refreshed about once a day, so one
+ * burst of searches can't flip a product into (or out of) the free set within
+ * minutes. Search counts still accumulate live; only the ranking waits.
+ */
+export const FREE_TIER_RANKING_REFRESH_MS = 24 * 60 * 60 * 1000;
 const lastFreeTierRefresh = new WeakMap<AppDb, Map<string, number>>();
 
 /**
- * Brings a region's free set up to date on demand. Without this it only
- * changed when the periodic job ran, so in a young region (fewer than 25
- * products, where everything is meant to be free) a brand-new product stayed
- * locked for hours. Throttled to once a minute per region per process, so a
- * burst of pulls costs one scan; the scan is O(reports in the last 90 days),
- * which is fine while the dataset is small -- revisit if it isn't.
+ * True when a region's stored free set is a full (>= 25 products) ranking
+ * computed less than a day ago, i.e. there is nothing to refresh yet. A young
+ * region (fewer than 25 products, where everything is meant to be free) is
+ * never "current": recomputing it only admits new products and can't reorder
+ * a ranking, so it refreshes whenever asked.
+ */
+function rankingIsCurrent(db: AppDb, key: string, now: () => Date): boolean {
+  const row = db
+    .select({ n: sql<number>`count(*)`, computedAt: sql<string | null>`max(${freeTierProducts.computedAt})` })
+    .from(freeTierProducts)
+    .where(eq(freeTierProducts.regionKey, key))
+    .all()[0];
+  if (!row || row.n < FREE_TIER_PRODUCT_COUNT || !row.computedAt) return false;
+  return now().getTime() - Date.parse(row.computedAt) < FREE_TIER_RANKING_REFRESH_MS;
+}
+
+/**
+ * Brings a region's free set up to date on demand: immediately for a region
+ * that has never been computed or is still young, but a full region's ranking
+ * only once its daily snapshot is a day old (the periodic job normally gets
+ * there first). Throttled to once a minute per region per process, so a burst
+ * of pulls costs one scan; the scan is O(reports in the last 90 days), which
+ * is fine while the dataset is small -- revisit if it isn't.
  */
 export function ensureFreeTierFresh(db: AppDb, lat: number, lon: number, radiusMi: number, now: () => Date = () => new Date()): void {
   const key = regionKey(lat, lon, radiusMi);
+  if (rankingIsCurrent(db, key, now)) return;
   const seen = lastFreeTierRefresh.get(db) ?? new Map<string, number>();
   lastFreeTierRefresh.set(db, seen);
   const last = seen.get(key);
@@ -217,13 +305,23 @@ export function ensureFreeTierFresh(db: AppDb, lat: number, lon: number, radiusM
 }
 
 /**
- * A short fingerprint of the region's current free set. Clients compare it
- * between pulls: when a product enters the set, reports for it that an earlier
- * pull withheld as locked are behind the client's cursor and would never be
+ * The free set callers are gated by: a product is free if it is in the top 25
+ * of *any* region (the union of every region's free set). A ZIP only filters
+ * results to a radius; it never changes what is locked, so entering one can't
+ * hide a price the visitor could see before.
+ */
+export function freeAnywhereProductIds(db: AppDb): Set<string> {
+  return new Set(db.selectDistinct({ productId: freeTierProducts.productId }).from(freeTierProducts).all().map((r) => r.productId));
+}
+
+/**
+ * A short fingerprint of the current free set. Clients compare it between
+ * pulls: when a product enters the set, reports for it that an earlier pull
+ * withheld as locked are behind the client's cursor and would never be
  * resent, so the client must start that region over.
  */
-export function freeSetFingerprint(db: AppDb, lat: number, lon: number, radiusMi: number): string {
-  const ids = [...freeTierProductIds(db, lat, lon, radiusMi)].sort();
+export function freeSetFingerprint(db: AppDb): string {
+  const ids = [...freeAnywhereProductIds(db)].sort();
   return createHash('sha1').update(ids.join('\n')).digest('hex').slice(0, 12);
 }
 
@@ -232,8 +330,8 @@ export function freeTierProductIds(db: AppDb, lat: number, lon: number, radiusMi
   return new Set(db.select({ productId: freeTierProducts.productId }).from(freeTierProducts).where(eq(freeTierProducts.regionKey, key)).all().map((r) => r.productId));
 }
 
-/** No live registry of "regions a pull was ever made for" -- so recompute around every distinct store location's 0.1-degree cell instead, at the default pull radius. Meant for the periodic maintenance timer. */
-export function computeFreeTierForAllRegions(db: AppDb, defaultRadiusMi = 50, now: () => Date = () => new Date()): number {
+/** No live registry of "regions a pull was ever made for" -- so recompute around every distinct store location's 0.1-degree cell instead, at the default pull radius. Meant for the periodic maintenance timer, which passes `onlyStale` so a full region is recomputed only once its daily snapshot is a day old (and a redeploy doesn't reshuffle everything). Returns how many regions were recomputed. */
+export function computeFreeTierForAllRegions(db: AppDb, defaultRadiusMi = 50, now: () => Date = () => new Date(), { onlyStale = false }: { onlyStale?: boolean } = {}): number {
   const seen = new Set<string>();
   let regions = 0;
   for (const s of db.select({ lat: stores.lat, lon: stores.lon }).from(stores).all()) {
@@ -243,6 +341,7 @@ export function computeFreeTierForAllRegions(db: AppDb, defaultRadiusMi = 50, no
     const key = `${rLat},${rLon}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    if (onlyStale && rankingIsCurrent(db, regionKey(rLat, rLon, defaultRadiusMi), now)) continue;
     computeFreeTier(db, rLat, rLon, defaultRadiusMi, now);
     regions++;
   }

@@ -144,8 +144,8 @@ for now (`currency` column present, defaulted, not yet exposed).
 
 **stores**
 - `id`, `name` (chain/display name, e.g. "Kroger"), `address`, `lat`, `lon`
-- `chain_key` (normalized, aliased chain name); `is_chain_level` (true when
-  the store has no location, see 8.5)
+- `chain_key` (normalized, aliased chain name); `is_chain_level` (legacy:
+  stores no longer exist without a location, see "Location is required" in 8.5)
 - `geohash7` (about 150 m cell) for blocking
 - `store_key`: normalized name + geohash7, or name + address when no coordinates
 
@@ -244,16 +244,35 @@ client cannot be patched around it.
 #### 6.3.1 The free set
 
 - `free_tier_products` (`region_key`, `product_id`, `rank`, `computed_at`),
-  recomputed nightly per region (the same 0.1° cell + radius key as the
-  pull cursor) by `distinct_reporters × distinct_stores` over the last 90
-  days, taking the top `FREE_TIER_PRODUCT_COUNT` (default 25).
-- Ranking by reporters × stores rather than raw report count keeps one
-  user's repeated scans of the same item from dominating the free set.
+  recomputed periodically per region (the same 0.1° cell + radius key as the
+  pull cursor): the top `FREE_TIER_PRODUCT_COUNT` (default 25) **most
+  searched** products among those with reports in the region over the last 90
+  days. The search signal comes from `GET /api/search` (6.3.4): every search
+  adds one to each product it returns, bucketed by the caller's 0.1° cell.
+  A region's score for a product is the searches from cells inside its radius
+  plus unlocated searches (callers with no location) at half weight. Ties --
+  notably before anyone has searched -- fall back to `distinct_reporters ×
+  distinct_stores`, which keeps one user's repeated scans of the same item
+  from dominating the set.
+- **What callers are gated by is the union of every region's set**
+  (`freeAnywhereProductIds`): a product is free if it is in any region's top
+  25. A ZIP only filters results to a radius; it never changes what is locked,
+  so entering one can't hide a price the visitor could see before.
+- A full region's ranking is a **daily snapshot**: search counts accumulate
+  live, but the stored set is recomputed only when it is a day old (by the
+  6-hourly maintenance tick or the first request after that), so a burst of
+  searches can't flip a product into the free set within minutes, and
+  `freeSetFingerprint` -- hence client region-cache rebuilds -- changes at most
+  daily. A young region (fewer than 25 products, where everything is free)
+  still refreshes on demand, since that only admits new products.
 - A product stays in the set for at least 7 days after entering it so the
   free tier does not visibly churn day to day.
 - Early on, when a region has fewer than 25 products, the free set is
   simply everything there, which is the right behavior for a dataset that
   needs seeding.
+- Search counts older than 90 days are pruned by the maintenance timer. Counted
+  searches are rate-limited per caller (`searchCountedPerCallerHour`); past the
+  cap a search still returns results but no longer counts.
 - Region-scoped reads (the refresh and `GET /api/sync/pull`) filter by
   location in SQLite -- stores in the bounding box via the lat/lon index, an
   exact circle check on that handful, then a grouped count / chunked read over
@@ -380,7 +399,9 @@ Geo-scoped from day one (your decision 4).
   sync settings (a zip code or city, geocoded through the server's geo
   proxy in section 8.6). Pull is skipped with a visible "set your area"
   hint if none of these exist.
-- Reports at chain-level stores (no coordinates, see 8.5) carry an
+- (Superseded: reports without coordinates are no longer accepted, see
+  "Location is required" in 8.5, so there are no chain-level stores to
+  approximate.) Reports at chain-level stores carried an
   `approx` location: the centroid of the reporter's located reports in the
   same 7-day window, else the reporter's home area. They are included in
   the pull when that approximate point is inside the circle and are shown
@@ -641,9 +662,22 @@ GET    /api/discover?limit=                → home-screen sample, no location n
                                              the newest report per product anywhere
                                              (device token or session). A public
                                              caller gets full reports only for
-                                             products in the free set of the store's
-                                             own region, plus up to 3 price-less
+                                             products in the free set (the union of
+                                             every region's), plus up to 3 price-less
                                              teasers for the rest.
+
+GET    /api/search?q=&lat=&lon=&radiusMi=&limit=
+                                           → { accessLevel, reports, locked, truncated }
+                                             every active report matching q (same
+                                             matcher as the client's offline search,
+                                             shared/search.ts), newest per product
+                                             and store; limited to the radius when
+                                             lat/lon are given. A public caller gets
+                                             full reports for free-set products and
+                                             price-less teasers for the rest. Counts
+                                             toward the "most searched" ranking.
+                                             The client calls it when online and
+                                             searches its local cache when offline.
 
 GET    /api/geo/nearby-stores?lat=&lon=    → stores table first, Overpass fallback
 GET    /api/geo/reverse?lat=&lon=
@@ -704,7 +738,7 @@ a reverse-geocode miss (`"undefined La Cima"`), and chain spelling variants
 - Store resolution gets a normalization step: trim, drop `undefined`
   fragments, split on ` @ `, and map the chain through a small alias table
   (`heb→h-e-b`, `walmart supercenter→walmart`, `kroger marketplace→kroger`).
-- A report with only a chain name resolves to a **chain-level store**
+- (Superseded by "Location is required" below.) A report with only a chain name resolved to a **chain-level store**
   (`Walmart`, no location). The `current_prices` view and the client group
   by chain when location is unknown, so "Walmart $1.47" and "Walmart
   Supercenter @ Webb Chapel $1.47" for the same eggs show as one chain with
@@ -714,6 +748,29 @@ a reverse-geocode miss (`"undefined La Cima"`), and chain spelling variants
   (the 11 `9410 Webb Chapel Road` reports attach to the Walmart there).
 - The `store` field the client sends is not changed by any of this; the
   server records the raw string and the resolved `store_id`.
+
+**Location is required.** A price is only useful to people near the store, and
+we can't tell who that is without coordinates, so every report and every store
+must have a latitude and longitude:
+- `POST /api/sync/push` rejects a report with no `latitude`/`longitude` ("A
+  location is required to share a price."). A withdrawal (`deletedAt`) is exempt
+  so it can always get through. `resolveStore` always keys on chain + geohash (or
+  address + geohash), never on text alone.
+- The database refuses a store without `lat`/`lon` (triggers
+  `stores_require_location_insert` / `_update`, migration 0007). Triggers rather
+  than NOT NULL, so the migration deletes nothing; stores that predate the rule
+  stay until `npm run cleanup-unlocated` deals with them. A bare chain name or a bare
+  street address can be re-filed at a known located store with `--move "Kroger=Kroger @ 4901 Maple
+  Avenue"` (repeatable; the target must exist with coordinates); whatever is
+  left is deleted, with its reports, votes, credits and current prices, by
+  `--apply` (without it the command only prints the plan). It runs in one
+  transaction and refuses a `--move` whose source name matches nothing while
+  other stores are queued for deletion. `scripts/count-unlocated-stores.mjs` is a
+  read-only count that works against a deployment that predates this code.
+- The scanner won't save a price until the device gave a position: it explains
+  why and offers "Try again", which asks again (a timeout is not a refusal).
+  Older local reports without coordinates stay in the user's own list but are
+  never pushed.
 
 **Prices need a parser, and the outlier check earns its keep.**
 Seven of 148 prices are not `d.dd`: `$10`, `$19.7`, `548` (a missed decimal
