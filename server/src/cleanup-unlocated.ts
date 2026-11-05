@@ -1,6 +1,9 @@
 /**
  * One-time cleanup: lists, and with --apply deletes, stores that have no
- * coordinates, together with their price reports. Talks to the database
+ * coordinates, together with their price reports. Opens the database through
+ * runMigrations, so it APPLIES any pending migrations: run it only where this
+ * code is deployed. To just count against an older deployment, use the
+ * read-only scripts/count-unlocated-stores.mjs. Talks to the database
  * directly, so run it on the box (stop or accept brief contention with the API):
  *
  *   npm run cleanup-unlocated            # count and list only
