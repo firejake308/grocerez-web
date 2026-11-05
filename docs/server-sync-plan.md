@@ -759,8 +759,14 @@ must have a latitude and longitude:
 - The database refuses a store without `lat`/`lon` (triggers
   `stores_require_location_insert` / `_update`, migration 0007). Triggers rather
   than NOT NULL, so the migration deletes nothing; stores that predate the rule
-  stay until `npm run cleanup-unlocated -- --apply` removes them and their reports
-  (it prints counts without `--apply`).
+  stay until `npm run cleanup-unlocated` deals with them. A bare chain name can be
+  re-filed at a known located store with `--move "Kroger=Kroger @ 4901 Maple
+  Avenue"` (repeatable; the target must exist with coordinates); whatever is
+  left is deleted, with its reports, votes, credits and current prices, by
+  `--apply` (without it the command only prints the plan). It runs in one
+  transaction and refuses a `--move` whose source name matches nothing while
+  other stores are queued for deletion. `scripts/count-unlocated-stores.mjs` is a
+  read-only count that works against a deployment that predates this code.
 - The scanner won't save a price until the device gave a position: it explains
   why and offers "Try again", which asks again (a timeout is not a refusal).
   Older local reports without coordinates stay in the user's own list but are

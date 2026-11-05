@@ -5,7 +5,8 @@ import { runMigrations } from '../../db/migrate.js';
 import type { AppDb } from '../../db/client.js';
 import { contributionCredits, currentPrices, priceReports, products, reportVotes, stores, users } from '../../db/schema.js';
 import { newId } from '../../lib/ids.js';
-import { cleanupUnlocatedStores } from '../cleanupUnlocated.js';
+import { CleanupError, cleanupUnlocatedStores } from '../cleanupUnlocated.js';
+import { resolveStore } from '../stores.js';
 
 describe('cleanupUnlocatedStores', () => {
   let db: AppDb;
@@ -66,5 +67,67 @@ describe('cleanupUnlocatedStores', () => {
   it('does nothing when every store has a location', () => {
     cleanupUnlocatedStores(db, { apply: true });
     expect(cleanupUnlocatedStores(db, { apply: true }).stores).toEqual([]);
+  });
+
+  describe('moves', () => {
+    const webb = () => resolveStore(db, { rawStore: 'Walmart @ 9410 Webb Chapel Road', lat: 32.862, lon: -96.857 });
+
+    it('re-files a bare chain name at the located store you name (abbreviations are fine) and still deletes the rest', () => {
+      const target = webb();
+      const other = newId();
+      db.insert(stores).values({ id: other, name: 'La Cima', chainKey: 'la cima', storeKey: 'la cima' }).run();
+      report('doomed', other, 777);
+
+      const summary = cleanupUnlocatedStores(db, { apply: true, moves: [{ from: 'Walmart', to: 'Walmart @ 9410 Webb Chapel Rd' }] });
+
+      expect(summary.moves).toEqual([expect.objectContaining({ from: 'Walmart', reports: 2, to: expect.objectContaining({ id: target.id, lat: 32.862, lon: -96.857 }) })]);
+      expect(summary.moved).toEqual({ reports: 2, stores: 1 });
+      expect(summary.deleted).toMatchObject({ reports: 1, stores: 1 }); // only La Cima's
+      const byId = Object.fromEntries(db.select().from(priceReports).all().map((r) => [r.id, r.storeId]));
+      expect(byId).toEqual({ keep: located, gone1: target.id, gone2: target.id });
+      expect(db.select().from(stores).where(eq(stores.id, legacy)).all()).toHaveLength(0);
+      // The moved reports keep their votes and credits, and the target's current price is the moved one.
+      expect(db.select().from(reportVotes).all()).toHaveLength(1);
+      expect(db.select().from(contributionCredits).all()).toHaveLength(1);
+      expect(db.select().from(currentPrices).where(eq(currentPrices.storeId, target.id)).all()).toEqual([expect.objectContaining({ reportId: 'gone1', priceCents: 100 })]);
+      expect(db.select().from(products).where(eq(products.id, productId)).all()[0].reportCount).toBe(2); // keep + gone1 (gone2 is hidden)
+    });
+
+    it('maps HEB onto "H-E-B @ ..." and shows the plan, touching nothing, without apply', () => {
+      const heb = newId();
+      db.insert(stores).values({ id: heb, name: 'HEB', chainKey: 'heb', storeKey: 'heb:chain' }).run();
+      report('heb1', heb, 250);
+      const target = resolveStore(db, { rawStore: 'H-E-B @ 3451 Heritage Trace Parkway', lat: 32.9159533, lon: -97.3080462 });
+
+      const summary = cleanupUnlocatedStores(db, { apply: false, moves: [{ from: 'HEB', to: 'H-E-B @ 3451 Heritage Trace Pkwy' }] });
+      expect(summary.moves).toEqual([expect.objectContaining({ reports: 1, to: expect.objectContaining({ id: target.id }) })]);
+      expect(summary.stores.map((s) => s.name)).toEqual(['Walmart']); // the HEB store is not in the delete list
+      expect(db.select().from(priceReports).where(eq(priceReports.id, 'heb1')).all()[0].storeId).toBe(heb);
+      expect(db.select().from(stores).where(eq(stores.id, heb)).all()).toHaveLength(1);
+    });
+
+    it('refuses, and changes nothing, when the target does not exist or is ambiguous', () => {
+      expect(() => cleanupUnlocatedStores(db, { apply: true, moves: [{ from: 'Walmart', to: 'Walmart @ 1 Nowhere Road' }] })).toThrow(CleanupError);
+      webb();
+      db.insert(stores).values({ id: newId(), name: 'Walmart', address: '9410 Webb Chapel Rd', lat: 32.8, lon: -96.8, chainKey: 'walmart', storeKey: 'walmart:dup' }).run();
+      expect(() => cleanupUnlocatedStores(db, { apply: true, moves: [{ from: 'Walmart', to: 'Walmart @ 9410 Webb Chapel Road' }] })).toThrow(/More than one/);
+      expect(db.select().from(priceReports).all()).toHaveLength(3);
+      expect(db.select().from(stores).where(eq(stores.id, legacy)).all()).toHaveLength(1);
+    });
+
+    it('refuses a move whose source matches nothing while other stores are still queued for deletion (a typo must not delete what it meant to save)', () => {
+      webb();
+      expect(() => cleanupUnlocatedStores(db, { apply: true, moves: [{ from: 'Wallmart', to: 'Walmart @ 9410 Webb Chapel Road' }] })).toThrow(/No unlocated store is called "Wallmart"/);
+      expect(db.select().from(priceReports).all()).toHaveLength(3);
+    });
+
+    it('is a quiet no-op the second time, once everything has been moved or deleted', () => {
+      webb();
+      const moves = [{ from: 'Walmart', to: 'Walmart @ 9410 Webb Chapel Road' }];
+      cleanupUnlocatedStores(db, { apply: true, moves });
+      const again = cleanupUnlocatedStores(db, { apply: true, moves });
+      expect(again.moves).toEqual([]);
+      expect(again.stores).toEqual([]);
+    });
   });
 });
