@@ -444,5 +444,12 @@
     "price": 3.88,
     "quantity_allowed": [{"quantity": 40, "quantityUnits": "ounce"}, {"quantity": 40, "quantityUnits": "fluid ounce"}],
     "_source": "user added: Crisco Pure Canola Oil, 40 OZ bottle, 'Extra Savings' shelf sign '$3.88 each'. Sign also has a 'Compare the Savings' box listing competitor prices (Walmart 4.97, Kroger 5.49, HEB 4.97, 'Save up to $1.61') that must NOT be read as the price. Both 'canola' and 'vegetable oil' required in itemName/tags pool (findability); brand is Crisco."
+  },
+  "item_120": {
+    "required_terms": ["pasta sauce", "spaghetti sauce", "marinara"],
+    "brand_allowed": ["Prego"],
+    "price": 2.38,
+    "quantity_allowed": [{"quantity": 24, "quantityUnits": "ounce"}, {"quantity": 24, "quantityUnits": "fluid ounce"}],
+    "_source": "user added: Prego Traditional Italian Sauce, 24 OZ jar, shelf tag 'PREGO SPAGH SC TRADITIONAL 24Z $2.38, 9.9c/OZ'. Tags are the tricky part: shoppers search for this as pasta sauce, spaghetti sauce, or marinara, so all three terms are required in the itemName + brand + tags pool (grader is all-of, so requiring all three enforces findability under every search phrase)."
   }
 }
