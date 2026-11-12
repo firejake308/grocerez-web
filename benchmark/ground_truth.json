@@ -437,5 +437,12 @@
     "quantity": 1,
     "quantityUnits": "pound",
     "_source": "user added: yellow onions (Mexico), sale sign '2 LBS 99¢' -> 0.99/2 = $0.495/lb; user accepts 0.49, 0.495 or 0.50. Sold loose by the pound, so quantity is 1 pound."
+  },
+  "item_118": {
+    "required_terms": ["canola", "vegetable oil"],
+    "brand_allowed": ["Crisco"],
+    "price": 3.88,
+    "quantity_allowed": [{"quantity": 40, "quantityUnits": "ounce"}, {"quantity": 40, "quantityUnits": "fluid ounce"}],
+    "_source": "user added: Crisco Pure Canola Oil, 40 OZ bottle, 'Extra Savings' shelf sign '$3.88 each'. Sign also has a 'Compare the Savings' box listing competitor prices (Walmart 4.97, Kroger 5.49, HEB 4.97, 'Save up to $1.61') that must NOT be read as the price. Both 'canola' and 'vegetable oil' required in itemName/tags pool (findability); brand is Crisco."
   }
 }
