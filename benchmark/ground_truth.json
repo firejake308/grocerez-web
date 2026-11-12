@@ -451,5 +451,14 @@
     "price": 2.38,
     "quantity_allowed": [{"quantity": 24, "quantityUnits": "ounce"}, {"quantity": 24, "quantityUnits": "fluid ounce"}],
     "_source": "user added: Prego Traditional Italian Sauce, 24 OZ jar, shelf tag 'PREGO SPAGH SC TRADITIONAL 24Z $2.38, 9.9c/OZ'. Tags are the tricky part: shoppers search for this as pasta sauce, spaghetti sauce, or marinara, so all three terms are required in the itemName + brand + tags pool (grader is all-of, so requiring all three enforces findability under every search phrase)."
+  },
+  "item_122": {
+    "required_terms": ["noodles", "ramen"],
+    "brand_allowed": ["Samyang", "Buldak"],
+    "price": 6.98,
+    "quantity": 5,
+    "quantityUnits": "package",
+    "no_sale_end_date": true,
+    "_source": "user added: Buldak Swicy (Sweet & Spicy) Spicy Ramen 5-pack (5 bags x 130 g = 650 g), shelf tag 'BULDAK SWICY 5PK $6.98, 152.4c/OZ'. The tag's printed date (10/20/2026) is just the tag print date, not a sale end date; the production model wrongly treated this as a sale with an end date. Models must NOT report any saleEndDate for this item (graded by the sale_end_date check; reporting one is a FAIL, omitting it is a PASS). Quantity 5 package matches the item_58 Buldak convention (pack count). Tags/brand/quantity values here are my inference, not user-confirmed - flag if wrong."
   }
 }

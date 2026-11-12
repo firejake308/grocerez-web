@@ -14,6 +14,10 @@ rounds of review):
     within a small tolerance, with quantityUnits matched either exactly or
     via same-family unit conversion (volume<->volume, weight<->weight).
     quantityUnits: null means the unit is intentionally left ungraded.
+  - sale end date check (only when "no_sale_end_date": true in ground truth):
+    the tag shows no sale end date, so any non-empty saleEndDate is a FAIL
+    (a hallucinated date, e.g. the tag's "date printed" stamp mistaken for an
+    expiry). Omitting it is the correct answer, so it scores PASS, not ABSTAIN.
   - Blank/missing model output for a check is scored as ABSTAIN (0.5),
     better than a wrong answer (FAIL = 0) but worse than a match (PASS = 1),
     per the user's explicit "blank beats wrong" policy.
@@ -184,6 +188,15 @@ def grade_quantity(gt, r):
     return FAIL, f"quantity {model_qty} {r.get('quantityUnits')} not in {allowed}"
 
 
+def grade_sale_end_date(gt, r):
+    if not gt.get("no_sale_end_date"):
+        return NA, ""
+    model_date = str(r.get("saleEndDate") or "").strip()
+    if not model_date:
+        return PASS, ""
+    return FAIL, f"saleEndDate '{model_date}' reported but the tag shows no sale end date"
+
+
 def main():
     gt_all = json.load(open(BASE_DIR / "ground_truth.json"))
     results = json.load(open(RESULTS_DIR / "results_long.json"))
@@ -194,8 +207,8 @@ def main():
         by_pair_model[(r["pair_id"], r["model"])] = r
 
     items = {k: v for k, v in gt_all.items() if not k.startswith("_") and not v.get("_skipped")}
-    checks = ["findability", "brand", "price", "quantity"]
-    grader = {"findability": grade_findability, "brand": grade_brand, "price": grade_price, "quantity": grade_quantity}
+    checks = ["findability", "brand", "price", "quantity", "sale_end_date"]
+    grader = {"findability": grade_findability, "brand": grade_brand, "price": grade_price, "quantity": grade_quantity, "sale_end_date": grade_sale_end_date}
 
     detail_rows = []
     per_model = {m: {c: {PASS: 0, FAIL: 0, ABSTAIN: 0} for c in checks} for m in MODELS}

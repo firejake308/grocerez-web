@@ -86,13 +86,15 @@ PROMPT_TEXT = (
     "package showing 'Buldak Spicy Ramen' should get tags like 'noodles' and 'instant noodles' even though "
     "neither word is printed on it; 'Frozen Greek Yogurt Bars' should get 'yogurt' and 'frozen dessert'. "
     "Return tags as a JSON array of strings. "
+    "If the tag shows a sale, promotional, or temporarily reduced price (words like 'sale', 'special', 'save', a crossed-out regular price, or a date range), set isSale to true; otherwise set it to false. "
+    "If a sale end date is printed on the tag, report it as saleEndDate in YYYY-MM-DD form; if no end date is visible, omit saleEndDate. "
     "Return the data as a JSON object. Skip any fields not clearly visible in either image."
 )
 
 
 def build_pairs():
     pairs = []
-    for n in range(4, 121, 2):  # 4,6,...,120 -> item images (even)
+    for n in range(4, 123, 2):  # 4,6,...,122 -> item images (even)
         item_num = n
         price_num = n + 1
         item_file = IMG_DIR / f"download ({item_num}).jpeg"
@@ -175,6 +177,8 @@ def call_model(model: str, pair: dict, price_data_url: str, item_data_url: str, 
                 "price": parsed.get("price", ""),
                 "quantity": parsed.get("quantity", ""),
                 "quantityUnits": parsed.get("quantityUnits", ""),
+                "isSale": parsed.get("isSale", ""),
+                "saleEndDate": parsed.get("saleEndDate", ""),
                 "error": "",
             }
         except requests.exceptions.RequestException as e:
