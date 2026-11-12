@@ -345,6 +345,27 @@ shows "140 of 200 credits" so the incentive is visible.
 - Gating is behind a single `ENTITLEMENTS_ENFORCED` flag, off in Phase 1
   and 2 so the seed users see everything, on in Phase 3 with Stripe.
 
+#### 6.3.4 Search, and its known limits
+
+`GET /api/search` (see the endpoint list) is what the client calls when online;
+offline it searches its local cache with the same matcher (`shared/search.ts`).
+Each search counts toward the free tier's "most searched" ranking (6.3.1).
+
+Known limits, in the order to fix them:
+- **Performance: the `LIKE` scan (first thing to fix).** The server finds
+  candidates with a `LIKE '%xxx%'` scan over the text of every active report
+  (item name + brand + tags), using only the first 3 letters of each search word,
+  then runs the exact matcher in JavaScript. That is a full table scan per search,
+  which is fine while the table is small. When searches start taking too long,
+  replace the scan with an index: an SQLite FTS5 virtual table (prefix queries
+  like `egg*` cover the matcher's prefix rule) or the existing `product_tokens`
+  inverted index. Measure first: time `/api/search` on a realistic data volume.
+- **No search threshold.** One counted search can lift a product into the free
+  set at the next daily refresh when the alternatives are tied at zero searches.
+  If that gets gamed or flickers, require a minimum number of searches (or of
+  distinct callers) before a search count outranks the reporters x stores score.
+  Searches per caller are already rate-limited (`searchCountedPerCallerHour`).
+
 ### 6.4 Data the server holds about a person
 
 Email (unique, lowercased), hashed session tokens, hashed codes, report and
