@@ -109,6 +109,26 @@ describe('cleanupUnlocatedStores', () => {
       expect(byId.costco1).toBeUndefined(); // deleted with the rest, not swept up by the address move
     });
 
+    it('moves a "Chain @ Address" store to a located store known only by its chain name, when that is unambiguous', () => {
+      const old = newId();
+      db.insert(stores).values({ id: old, name: 'WinCo Foods', address: 'Presidio Vista Drive', chainKey: 'winco foods', storeKey: 'winco:legacy' }).run();
+      report('w1', old, 199);
+      // Newer scans have coordinates but OpenStreetMap had no address for the store.
+      const winco = resolveStore(db, { rawStore: 'WinCo Foods', lat: 29.5, lon: -98.6 });
+
+      const summary = cleanupUnlocatedStores(db, { apply: true, moves: [{ from: 'WinCo Foods @ Presidio Vista Drive', to: 'WinCo Foods' }] });
+      expect(summary.moves).toEqual([expect.objectContaining({ reports: 1, to: expect.objectContaining({ id: winco.id, address: null }) })]);
+      expect(db.select().from(priceReports).where(eq(priceReports.id, 'w1')).all()[0].storeId).toBe(winco.id);
+      // Other unlocated stores with the same chain but a different address are not swept up by that source.
+      expect(summary.stores.map((s) => s.name)).toEqual(['Walmart']);
+    });
+
+    it('refuses a bare chain name as the target when that chain has several located stores', () => {
+      resolveStore(db, { rawStore: 'Kroger @ 1 Main Street', lat: 32.8, lon: -96.8 });
+      resolveStore(db, { rawStore: 'Kroger @ 2 Oak Street', lat: 32.9, lon: -96.9 });
+      expect(() => cleanupUnlocatedStores(db, { apply: true, moves: [{ from: 'Walmart', to: 'Kroger' }] })).toThrow(/More than one/);
+    });
+
     it('maps HEB onto "H-E-B @ ..." and shows the plan, touching nothing, without apply', () => {
       const heb = newId();
       db.insert(stores).values({ id: heb, name: 'HEB', chainKey: 'heb', storeKey: 'heb:chain' }).run();

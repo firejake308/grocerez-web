@@ -14,11 +14,13 @@ export interface UnlocatedStore {
 }
 
 /**
- * "Move everything at the unlocated store `from` to the located store `to`
- * ("Chain @ Street Address")." `from` is either a bare chain name ("Kroger")
- * or the street address of an address-only store ("9410 Webb Chapel Road");
- * an address matches only stores that are just an address, never a named
- * store that happens to be at that address.
+ * "Move everything at the unlocated store `from` to the located store `to`."
+ * `from` is a bare chain name ("Kroger"), the street address of an address-only
+ * store ("9410 Webb Chapel Road"), or a full "Chain @ Street Address" label;
+ * an address alone matches only stores that are just an address, never a named
+ * store that happens to be at that address. `to` is "Chain @ Street Address",
+ * or just a chain name when exactly one located store of that chain exists
+ * (OpenStreetMap doesn't always know a store's address).
  */
 export interface StoreMove {
   from: string;
@@ -56,17 +58,24 @@ const normalizeAddress = (raw: string): string =>
 /** Finds the one located store a move points at, or says why it can't. */
 function resolveTarget(tx: AppDb, to: string): ResolvedMove['to'] {
   const { chainRaw, addressRaw } = splitStoreString(to);
-  if (!chainRaw || !addressRaw) throw new CleanupError(`"${to}" must look like "Chain @ Street Address".`);
-  const chainKey = normalizeChainKey(chainRaw);
-  const located = tx.select().from(stores).where(and(eq(stores.chainKey, chainKey), isNotNull(stores.lat), isNotNull(stores.lon))).all();
-  const wanted = normalizeAddress(addressRaw);
-  const matches = located.filter((s) => s.address !== null && normalizeAddress(s.address) === wanted);
+  if (!chainRaw) throw new CleanupError(`"${to}" must be "Chain @ Street Address", or just a chain name.`);
+  const located = tx.select().from(stores).where(and(eq(stores.chainKey, normalizeChainKey(chainRaw)), isNotNull(stores.lat), isNotNull(stores.lon))).all();
+  // With an address, match it (so "Rd" finds "Road"); without one, the chain must be unambiguous.
+  const matches = addressRaw === null ? located : located.filter((s) => s.address !== null && normalizeAddress(s.address) === normalizeAddress(addressRaw));
   if (matches.length !== 1) {
     const known = located.map((s) => `${s.name} @ ${s.address ?? '(no address)'}`).join('; ') || 'none';
     throw new CleanupError(`${matches.length === 0 ? 'No' : 'More than one'} located store matches "${to}". Located ${chainRaw} stores: ${known}.`);
   }
   const [s] = matches;
   return { id: s.id, name: s.name, address: s.address, lat: s.lat as number, lon: s.lon as number };
+}
+
+/** Which unlocated stores a move's `from` names (see StoreMove). */
+function matchesSource(store: typeof stores.$inferSelect, from: string): boolean {
+  const { chainRaw, addressRaw } = splitStoreString(from);
+  if (chainRaw && addressRaw) return store.address !== null && normalizeChainKey(store.name) === normalizeChainKey(chainRaw) && normalizeAddress(store.address) === normalizeAddress(addressRaw);
+  if (chainRaw) return store.address === null && normalizeChainKey(store.name) === normalizeChainKey(chainRaw);
+  return addressRaw !== null && isAddressOnlyStore(store) && normalizeAddress(store.address ?? store.name) === normalizeAddress(addressRaw);
 }
 
 /**
@@ -97,16 +106,11 @@ export function cleanupUnlocatedStores(db: AppDb, { apply, moves = [] }: { apply
       moved: { reports: 0, stores: 0 },
     };
 
-    // 1. Moves: a bare chain name ("Kroger", no address) or an address-only store goes to the one located store named for it.
+    // 1. Moves: a bare chain name, an address-only store or a "Chain @ Address" store goes to the one located store named for it.
     const movedStoreIds = new Set<string>();
     const unmatched: string[] = [];
     for (const move of moves) {
-      const fromKey = normalizeChainKey(move.from);
-      const fromAddress = normalizeAddress(move.from);
-      const sources = unlocated.filter((s) => !movedStoreIds.has(s.id) && (
-        (s.address === null && normalizeChainKey(s.name) === fromKey) ||
-        (isAddressOnlyStore(s) && normalizeAddress(s.address ?? s.name) === fromAddress)
-      ));
+      const sources = unlocated.filter((s) => !movedStoreIds.has(s.id) && matchesSource(s, move.from));
       if (sources.length === 0) {
         unmatched.push(move.from);
         continue;

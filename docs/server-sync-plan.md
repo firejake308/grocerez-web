@@ -759,8 +759,8 @@ must have a latitude and longitude:
 - The database refuses a store without `lat`/`lon` (triggers
   `stores_require_location_insert` / `_update`, migration 0007). Triggers rather
   than NOT NULL, so the migration deletes nothing; stores that predate the rule
-  stay until `npm run cleanup-unlocated` deals with them. A bare chain name or a bare
-  street address can be re-filed at a known located store with `--move "Kroger=Kroger @ 4901 Maple
+  stay until `npm run cleanup-unlocated` deals with them. A bare chain name, a bare
+  street address or a "Chain @ Address" label can be re-filed at a known located store with `--move "Kroger=Kroger @ 4901 Maple
   Avenue"` (repeatable; the target must exist with coordinates); whatever is
   left is deleted, with its reports, votes, credits and current prices, by
   `--apply` (without it the command only prints the plan). It runs in one

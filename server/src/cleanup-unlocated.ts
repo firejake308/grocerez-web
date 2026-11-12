@@ -4,9 +4,11 @@
  * where this code is deployed. To just count against an older deployment, use
  * the read-only scripts/count-unlocated-stores.mjs.
  *
- * A bare chain name ("Kroger", no address) or a bare street address can't be
- * placed by itself, but if you know which store those reports belong to,
- * --move re-files them there (the target must already exist, with coordinates). Whatever is left unplaced
+ * A bare chain name ("Kroger"), a bare street address, or a "Chain @ Address"
+ * label with no coordinates can't be placed by itself, but if you know which
+ * store those reports belong to, --move re-files them there (the target must
+ * already exist, with coordinates; "Chain @ Street Address", or just the chain
+ * name when it has exactly one located store). Whatever is left unplaced
  * is deleted with --apply, along with its reports, votes, credits and prices.
  *
  *   npm run cleanup-unlocated -- \
@@ -27,7 +29,7 @@ for (let i = 0; i < args.length; i++) {
   const spec = args[++i] ?? '';
   const eq = spec.indexOf('=');
   if (eq < 1) {
-    console.error(`--move needs "Chain name or street address=Chain @ Street Address", got "${spec}".`);
+    console.error(`--move needs "Legacy store=Located store", got "${spec}".`);
     process.exit(1);
   }
   moves.push({ from: spec.slice(0, eq).trim(), to: spec.slice(eq + 1).trim() });
@@ -37,7 +39,7 @@ const { db, sqlite } = runMigrations(env.DATABASE_PATH);
 try {
   const summary = cleanupUnlocatedStores(db, { apply, moves });
   for (const m of summary.moves) {
-    console.log(`MOVE ${m.from}: ${m.reports} report(s) from ${m.stores.length} store(s) -> ${m.to.name} @ ${m.to.address} (${m.to.lat}, ${m.to.lon})`);
+    console.log(`MOVE ${m.from}: ${m.reports} report(s) from ${m.stores.length} store(s) -> ${m.to.name}${m.to.address ? ` @ ${m.to.address}` : ''} (${m.to.lat}, ${m.to.lon})`);
   }
   for (const s of summary.stores) console.log(`${apply ? 'DELETED' : 'WOULD DELETE'} ${s.name}${s.address ? ` @ ${s.address}` : ''}: ${s.reports} report(s), ${s.activeReports} active`);
   console.log(JSON.stringify({
