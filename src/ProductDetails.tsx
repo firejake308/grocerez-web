@@ -6,6 +6,9 @@ interface ProductDetailsProps {
   priceImage: string | null;
   productImage: string | null;
   isLocating: boolean; 
+  /** Whether the device gave us a position; a price can't be saved without one. */
+  hasCoordinates: boolean;
+  onRetryLocation: VoidFunction;
   storeLocation: string; 
   setStoreLocation: (loc: string) => void; 
   setScanStep: (step: 'price' | 'product' | 'processing' | 'details') => void; 
@@ -37,6 +40,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   priceImage, 
   productImage, 
   isLocating, 
+  hasCoordinates,
+  onRetryLocation,
   storeLocation, 
   setStoreLocation, 
   setScanStep, 
@@ -252,6 +257,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
               Getting your location...
             </div>
           )}
+          {!isLocating && !hasCoordinates && (
+            <div role="alert" className="mt-2 text-sm text-amber-700">
+              <p>We need your location to share this price, so other shoppers nearby can find it. Allow location access for this site, then try again.</p>
+              <button type="button" onClick={onRetryLocation} className="mt-2 underline font-medium">Try again</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -259,8 +270,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       <div className="p-4 border-t border-gray-200">
         <button
           onClick={saveAndContinue}
-          disabled={!storeLocation}
-          className={`w-full p-4 rounded-lg font-medium text-white ${storeLocation ? 'bg-green-500' : 'bg-gray-400'}`}
+          disabled={!storeLocation || !hasCoordinates || isLocating}
+          className={`w-full p-4 rounded-lg font-medium text-white ${storeLocation && hasCoordinates && !isLocating ? 'bg-green-500' : 'bg-gray-400'}`}
         >
           Done
         </button>

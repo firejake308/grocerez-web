@@ -68,8 +68,9 @@ export function isAddressOnlyStore(row: { name: string; address: string | null; 
 
 export interface StoreInput {
   rawStore: string;
-  lat?: number | null;
-  lon?: number | null;
+  /** Every store has a location: a price is only useful to people near it. */
+  lat: number;
+  lon: number;
   /** OSM shop value, when known (from Overpass). */
   shopType?: string | null;
 }
@@ -89,38 +90,28 @@ const toResolved = (row: typeof stores.$inferSelect): ResolvedStore => ({
 });
 
 /**
- * Resolves a raw, client-supplied store string (plus optional coordinates)
- * to a stable store row, creating one on first sight. See plan sections
- * 8.5 and 11a:
- *   chain + coords        -> keyed by chain + ~150m geohash cell
- *   chain + address only  -> keyed by chain + normalized address text
- *   chain alone           -> a chain-level store (no location)
- *   address + coords only -> attaches to a named store already known at
- *                            that cell, if any, else a new address-only store
- *   address only          -> keyed by the normalized address text alone
+ * Resolves a raw, client-supplied store string plus coordinates to a stable
+ * store row, creating one on first sight. See plan sections 8.5 and 11a:
+ *   chain + coords    -> keyed by chain + ~150m geohash cell
+ *   address + coords  -> attaches to a named store already known at that
+ *                        cell, if any, else a new address-only store
+ * Coordinates are required (the API and the database both refuse a store
+ * without them), so there are no chain-level or location-less stores.
  */
 export function resolveStore(db: AppDb, input: StoreInput): ResolvedStore {
+  if (!Number.isFinite(input.lat) || !Number.isFinite(input.lon)) throw new Error('A store needs a location (lat and lon).');
   const { chainRaw, addressRaw } = splitStoreString(input.rawStore);
-  const hasCoords = typeof input.lat === 'number' && typeof input.lon === 'number';
-  const geohash7 = hasCoords ? geohash(input.lat as number, input.lon as number, GEOHASH_PRECISION) : null;
+  const geohash7 = geohash(input.lat, input.lon, GEOHASH_PRECISION);
 
   let storeKey: string;
   let chainKey = '';
   let name: string;
-  let isChainLevel = false;
 
   if (chainRaw) {
     chainKey = normalizeChainKey(chainRaw);
     name = chainRaw;
-    if (geohash7) {
-      storeKey = `${chainKey}:${geohash7}`;
-    } else if (addressRaw) {
-      storeKey = `${chainKey}:addr:${normalizeKeyPart(addressRaw)}`;
-    } else {
-      storeKey = `${chainKey}:chain`;
-      isChainLevel = true;
-    }
-  } else if (geohash7) {
+    storeKey = `${chainKey}:${geohash7}`;
+  } else {
     const existing = db
       .select()
       .from(stores)
@@ -130,9 +121,6 @@ export function resolveStore(db: AppDb, input: StoreInput): ResolvedStore {
     if (existing) return toResolved(existing);
     name = addressRaw ?? input.rawStore.trim();
     storeKey = `addr:${geohash7}`;
-  } else {
-    name = (addressRaw ?? input.rawStore).trim();
-    storeKey = `addr:${normalizeKeyPart(addressRaw ?? input.rawStore)}`;
   }
 
   const found = db.select().from(stores).where(eq(stores.storeKey, storeKey)).all()[0];
@@ -147,15 +135,15 @@ export function resolveStore(db: AppDb, input: StoreInput): ResolvedStore {
       id,
       name,
       address: addressRaw,
-      lat: hasCoords ? (input.lat as number) : null,
-      lon: hasCoords ? (input.lon as number) : null,
+      lat: input.lat,
+      lon: input.lon,
       geohash7,
       chainKey,
-      isChainLevel,
+      isChainLevel: false,
       storeKey,
       shopType: input.shopType ?? null,
     })
     .run();
 
-  return { id, name, chainKey, isChainLevel };
+  return { id, name, chainKey, isChainLevel: false };
 }

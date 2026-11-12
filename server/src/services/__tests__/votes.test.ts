@@ -17,7 +17,7 @@ function seedProductStore(db: AppDb) {
   const productId = newId();
   const storeId = newId();
   db.insert(products).values({ id: productId, canonicalName: 'Milk' }).run();
-  db.insert(stores).values({ id: storeId, name: 'Kroger', chainKey: 'kroger', storeKey: newId() }).run();
+  db.insert(stores).values({ id: storeId, name: 'Kroger', lat: 32.9, lon: -97.2, chainKey: 'kroger', storeKey: newId() }).run();
   return { productId, storeId };
 }
 

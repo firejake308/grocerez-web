@@ -281,6 +281,26 @@ export const freeTierProducts = sqliteTable('free_tier_products', {
   primaryKey({ columns: [t.regionKey, t.productId] }),
 ]));
 
+/**
+ * How often each product came back from /api/search (one count per search per
+ * matched product), per day and per caller location cell. This is the signal
+ * behind the free tier's "most searched" ranking. The cell is the caller's
+ * lat/lon rounded to 0.1 degree; unlocated searches use cell 0,0 with
+ * `located` false (a real cell can legitimately be 0,0 only off the coast of
+ * Africa, and `located` keeps the two apart anyway).
+ */
+export const productSearchCounts = sqliteTable('product_search_counts', {
+  productId: text('product_id').notNull().references(() => products.id),
+  day: text('day').notNull(),
+  located: integer('located', { mode: 'boolean' }).notNull(),
+  cellLat: real('cell_lat').notNull().default(0),
+  cellLon: real('cell_lon').notNull().default(0),
+  count: integer('count').notNull().default(0),
+}, (t) => ([
+  primaryKey({ columns: [t.productId, t.day, t.located, t.cellLat, t.cellLon] }),
+  index('product_search_counts_day_idx').on(t.day),
+]));
+
 /** One row per "redeem credits for a free month" (section 6.3.2). */
 export const creditRedemptions = sqliteTable('credit_redemptions', {
   id: text('id').primaryKey(),

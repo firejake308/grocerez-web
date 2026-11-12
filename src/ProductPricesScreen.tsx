@@ -116,7 +116,7 @@ const HistoryRow = ({ report, sync, onChanged }: { report: SyncedPriceReport; sy
   const [error, setError] = useState<string | null>(null);
   const isMine = report.userId === sync.auth?.userId;
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
     try {

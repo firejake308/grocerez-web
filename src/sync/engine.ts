@@ -18,11 +18,17 @@ const PULL_PAGE = 500;
 const MAX_PULL_PAGES = 20;
 const MAX_REGIONS = 2;
 
-/** Own reports that the server hasn't seen in their current version, including tombstones. */
+/**
+ * Own reports that the server hasn't seen in their current version, including
+ * tombstones. A report with no coordinates is never pending: the server
+ * refuses prices without a location, so pushing it would be rejected on every
+ * sync forever. It stays in the user's own list, just not shared.
+ */
 export function pendingReports(priceData: PriceData[]): PriceData[] {
   return priceData.filter((r) => {
     if (r.origin === 'community') return false;
     if (r.deletedAt) return true;
+    if (typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return false;
     if (!r.syncedAt) return true;
     return Date.parse(r.updatedAt) > Date.parse(r.syncedAt);
   });

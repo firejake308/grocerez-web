@@ -248,7 +248,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       return;
     }
     
-    if (scannedPrice && productImage && storeLocation) {
+    // A price is only useful to people near the store, so a position is required (the server refuses reports without one).
+    if (scannedPrice && productImage && storeLocation && storeLat !== null && storeLng !== null) {
       const completeData: PriceData = {
         id: reportIdRef.current,
         updatedAt: new Date().toISOString(),
@@ -436,6 +437,8 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       priceImage={priceImage}
       productImage={productImage}
       isLocating={isLocating}
+      hasCoordinates={storeLat !== null && storeLng !== null}
+      onRetryLocation={getStoreLocation}
       storeLocation={storeLocation}
       setStoreLocation={setStoreLocation}
       setScanStep={setScanStep}

@@ -155,6 +155,15 @@ export interface DiscoverResponseBody {
   locked: LockedSummary[];
 }
 
+/** GET /api/search: every active report matching the query (newest per product and store), plus price-less teasers for what a free caller can't see. */
+export interface SearchResponseBody {
+  accessLevel: PullResponseBody['accessLevel'];
+  reports: SyncedPriceReport[];
+  locked: LockedSummary[];
+  /** True when more matches existed than `limit` allowed (reports are the newest ones). */
+  truncated: boolean;
+}
+
 export interface PullResponseBody {
   /**
    * 'unrestricted' while ENTITLEMENTS_ENFORCED is off (plan section 6.3.3,

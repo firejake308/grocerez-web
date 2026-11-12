@@ -124,7 +124,13 @@ export async function locateViaApi(latitude: number, longitude: number): Promise
     const { stores } = await api.nearbyStores(token, latitude, longitude);
     if (stores.length > 0) {
       const nearest = stores[0]; // server sorts by distance
-      return { label: nearest.address ? `${nearest.name} @ ${nearest.address}` : nearest.name, lat: nearest.lat, lon: nearest.lon };
+      let address = nearest.address;
+      if (!address) {
+        // OpenStreetMap doesn't know every store's address; reverse-geocode the store's position for one, as the public path does.
+        // Best effort: without it the label is just the name, which still resolves to the same store.
+        address = await api.reverse(token, nearest.lat, nearest.lon).then((r) => r.label, () => null);
+      }
+      return { label: address ? `${nearest.name} @ ${address}` : nearest.name, lat: nearest.lat, lon: nearest.lon };
     }
     const reverse = await api.reverse(token, latitude, longitude);
     return { label: reverse.label ?? '', lat: latitude, lon: longitude };

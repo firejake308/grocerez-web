@@ -14,6 +14,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "admin": "tsx src/admin-cli.ts",
     "backfill-stores": "tsx src/backfill-stores.ts",
+    "cleanup-unlocated": "tsx src/cleanup-unlocated.ts",
     "seed-store-test": "tsx src/seed-store-test-data.ts"
   },
   "dependencies": {

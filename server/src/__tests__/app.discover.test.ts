@@ -74,10 +74,10 @@ describe('GET /api/discover', () => {
       expect(body.locked).toEqual([]);
     });
 
-    it('skips hidden and deleted reports and stores without coordinates', async () => {
+    it('skips hidden and deleted reports', async () => {
       const app = build(false);
       const scanner = await signIn(app, 'scanner@example.com');
-      await push(app, scanner, [mk(DFW)('a', 'Milk'), mk(DFW)('b', 'Eggs'), mk(DFW)('c', 'Bread'), { ...mk(DFW)('d', 'Cheese'), store: 'Walmart', latitude: undefined, longitude: undefined }]);
+      await push(app, scanner, [mk(DFW)('a', 'Milk'), mk(DFW)('b', 'Eggs'), mk(DFW)('c', 'Bread')]);
       sqlite.prepare("update price_reports set status = 'hidden' where id = 'b'").run();
       sqlite.prepare("update price_reports set status = 'deleted' where id = 'c'").run();
       expect(names(await discover(app, await device(app)))).toEqual(['Milk']);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronLeft, Flag, ThumbsUp } from 'lucide-react';
 import { GroceryItem } from './PriceData';
 import PriceData from './PriceData';
@@ -9,7 +9,7 @@ import PriceBadges from './PriceBadges';
 import type { SyncController } from './sync/useSync';
 import { SignInRequiredError } from './sync/useSync';
 import { formatMonthlyPrice } from './sync/membership';
-import type { FlagReason } from './sync/api';
+import type { FlagReason, VoteState } from './sync/api';
 
 const units = [
   'each', 'pack', 'bag', 'box', 'can', 'bottle', 'jar', 'loaf',
@@ -33,7 +33,7 @@ const VoteControls = ({ item, sync }: { item: PriceData; sync?: SyncController }
 
   if (!sync || item.origin !== 'community' || item.userId === sync.auth?.userId) return null;
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
     try {
@@ -144,6 +144,10 @@ const AddItemScreen = ({
   const [searchResults, setSearchResults] = useState<PriceData[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [searchedQuery, setSearchedQuery] = useState('');
+  /** Teasers from the server for what a free account can't see; null when the last search ran offline, on the local cache. */
+  const [serverLocked, setServerLocked] = useState<LockedSummary[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const parsePrice = (p: string) => {
     if (!p) return Infinity;
@@ -196,26 +200,69 @@ const AddItemScreen = ({
     );
   };
 
-  const handleSearch = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const matches = priceData ?? [];
-    const filtered = filterBySearchQuery(matches, name);
-    const deduped = deduplicateByRecency(filtered);
+  const showResults = (items: PriceData[], query: string, locked: LockedSummary[] | null) => {
+    const deduped = deduplicateByRecency(items);
     deduped.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     setSelectedIndex(deduped.length ? 0 : null);
     setSearchResults(deduped);
-    setSearchedQuery(name);
+    setServerLocked(locked);
+    setSearchedQuery(query);
+  };
+
+  /** Searches the cache on this device: the user's own prices plus whatever community prices were synced. Works offline. */
+  const searchLocally = (query: string) => showResults(filterBySearchQuery(priceData ?? [], query), query, null);
+
+  const handleSearch = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const query = name;
+    if (!query.trim() || searching) return;
+    setSearchError(null);
+
+    // Online, the server searches every community report; offline (or if it can't be reached) fall back to the cache.
+    if (!sync || !navigator.onLine) {
+      searchLocally(query);
+      return;
+    }
+    setSearching(true);
+    try {
+      const remote = await sync.search(query);
+      // The user's own prices (including ones not pushed yet) come from the device; the server's copy of them is dropped.
+      const own = filterBySearchQuery((priceData ?? []).filter((it) => it.origin !== 'community'), query);
+      const ownIds = new Set(own.map((it) => it.id));
+      showResults([...own, ...remote.items.filter((it) => !ownIds.has(it.id))], query, remote.locked);
+    } catch {
+      setSearchError('Could not reach the server, so these results come from this device only.');
+      searchLocally(query);
+    } finally {
+      setSearching(false);
+    }
   };
 
   const lockedResults = useMemo(() => {
     if (searchResults === null) return [];
     const queryTokens = Array.from(tokenize(searchedQuery.trim().toLowerCase()));
     if (queryTokens.length === 0) return [];
-    return (sync?.locked ?? []).filter((item) => {
+    // Server teasers are already filtered to this search; offline they come from the last sync's cache, filtered here.
+    if (serverLocked) return serverLocked;
+    const lockedPool = sync ? (sync.community.length > 0 ? sync.locked : sync.discoverLocked) : [];
+    return lockedPool.filter((item) => {
       const nameTokens = Array.from(tokenize(item.canonicalName.toLowerCase()));
       return queryTokens.every((qt) => nameTokens.some((nt) => tokensMatch(qt, nt)));
     });
-  }, [searchResults, searchedQuery, sync?.locked]);
+  }, [searchResults, searchedQuery, serverLocked, sync]);
+
+  /** Votes on results that only exist in this screen's snapshot (server results) have to be patched into it. */
+  const patchResultVote = useCallback((reportId: string, state: VoteState) => {
+    setSearchResults((current) => current && current.map((r) => (r.id === reportId
+      ? { ...r, status: state.status, reviewReason: state.reviewReason, confirmCount: state.confirmCount, myVote: state.myVote }
+      : r)));
+  }, []);
+  const voteSync = useMemo<SyncController | undefined>(() => sync && {
+    ...sync,
+    confirmReport: async (id) => { const s = await sync.confirmReport(id); patchResultVote(id, s); return s; },
+    flagReport: async (id, reason, note) => { const s = await sync.flagReport(id, reason, note); patchResultVote(id, s); return s; },
+    removeVote: async (id) => { const s = await sync.removeVote(id); patchResultVote(id, s); return s; },
+  }, [sync, patchResultVote]);
 
   // searchResults is a snapshot taken at search time; re-derive the volatile fields
   // (vote counts, myVote, status) from the latest priceData so confirm/flag reflect instantly.
@@ -269,11 +316,13 @@ const AddItemScreen = ({
           </div>
 
           <div className="pt-2">
-            <button type="button" onClick={() => handleSearch()} disabled={!name.trim()} className="w-full bg-blue-500 text-white p-3 rounded-md disabled:opacity-50">
-              Search
+            <button type="button" onClick={() => handleSearch()} disabled={!name.trim() || searching} className="w-full bg-blue-500 text-white p-3 rounded-md disabled:opacity-50">
+              {searching ? 'Searching…' : 'Search'}
             </button>
           </div>
         </form>
+
+        {searchError && <div className="mt-3 text-sm text-amber-700">{searchError}</div>}
 
         {/* Search results */}
         {liveResults && (
@@ -305,7 +354,7 @@ const AddItemScreen = ({
                         )}
                         {r.date && <div className="text-xs text-gray-400">Updated {formatRelativeDate(r.date)}</div>}
                         <PriceBadges item={r} />
-                        <VoteControls item={r} sync={sync} />
+                        <VoteControls item={r} sync={voteSync} />
                         {r.productId && onViewPriceHistory && (
                           <button
                             type="button"

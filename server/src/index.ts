@@ -5,7 +5,7 @@ import { createMailer } from './lib/mail.js';
 import { env } from './env.js';
 import { recomputeAllTrust } from './services/trust.js';
 import { cleanupPhotos } from './services/photos.js';
-import { computeFreeTierForAllRegions, evaluateContributionCredits } from './services/entitlements.js';
+import { computeFreeTierForAllRegions, evaluateContributionCredits, pruneSearchCounts } from './services/entitlements.js';
 
 const { db, sqlite } = runMigrations(env.DATABASE_PATH);
 const mailer = createMailer(env.MAIL_PROVIDER, env.RESEND_API_KEY, env.MAIL_FROM);
@@ -39,7 +39,8 @@ if (env.DEV_LOGIN_CODE) console.warn('DEV LOGIN ENABLED: addresses at @example.t
 // on a timer instead. Trust (section 9.2) needs the 14-day "unflagged
 // counts as confirmed" rule recomputed for everyone; photo evidence
 // (Phase 3) needs its 30-day retention swept; the free tier (6.3.1) is a
-// nightly-recomputed table, and contribution credits (6.3.2) need their
+// daily-recomputed table (the 6-hour tick only recomputes regions whose
+// snapshot is a day old), and contribution credits (6.3.2) need their
 // own 14-day "unflagged counts as verified" rule evaluated periodically,
 // the same shape as the trust rule above.
 const MAINTENANCE_MS = 6 * 60 * 60 * 1000;
@@ -50,7 +51,8 @@ const runMaintenance = () => {
     console.error('Trust maintenance failed:', err);
   }
   try {
-    console.log(`Free tier recomputed for ${computeFreeTierForAllRegions(db)} region(s)`);
+    pruneSearchCounts(db);
+    console.log(`Free tier recomputed for ${computeFreeTierForAllRegions(db, 50, undefined, { onlyStale: true })} region(s)`);
     console.log(`${evaluateContributionCredits(db)} contribution credit(s) awarded`);
   } catch (err) {
     console.error('Entitlements maintenance failed:', err);
