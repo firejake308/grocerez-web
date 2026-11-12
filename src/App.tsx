@@ -49,6 +49,10 @@ const App = () => {
     () => excludeOwnReports(sync.community.length > 0 ? sync.community : sync.discover, priceData),
     [priceData, sync.community, sync.discover],
   );
+  // The home "Prices People Are Sharing" card isn't merged with our own scans, so there is nothing to de-duplicate:
+  // when there is no located community pull, show the location-free discover sample as-is, including our own reports.
+  // Otherwise a lone/main uploader in a region would see an empty (hidden) card.
+  const discoverCardItems = sync.community.length > 0 ? communityPrices : sync.discover;
   const searchable = useMemo(() => [...mine, ...communityPrices], [mine, communityPrices]);
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(() => {
     const saved = localStorage.getItem('groceryItems');
@@ -197,7 +201,7 @@ const App = () => {
           priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
-          discoverItems={communityPrices}
+          discoverItems={discoverCardItems}
           discoverLocked={sync.community.length > 0 ? sync.locked : sync.discoverLocked}
           homeArea={sync.homeArea}
           onSearchHomeArea={sync.enabled ? sync.searchHomeArea : undefined}
