@@ -47,7 +47,7 @@ const ProductPricesScreen = ({ productId, sync, onBack }: { productId: string; s
   }, [productId]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       <header className="bg-green-600 p-4 shadow-md flex items-center">
         <button onClick={onBack} className="p-2 text-white" aria-label="Back">
           <ArrowLeft size={24} />

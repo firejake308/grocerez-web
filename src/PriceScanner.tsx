@@ -279,7 +279,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
 
   if (hasPermission === false && (scanStep === 'price' || scanStep === 'product')) {
     return (
-      <div className="flex flex-col h-screen bg-gray-100 p-4">
+      <div className="flex flex-col h-dvh bg-gray-100 p-4">
         <div className="flex items-center mb-4">
           <button onClick={onBack} className="p-2">
             <ArrowLeft size={24} />
@@ -299,7 +299,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
   // Price Photo Screen
   if (scanStep === 'price') {
     return (
-      <div className="flex flex-col h-screen bg-black">
+      <div className="flex flex-col h-dvh bg-black">
         {/* Header */}
         <div className="bg-black p-4 flex items-center">
           <button onClick={onBack} className="text-white p-2">
@@ -339,7 +339,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
   // Product Photo Screen
   if (scanStep === 'product') {
     return (
-      <div className="flex flex-col h-screen bg-black">
+      <div className="flex flex-col h-dvh bg-black">
         {/* Header */}
         <div className="bg-black p-4 flex items-center">
           <button onClick={() => setScanStep('price')} className="text-white p-2">
@@ -388,7 +388,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
 
   if (scanStep === 'processing') {
     return (
-      <div className="flex flex-col h-screen bg-gray-900">
+      <div className="flex flex-col h-dvh bg-gray-900">
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mb-8"></div>
           <h2 className="text-white text-xl font-semibold mb-2">Processing your price...</h2>
@@ -408,7 +408,7 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
 
   if (scanStep === 'error') {
     return (
-      <div className="flex flex-col h-screen bg-gray-900">
+      <div className="flex flex-col h-dvh bg-gray-900">
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="bg-red-900/50 p-8 rounded-lg max-w-sm text-center">
             <h2 className="text-white text-xl font-semibold mb-4">Processing Error</h2>

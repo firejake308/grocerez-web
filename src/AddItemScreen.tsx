@@ -286,7 +286,7 @@ const AddItemScreen = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       <header className="bg-white p-3 shadow-sm flex items-center">
         <button onClick={onBack} className="p-2 text-gray-700 hover:bg-gray-100 rounded-md">
           <ChevronLeft />
