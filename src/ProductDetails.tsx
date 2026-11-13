@@ -67,7 +67,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   onRejectMatch,
 }) => {
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       {/* Header */}
       <div className="bg-green-600 p-4 flex items-center">
         <button onClick={() => setScanStep('product')} className="text-white p-2">

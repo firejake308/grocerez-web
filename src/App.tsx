@@ -193,7 +193,7 @@ const App = () => {
   const editingItem = editingId ? priceData.find((item) => item.id === editingId) : undefined;
 
   return (
-    <div className="h-screen">
+    <div className="h-dvh">
       <CheckoutBanner notice={sync.checkoutNotice} onDismiss={sync.dismissCheckoutNotice} />
       {currentScreen === 'home' && (
         <HomeScreen

@@ -91,7 +91,7 @@ const HomeScreen = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       {/* App Header */}
       <header className="bg-green-600 p-4 shadow-md flex items-center">
         <div className="flex-1 flex items-center space-x-1">
