@@ -8,6 +8,7 @@ import { cachedCommunity, communityToPriceData, patchSyncedReport, pendingReport
 import { fetchDiscover } from './discover';
 import { resolveSyncLocation, type LocationSource } from './location';
 import { localSyncStorage, type HomeArea, type SyncAuth } from './storage';
+import { track } from '../analytics';
 
 export interface SyncStatus {
   running: boolean;
@@ -226,6 +227,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
           return me.entitlement.level;
         }, 'subscriber').then((active) => {
           setCheckoutNotice(active ? 'active' : 'pending');
+          if (active) track('subscribed');
           if (active) void syncNow();
         });
       }
@@ -279,6 +281,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
 
   const requestCode = useCallback(async (email: string) => {
     await api.requestCode(email);
+    track('signin_code_requested');
   }, [api]);
 
   const verifyCode = useCallback(async (email: string, code: string) => {
@@ -288,6 +291,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
     storage.setAuth(next);
     setAuthState(next);
     setProfile(me);
+    track('signin_completed');
     // A home area chosen before signing in becomes the account's too.
     const home = homeAreaRef.current;
     if (home && (me.homeLat === null || me.homeLon === null)) {
@@ -329,6 +333,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
   const chooseHomeArea = useCallback(async (area: HomeArea | null) => {
     storage.setHomeArea(area);
     setHomeAreaState(area);
+    if (area) track('home_area_set');
     const current = storage.getAuth();
     if (current) {
       api.patchMe(current.sessionToken, { homeLat: area?.lat ?? null, homeLon: area?.lon ?? null }).then(setProfile).catch(() => undefined);
@@ -380,6 +385,7 @@ export function useSync(priceData: PriceData[], setPriceData: Dispatch<SetStateA
 
   const checkoutSubscription = useCallback(async () => {
     const { url } = await api.checkoutSubscription(requireSession());
+    track('checkout_started');
     return url;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, storage]);

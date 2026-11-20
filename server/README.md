@@ -330,6 +330,80 @@ Operating notes:
   `customer.subscription.deleted` event ends their access. Editing `users.plan`
   in SQLite is not a substitute -- the next webhook overwrites it.
 
+## Analytics (Umami)
+
+The client reports page views and a handful of funnel events to a
+self-hosted [Umami](https://umami.is) at `stats.grocerez.app`: the `umami`
+and `umami-db` services in `docker-compose.yml`. It sets no cookies and
+stores no IP addresses, so no consent banner is needed. The client never
+sends emails, search text, or coordinates (see `src/analytics.ts`).
+
+**Memory.** Umami (about 250 MB) and its Postgres (about 60 MB) are capped
+at 384 MB and 192 MB with `mem_limit`. On a 1 GB droplet that leaves
+Overpass little room, so add swap first if you don't have it:
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+**One-time setup:**
+
+1. **Add an A record** for `stats.grocerez.app` pointing at the droplet,
+   the same as `api.grocerez.app`.
+2. **Set the two secrets** in `server/.env` (Compose refuses to start
+   without them, for *every* service, including `api`):
+   ```bash
+   echo "UMAMI_DB_PASSWORD=$(openssl rand -hex 32)" >> .env
+   echo "UMAMI_APP_SECRET=$(openssl rand -hex 32)"  >> .env
+   ```
+3. **Start it:** `docker compose up -d umami umami-db caddy` (Caddy picks
+   up the new site and gets its certificate).
+4. **Log in** at https://stats.grocerez.app as `admin` / `umami` and
+   **change that password immediately** (Settings > Profile). Until you do,
+   anyone can log in.
+5. **Add the website:** Settings > Websites > Add, domain `grocerez.app`.
+   Copy its Website ID.
+6. **Point the client at it** with these Netlify environment variables,
+   scoped to the **Production** context only, so deploy previews send
+   nothing:
+   ```
+   VITE_UMAMI_SCRIPT_URL=https://stats.grocerez.app/script.js
+   VITE_UMAMI_WEBSITE_ID=<the id from step 5>
+   VITE_UMAMI_DOMAINS=grocerez.app
+   ```
+   Then trigger a redeploy. They're read at build time, like
+   `VITE_SYNC_API_URL`.
+
+**What gets tracked.** Page views (with referrer and any `utm_*`
+parameters) come from Umami's script on its own. The app's screens share
+one URL, so the rest are custom events, named in `AnalyticsEvent` in
+`src/analytics.ts`:
+
+| Event | When | Data |
+|---|---|---|
+| `home_area_set` | A city/ZIP is chosen on the home screen | |
+| `search` | A search shows results | `results`, `locked` (counts) |
+| `scan_started` | Scan Price is tapped | |
+| `scan_parsed` / `scan_failed` | The AI parse of the two photos finishes | |
+| `report_saved` | A scanned price is saved | `sale`, `signedIn` |
+| `signin_code_requested` / `signin_completed` | Email sign-in | |
+| `checkout_started` / `subscribed` | Stripe checkout started / confirmed active | |
+| `launch_installed` / `app_installed` | Opened from, or added to, the home screen | |
+
+A useful first funnel (Umami > Reports > Funnel): `scan_started` ->
+`scan_parsed` -> `report_saved` -> `signin_completed`.
+
+**Campaign links.** Tag every link you post with `utm_source`,
+`utm_medium`, and `utm_campaign` (plus `utm_content` to tell flyer
+locations apart), e.g.
+`https://grocerez.app/?utm_source=flyer&utm_medium=print&utm_campaign=launch&utm_content=library-plano`.
+Umami's UTM and Attribution reports group by them.
+
+**Backups.** Umami's data lives in the `umami_db` volume:
+`docker compose exec umami-db pg_dump -U umami umami > umami-$(date +%F).sql`.
+
 ## Backups
 
 Once deployed, back up the SQLite file, not just the Docker volume:

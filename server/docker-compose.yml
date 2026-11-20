@@ -106,6 +106,46 @@ services:
       OVERPASS_META: 'no'
       OVERPASS_RULES_LOAD: '10'
 
+  # Self-hosted Umami analytics for the client (see "Analytics (Umami)" in
+  # server/README.md). Served at stats.grocerez.app through Caddy; the
+  # dashboard is behind Umami's own login. Umami 3 only supports Postgres, so
+  # it brings its own small database -- the API's SQLite is not involved.
+  # Memory limits keep the pair from starving Overpass on a 1 GB droplet.
+  umami:
+    image: ghcr.io/umami-software/umami:3.5.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:?set UMAMI_DB_PASSWORD in .env}@umami-db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:?set UMAMI_APP_SECRET in .env}
+      # Don't phone home to umami.is.
+      DISABLE_TELEMETRY: '1'
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fs http://localhost:3000/api/heartbeat || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    mem_limit: 384m
+    # No host port: Caddy is the only thing that talks to it.
+
+  umami-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:?set UMAMI_DB_PASSWORD in .env}
+    volumes:
+      - umami_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U umami -d umami']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 192m
+
   # Reverse proxy + automatic HTTPS via Let's Encrypt. Needs a domain's A
   # record pointing at this droplet's IP first -- Let's Encrypt will not
   # issue a publicly-trusted certificate for a bare IP address. Edit
@@ -122,7 +162,9 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+      - umami
 
 volumes:
   caddy_data:
   caddy_config:
+  umami_db:

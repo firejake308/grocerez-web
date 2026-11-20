@@ -1,0 +1,19 @@
+{
+  "name": "GrocerEZ - Compare Grocery Prices",
+  "short_name": "GrocerEZ",
+  "description": "Snap a grocery price tag and compare prices other shoppers found at the stores near you.",
+  "id": "/",
+  "start_url": "/?utm_source=homescreen&utm_medium=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F9FAFB",
+  "theme_color": "#16A34A",
+  "categories": ["shopping", "food", "lifestyle"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/ez-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

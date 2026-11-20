@@ -6,6 +6,7 @@ import { filterBySearchQuery, tokenize } from './searchUtils';
 import { tokensMatch } from '../shared/normalize';
 import type { LockedSummary } from '../shared/types';
 import PriceBadges from './PriceBadges';
+import { track } from './analytics';
 import type { SyncController } from './sync/useSync';
 import { SignInRequiredError } from './sync/useSync';
 import { formatMonthlyPrice } from './sync/membership';
@@ -207,6 +208,8 @@ const AddItemScreen = ({
     setSearchResults(deduped);
     setServerLocked(locked);
     setSearchedQuery(query);
+    // Counts only, never the query text.
+    track('search', { results: deduped.length, locked: locked?.length ?? 0 });
   };
 
   /** Searches the cache on this device: the user's own prices plus whatever community prices were synced. Works offline. */

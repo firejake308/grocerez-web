@@ -11,3 +11,11 @@ api.grocerez.app {
 dev-api.grocerez.app {
 	reverse_proxy api-dev:8787
 }
+
+# Umami analytics (compose service "umami"). Needs its own A record for
+# stats.grocerez.app. The dashboard is behind Umami's login; the tracker
+# script and /api/send are public by design.
+stats.grocerez.app {
+	encode gzip
+	reverse_proxy umami:3000
+}

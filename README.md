@@ -9,6 +9,7 @@ with other shoppers through the sync server in `server/`. See
 | Variable | Purpose |
 |---|---|
 | `VITE_SYNC_API_URL` | Base URL of the sync server, e.g. `http://localhost:8787`. Unset = the whole sync feature is hidden, **and photo scanning no longer works** -- as of Phase 3 the AI parse call lives behind this server (`POST /api/parse`) so its OpenRouter key never ships in the client bundle. |
+| `VITE_UMAMI_SCRIPT_URL`, `VITE_UMAMI_WEBSITE_ID`, `VITE_UMAMI_DOMAINS` | Self-hosted Umami analytics. All unset = no analytics. Set them on Netlify's Production context only. See "Analytics (Umami)" in `server/README.md`. |
 
 Run the client with sync against a local server:
 

@@ -3,6 +3,7 @@ import { Camera, ArrowLeft } from 'lucide-react';
 import PriceData from './PriceData';
 import ProductDetails from './ProductDetails';
 import { parsePriceImage } from './parsePriceImage';
+import { track } from './analytics';
 import { newReportId } from '../shared/ids';
 import { locateStore } from './sync/storeLocator';
 import { createSyncApi } from './sync/api';
@@ -181,10 +182,12 @@ const PriceScanner = ({ onBack, onSave }: {onBack: VoidFunction; onSave: (priceD
       setExpiresAt(data.expiresAt);
       setIsPriceProcessingComplete(true);
       setScanStep('details');
+      track('scan_parsed');
     } catch (error) {
       console.error("Error processing images:", error);
       setProcessingError(error instanceof Error ? error.message : "Failed to process images");
       setScanStep('error');  // Change this line
+      track('scan_failed');
     }
   };
 

@@ -12,6 +12,7 @@ import CheckoutBanner from './CheckoutBanner';
 import { useSync } from './sync/useSync';
 import { syncEnabled } from './sync/config';
 import { excludeOwnReports } from './excludeOwnReports';
+import { track } from './analytics';
 
 type Screen = 'home' | 'scanner' | 'addItem' | 'allPrices' | 'edit' | 'sync' | 'productPrices';
 
@@ -95,6 +96,7 @@ const App = () => {
   const handleSavePriceData = (data: PriceData) => {
     const normalizedData = normalizePriceData(data);
     setPriceData((currentPriceData) => [...currentPriceData, normalizedData]);
+    track('report_saved', { sale: Boolean(normalizedData.isSale), signedIn: Boolean(sync.auth) });
     console.log("Price data saved:", normalizedData);
     // Scanner only ever pushes one history entry, so a single back returns to home
     window.history.back();
@@ -197,7 +199,7 @@ const App = () => {
       <CheckoutBanner notice={sync.checkoutNotice} onDismiss={sync.dismissCheckoutNotice} />
       {currentScreen === 'home' && (
         <HomeScreen
-          onScan={() => navigateTo('scanner')}
+          onScan={() => { track('scan_started'); navigateTo('scanner'); }}
           priceData={mine}
           onShowAllPrices={() => navigateTo('allPrices')}
           groceryItems={groceryItems}
